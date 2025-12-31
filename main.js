@@ -27,8 +27,12 @@ const exists = (selector) => document.querySelector(selector);
 
 
      
-// panel animation      
 
+     
+onPage("home", () => {
+  if (!exists(".hero")) return;
+
+  // panel animation      
 function animatePanelLinks(panel) {
   if (!panel) return;
 
@@ -56,17 +60,12 @@ function animatePanelLinks(panel) {
       });
     });
   });
-}
+} 
 
 
 
-
-
+   
 // nav explore open and close
-     
-onPage("home", () => {
-  if (!exists(".hero")) return;
-
      
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -147,16 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 });
-
-
-   
-});
-
-
-
-
-
-
 
 // nav prepare open and close
 
@@ -347,6 +336,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+
+
+
+   
+   
+});
+
+
+
+
+
+
+
 
 
 
