@@ -13,7 +13,22 @@
     console.log("[AGL] main.js loaded ✅");
 
     // ---- PASTE YOUR EXISTING JS BELOW THIS LINE ----
-<script>
+
+     const page = document.body.dataset.page;
+
+const onPage = (name, fn) => {
+  if (page === name) {
+    console.log(`[AGL] Running ${name} page scripts`);
+    fn();
+  }
+};
+
+const exists = (selector) => document.querySelector(selector);
+
+
+     
+// panel animation      
+
 function animatePanelLinks(panel) {
   if (!panel) return;
 
@@ -44,9 +59,10 @@ function animatePanelLinks(panel) {
 }
 
 
-</script>
 
-<script>
+
+// nav explore open and close
+     
 document.addEventListener("DOMContentLoaded", () => {
 
   const exploreTrigger = document.querySelector('.nav-explore-trigger');
@@ -126,9 +142,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 });
-</script>
 
-<script>
+
+
+
+// nav prepare open and close
+
 document.addEventListener("DOMContentLoaded", () => {
 
   const trigger = document.querySelector('.nav-prepare-trigger');
@@ -167,9 +186,12 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener('resize', () => panel.classList.contains('is-open') && position());
 
 });
-</script>
 
-<script>
+
+
+
+// nav mobile open and close
+        
 document.addEventListener("DOMContentLoaded", () => {
 
   const burger = document.querySelector('.nav-btn-mobile');
@@ -251,10 +273,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 });
-</script>
 
 
-<script>
+
+   
+// contact open and close
+
 document.addEventListener("DOMContentLoaded", () => {
   const overlay = document.querySelector(".contact-overlay");
   if (!overlay) return;
@@ -311,7 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
-</script>
+
 
 
     // ---- PASTE YOUR EXISTING JS ABOVE THIS LINE ----
