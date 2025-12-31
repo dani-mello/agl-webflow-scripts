@@ -27,11 +27,12 @@ const onPage = (name, fn) => {
 const exists = (selector) => document.querySelector(selector);
 
 
-     
-
-     
 onPage("home", () => {
-  if (!exists(".hero")) return;
+  console.log("[AGL] inside home callback ✅");
+  // (keep home-only animations in here later)
+});
+
+   
 
   // panel animation      
 function animatePanelLinks(panel) {
