@@ -164,7 +164,52 @@ waitFor('.nav-explore-trigger', (exploreTrigger) => {
       });
     })();
 
-    
+    // ----------------------------
+// NAV: Prepare mega menu
+// ----------------------------
+(() => {
+  waitFor(".nav-prepare-trigger", (trigger) => {
+    const panel = document.querySelector(".prepare-mega");
+    if (!panel) return;
+
+    let closeTimer = null;
+
+    const position = () => {
+      panel.style.left = trigger.getBoundingClientRect().left + "px";
+    };
+
+    const open = () => {
+      if (panel.classList.contains("is-open")) return;
+      if (closeTimer) clearTimeout(closeTimer);
+
+      document.querySelector(".explore-mega")?.classList.remove("is-open");
+      position();
+      panel.classList.add("is-open");
+
+      requestAnimationFrame(() => animatePanelLinks(panel));
+    };
+
+    const scheduleClose = () => {
+      closeTimer = setTimeout(() => {
+        if (!trigger.matches(":hover") && !panel.matches(":hover")) {
+          panel.classList.remove("is-open");
+        }
+      }, 220);
+    };
+
+    trigger.addEventListener("mouseenter", open);
+    panel.addEventListener("mouseenter", open);
+    trigger.addEventListener("mouseleave", scheduleClose);
+    panel.addEventListener("mouseleave", scheduleClose);
+
+    trigger.addEventListener("click", (e) => e.preventDefault());
+
+    window.addEventListener("resize", () => {
+      if (panel.classList.contains("is-open")) position();
+    });
+  });
+})();
+
 
 
     // ----------------------------
