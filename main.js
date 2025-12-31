@@ -10,6 +10,7 @@
   };
 
   ready(() => {
+     console.log("[AGL] page =", document.body.dataset.page);
     console.log("[AGL] main.js loaded ✅");
 
     // ---- PASTE YOUR EXISTING JS BELOW THIS LINE ----
