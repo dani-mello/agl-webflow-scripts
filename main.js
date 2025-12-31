@@ -28,7 +28,7 @@
   };
 
   ready(() => {
-    console.log("[AGL] main.js loaded ✅");
+    console.log("[AGL] main.js loaded ✅ v9");
     console.log("[AGL] page =", document.body.dataset.page);
 
     const page = document.body.dataset.page;
