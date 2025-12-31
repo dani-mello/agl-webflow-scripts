@@ -5,6 +5,24 @@
 (() => {
   // Avoid running before the DOM exists
   const ready = (fn) => {
+     const waitFor = (selector, cb, timeout = 3000) => {
+  const start = Date.now();
+
+  const check = () => {
+    const el = document.querySelector(selector);
+    if (el) return cb(el);
+
+    if (Date.now() - start > timeout) {
+      console.warn(`[AGL] Timeout waiting for ${selector}`);
+      return;
+    }
+
+    requestAnimationFrame(check);
+  };
+
+  check();
+};
+
     if (document.readyState !== "loading") fn();
     else document.addEventListener("DOMContentLoaded", fn);
   };
@@ -60,10 +78,14 @@
     // NAV: Explore mega menu
     // ----------------------------
     (() => {
-      const exploreTrigger = document.querySelector(".nav-explore-trigger");
-      const exploreMega = document.querySelector(".explore-mega");
-      const explorePrimaryWrap = document.querySelector(".explore-primary");
-      const exploreSecondary = document.querySelector(".explore-secondary");
+waitFor('.nav-explore-trigger', (exploreTrigger) => {
+  const exploreMega = document.querySelector('.explore-mega');
+  const explorePrimaryWrap = document.querySelector('.explore-primary');
+  const exploreSecondary = document.querySelector('.explore-secondary');
+
+  // rest of your nav code here
+});
+
 
       // If this nav doesn't exist on the page, do nothing.
       if (!exploreTrigger || !exploreMega) return;
