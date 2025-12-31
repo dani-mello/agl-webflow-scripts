@@ -12,7 +12,6 @@
   // Wait until an element exists (Webflow components can mount after DOMContentLoaded)
   const waitFor = (selector, cb, timeout = 4000) => {
     const start = Date.now();
-
     const check = () => {
       const el = document.querySelector(selector);
       if (el) return cb(el);
@@ -23,12 +22,11 @@
       }
       requestAnimationFrame(check);
     };
-
     check();
   };
 
   ready(() => {
-    console.log("[AGL] main.js loaded ✅ v10");
+    console.log("[AGL] main.js loaded ✅ v11");
     console.log("[AGL] page =", document.body?.dataset?.page);
 
     const page = document.body?.dataset?.page;
@@ -43,7 +41,7 @@
     // ----------------------------
     // Panel animation (shared helper)
     // ----------------------------
-    function animatePanelLinks(panel) {
+    const animatePanelLinks = (panel) => {
       if (!panel) return;
 
       const items = panel.querySelectorAll(".panel-anim-item");
@@ -52,7 +50,6 @@
       if (typeof window.gsap === "undefined") return;
 
       gsap.killTweensOf(items);
-
       gsap.set(items, { autoAlpha: 0, y: 12 });
 
       requestAnimationFrame(() => {
@@ -67,73 +64,197 @@
           });
         });
       });
-    }
+    };
 
     // ----------------------------
     // NAV: Explore mega menu
-    // Uses: data-nav="explore" on the trigger
+    // Requires: data-nav="explore" on trigger
+    // ----------------------------
+    waitFor('[data-nav="explore"]', (exploreTrigger) => {
+      console.log("[AGL] explore trigger found ✅");
+
+      const exploreMega = document.querySelector(".explore-mega");
+      const explorePrimaryWrap = document.querySelector(".explore-primary");
+      const exploreSecondary = document.querySelector(".explore-secondary");
+
+      if (!exploreMega || !explorePrimaryWrap) {
+        console.warn("[AGL] Explore mega missing (.explore-mega/.explore-primary).");
+        return;
+      }
+
+      const primaryItems = [
+        ...document.querySelectorAll(".explore-primary .btn-options"),
+      ];
+      const panels = [
+        ...document.querySelectorAll(".explore-secondary .secondary-panel"),
+      ];
+
+      let closeTimer = null;
+
+      const closeExplore = () => {
+        exploreMega.classList.remove("is-open");
+        exploreSecondary?.classList.remove("is-open");
+        panels.forEach((p) => p.classList.remove("is-active"));
+        explorePrimaryWrap.classList.remove("has-selection");
+        primaryItems.forEach((i) => i.classList.remove("is-selected"));
+      };
+
+      const openExplore = () => {
+        if (exploreMega.classList.contains("is-open")) return;
+        if (closeTimer) clearTimeout(closeTimer);
+
+        document.querySelector(".prepare-mega")?.classList.remove("is-open");
+        exploreMega.classList.add("is-open");
+
+        requestAnimationFrame(() => animatePanelLinks(explorePrimaryWrap));
+      };
+
+      const scheduleClose = () => {
+        closeTimer = setTimeout(() => {
+          if (
+            !exploreTrigger.matches(":hover") &&
+            !exploreMega.matches(":hover")
+          ) {
+            closeExplore();
+          }
+        }, 220);
+      };
+
+      exploreTrigger.addEventListener("mouseenter", openExplore);
+      exploreMega.addEventListener("mouseenter", openExplore);
+      exploreTrigger.addEventListener("mouseleave", scheduleClose);
+      exploreMega.addEventListener("mouseleave", scheduleClose);
+
+      exploreTrigger.addEventListener("click", (e) => e.preventDefault());
+
+      primaryItems.forEach((item) => {
+        item.addEventListener("mouseenter", () => {
+          if (closeTimer) clearTimeout(closeTimer);
+
+          const key = item.dataset.panel;
+          explorePrimaryWrap.classList.add("has-selection");
+          primaryItems.forEach((i) => i.classList.remove("is-selected"));
+          item.classList.add("is-selected");
+
+          if (!key || key === "none") return;
+
+          exploreSecondary?.classList.add("is-open");
+
+          panels.forEach((panel) => {
+            const active = panel.dataset.panel === key;
+            panel.classList.toggle("is-active", active);
+            if (active) requestAnimationFrame(() => animatePanelLinks(panel));
+          });
+        });
+
+        item.addEventListener("click", (e) => {
+          if (item.dataset.panel !== "none") e.preventDefault();
+        });
+      });
+    });
+
+    // ----------------------------
+    // NAV: Prepare mega menu
+    // Requires: data-nav="prepare" on trigger
+    // ----------------------------
+    waitFor('[data-nav="prepare"]', (trigger) => {
+      console.log("[AGL] prepare trigger found ✅");
+
+      const panel = document.querySelector(".prepare-mega");
+      if (!panel) {
+        console.warn("[AGL] Prepare mega panel missing (.prepare-mega).");
+        return;
+      }
+
+      let closeTimer = null;
+
+      const position = () => {
+        panel.style.left = trigger.getBoundingClientRect().left + "px";
+      };
+
+      const open = () => {
+        if (panel.classList.contains("is-open")) return;
+        if (closeTimer) clearTimeout(closeTimer);
+
+        document.querySelector(".explore-mega")?.classList.remove("is-open");
+        position();
+        panel.classList.add("is-open");
+
+        requestAnimationFrame(() => animatePanelLinks(panel));
+      };
+
+      const scheduleClose = () => {
+        closeTimer = setTimeout(() => {
+          if (!trigger.matches(":hover") && !panel.matches(":hover")) {
+            panel.classList.remove("is-open");
+          }
+        }, 220);
+      };
+
+      trigger.addEventListener("mouseenter", open);
+      panel.addEventListener("mouseenter", open);
+      trigger.addEventListener("mouseleave", scheduleClose);
+      panel.addEventListener("mouseleave", scheduleClose);
+
+      trigger.addEventListener("click", (e) => e.preventDefault());
+
+      window.addEventListener("resize", () => {
+        if (panel.classList.contains("is-open")) position();
+      });
+    });
+
+    // ----------------------------
+    // Contact overlay open/close
     // ----------------------------
     (() => {
-      waitFor('[data-nav="explore"]', (exploreTrigger) => {
-        console.log("[AGL] explore trigger found ✅");
+      const overlay = document.querySelector(".contact-overlay");
+      if (!overlay) return;
 
-        const exploreMega = document.querySelector(".explore-mega");
-        const explorePrimaryWrap = document.querySelector(".explore-primary");
-        const exploreSecondary = document.querySelector(".explore-secondary");
+      const open = () => {
+        document.querySelector(".explore-mega")?.classList.remove("is-open");
+        document.querySelector(".prepare-mega")?.classList.remove("is-open");
+        document.querySelector(".mobile-overlay")?.classList.remove("is-open");
+        document.querySelector(".nav-btn-mobile")?.classList.remove("is-open");
 
-        if (!exploreMega || !explorePrimaryWrap) {
-          console.warn("[AGL] Explore mega pieces missing (mega/primary).");
+        overlay.classList.add("is-open");
+        document.documentElement.classList.add("no-scroll");
+      };
+
+      const close = () => {
+        overlay.classList.remove("is-open");
+        document.documentElement.classList.remove("no-scroll");
+      };
+
+      document.addEventListener("click", (e) => {
+        const openBtn =
+          e.target.closest('[data-open="contact"]') ||
+          e.target.closest(".btn-main") ||
+          e.target.closest(".mobile-contact");
+
+        if (openBtn) {
+          e.preventDefault();
+          open();
           return;
         }
 
-        const primaryItems = [
-          ...document.querySelectorAll(".explore-primary .btn-options"),
-        ];
-        const panels = [
-          ...document.querySelectorAll(".explore-secondary .secondary-panel"),
-        ];
+        const closeBtn =
+          e.target.closest('[data-close="contact"]') ||
+          e.target.closest(".contact-close");
 
-        let closeTimer = null;
+        if (closeBtn) {
+          e.preventDefault();
+          close();
+        }
+      });
 
-        const closeExplore = () => {
-          exploreMega.classList.remove("is-open");
-          exploreSecondary?.classList.remove("is-open");
-          panels.forEach((p) => p.classList.remove("is-active"));
-          explorePrimaryWrap.classList.remove("has-selection");
-          primaryItems.forEach((i) => i.classList.remove("is-selected"));
-        };
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay.classList.contains("is-open")) {
+          close();
+        }
+      });
+    })();
 
-        const openExplore = () => {
-          if (exploreMega.classList.contains("is-open")) return;
-          if (closeTimer) clearTimeout(closeTimer);
-
-          document.querySelector(".prepare-mega")?.classList.remove("is-open");
-          exploreMega.classList.add("is-open");
-
-          requestAnimationFrame(() => animatePanelLinks(explorePrimaryWrap));
-        };
-
-        const scheduleClose = () => {
-          closeTimer = setTimeout(() => {
-            if (
-              !exploreTrigger.matches(":hover") &&
-              !exploreMega.matches(":hover")
-            ) {
-              closeExplore();
-            }
-          }, 220);
-        };
-
-        exploreTrigger.addEventListener("mouseenter", openExplore);
-        exploreMega.addEventListener("mouseenter", openExplore);
-        exploreTrigger.addEventListener("mouseleave", scheduleClose);
-        exploreMega.addEventListener("mouseleave", scheduleClose);
-
-        exploreTrigger.addEventListener("click", (e) => e.preventDefault());
-
-        primaryItems.forEach((item) => {
-          item.addEventListener("mouseenter", () => {
-            if (closeTimer) clearTimeout(closeTimer);
-
-            const key = item.dataset.panel;
-            ex
+    // HOME ONLY (future)
+    onPage("home", () => {});
+  });
+})();
