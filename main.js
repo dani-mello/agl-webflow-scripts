@@ -61,7 +61,12 @@ function animatePanelLinks(panel) {
 
 
 
+
 // nav explore open and close
+     
+onPage("home", () => {
+  if (!exists(".hero")) return;
+
      
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -142,6 +147,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 });
+
+
+   
+});
+
+
+
 
 
 
