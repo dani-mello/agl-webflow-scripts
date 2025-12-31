@@ -79,6 +79,8 @@
     // ----------------------------
     (() => {
 waitFor('.nav-explore-trigger', (exploreTrigger) => {
+   console.log("[AGL] explore nav mounted ✅");
+
   const exploreMega = document.querySelector('.explore-mega');
   const explorePrimaryWrap = document.querySelector('.explore-primary');
   const exploreSecondary = document.querySelector('.explore-secondary');
