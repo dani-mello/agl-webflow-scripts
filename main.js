@@ -203,6 +203,92 @@
       });
     });
 
+     // ----------------------------
+    // mobile: mobile menu
+    // ----------------------------
+
+     document.addEventListener("DOMContentLoaded", () => {
+
+  const burger = document.querySelector('.nav-btn-mobile');
+  const overlay = document.querySelector('.mobile-overlay');
+  const panels = [...document.querySelectorAll('.mobile-panel')];
+
+  let current = 'main';
+
+  const getPanel = key => panels.find(p => p.dataset.target === key);
+
+  const resetPanels = () => {
+    panels.forEach(p => p.classList.remove('is-active', 'is-prev'));
+  };
+
+  const openOverlay = () => {
+    overlay.classList.add('is-open');
+    burger.classList.add('is-open');
+    document.documentElement.classList.add('no-scroll');
+
+    resetPanels();
+    const main = getPanel('main');
+    main?.classList.add('is-active');
+    requestAnimationFrame(() => animatePanelLinks(main));
+    current = 'main';
+  };
+
+  const closeOverlay = () => {
+    overlay.classList.remove('is-open');
+    burger.classList.remove('is-open');
+    document.documentElement.classList.remove('no-scroll');
+    resetPanels();
+    current = 'main';
+  };
+
+  const goTo = (target) => {
+    const next = getPanel(target);
+    const curr = getPanel(current);
+    if (!next || next === curr) return;
+
+    curr?.classList.remove('is-active');
+    curr?.classList.add('is-prev');
+
+    next.classList.add('is-active');
+    next.classList.remove('is-prev');
+
+    requestAnimationFrame(() => animatePanelLinks(next));
+    current = target;
+  };
+
+  burger?.addEventListener('click', e => {
+    e.preventDefault();
+    overlay.classList.contains('is-open') ? closeOverlay() : openOverlay();
+  });
+
+  overlay?.addEventListener('click', e => {
+
+    const contact = e.target.closest('.mobile-contact');
+    if (contact) {
+      e.preventDefault();
+      closeOverlay();
+      document.querySelector('.contact-overlay')?.classList.add('is-open');
+      document.documentElement.classList.add('no-scroll');
+      return;
+    }
+
+    const back = e.target.closest('.btn-options-mobile-return');
+    if (back) {
+      e.preventDefault();
+      goTo(back.dataset.back);
+      return;
+    }
+
+    const go = e.target.closest('[data-go]');
+    if (go) {
+      e.preventDefault();
+      goTo(go.dataset.go);
+    }
+
+  });
+
+});
+
     // ----------------------------
     // Contact overlay open/close
     // ----------------------------
