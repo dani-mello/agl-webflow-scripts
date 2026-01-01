@@ -1,3 +1,4 @@
-console.log("🔥 AGL JS EXECUTED via jsDelivr @main 🔥", Date.now());
+console.log("🔥🔥🔥 THIS IS GITHUB MAIN.JS 🔥🔥🔥", Math.random());
+
 
 
