@@ -1,6 +1,3 @@
-console.log("🔥🔥🔥 THIS IS GITHUB MAIN.JS 🔥🔥🔥", Math.random());
-
-
 /* AGL Webflow Scripts - main.js
    Tip: Never put secret keys in here.
 */
@@ -29,8 +26,6 @@ console.log("🔥🔥🔥 THIS IS GITHUB MAIN.JS 🔥🔥🔥", Math.random());
   };
 
   ready(() => {
-    console.log("[AGL] main.js loaded ✅ v11");
-    console.log("[AGL] page =", document.body?.dataset?.page);
 
     const page = document.body?.dataset?.page;
 
@@ -74,7 +69,6 @@ console.log("🔥🔥🔥 THIS IS GITHUB MAIN.JS 🔥🔥🔥", Math.random());
     // Requires: data-nav="explore" on trigger
     // ----------------------------
     waitFor('[data-nav="explore"]', (exploreTrigger) => {
-      console.log("[AGL] explore trigger found ✅");
 
       const exploreMega = document.querySelector(".explore-mega");
       const explorePrimaryWrap = document.querySelector(".explore-primary");
@@ -161,7 +155,6 @@ console.log("🔥🔥🔥 THIS IS GITHUB MAIN.JS 🔥🔥🔥", Math.random());
     // Requires: data-nav="prepare" on trigger
     // ----------------------------
     waitFor('[data-nav="prepare"]', (trigger) => {
-      console.log("[AGL] prepare trigger found ✅");
 
       const panel = document.querySelector(".prepare-mega");
       if (!panel) {
