@@ -1,1 +1,2 @@
-console.log("🔥 AGL RAW SCRIPT EXECUTED 🔥", Date.now());
+console.log("🔥 AGL JS EXECUTED via jsDelivr @main 🔥", Date.now());
+
