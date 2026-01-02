@@ -1,14 +1,12 @@
-// Split Gallery (Webflow) — Desktop pinned, Mobile not pinned
-// Requires GSAP + ScrollTrigger loaded globally.
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
+
   function initAll() {
     const sections = Array.from(document.querySelectorAll(".c-split-gallery"));
     if (!sections.length) return;
 
     sections.forEach((section, index) => {
-      // Prevent double init unless we explicitly reset on resize
       if (section.dataset.splitGalleryInit === "1") return;
       section.dataset.splitGalleryInit = "1";
 
@@ -17,40 +15,31 @@ gsap.registerPlugin(ScrollTrigger);
       if (!mask || !track) return;
 
       const slides = Array.from(track.querySelectorAll(".c-split-gallery_slide"));
-      const imgs   = slides
-        .map(s => s.querySelector("img.c-split-gallery_image"))
-        .filter(Boolean);
-
+      const imgs   = slides.map(s => s.querySelector("img.c-split-gallery_image")).filter(Boolean);
       if (!slides.length || !imgs.length) return;
 
-      // ------------------------
-      // Tunables
-      // ------------------------
+      // ---------- Tunables ----------
       const MIN_SCALE = 0.5;
       const FALLOFF   = 0.55;
       const EPS       = 0.5;
       const SLOWNESS  = 2.0;
 
-      // Measure gallery size (mobile can be 0 if parent has no height)
-      // If mask is 0, bail (CSS needs min-height on mobile media)
-      const galleryH = mask.clientHeight || 0;
-      const galleryW = mask.clientWidth || 0;
-      if (galleryH < 10 || galleryW < 10) return;
-
-      const baseH = galleryH; // "full" height
-      const baseW = galleryW; // touch right edge
-
-      // Unique id per instance
       const stId = `splitGallery_${index}`;
 
-      // Kill existing triggers for this instance (safe)
+      // Kill existing trigger for this instance
       ScrollTrigger.getAll().forEach(st => {
         if (st?.vars?.id === stId) st.kill();
       });
 
-      // ------------------------
+      // Measure gallery size (must be non-zero)
+      const galleryH = mask.clientHeight || 0;
+      const galleryW = mask.clientWidth  || 0;
+      if (galleryH < 10 || galleryW < 10) return;
+
+      const baseH = galleryH;
+      const baseW = galleryW;
+
       // Prep
-      // ------------------------
       gsap.set(track, { position: "relative" });
 
       slides.forEach((slide) => {
@@ -76,14 +65,27 @@ gsap.registerPlugin(ScrollTrigger);
         objectPosition: "center"
       });
 
-      // Layout tick (same stack math as CodePen)
-      function layoutTick() {
-        const vpCenter = window.innerHeight / 2;
+      // Center reference:
+      // - Desktop: viewport center
+      // - Mobile: mask center (so nav/header doesn't throw it off)
+      function getCenterY(useMaskCenter) {
+        if (!useMaskCenter) return window.innerHeight / 2;
+        const r = mask.getBoundingClientRect();
+        return r.top + r.height / 2;
+      }
+
+      function getSlideMid(i) {
+        const r = slides[i].getBoundingClientRect();
+        return r.top + r.height / 2;
+      }
+
+      function layoutTick(useMaskCenter) {
+        const centerY = getCenterY(useMaskCenter);
 
         const scales = slides.map(slide => {
           const rect = slide.getBoundingClientRect();
           const mid  = rect.top + rect.height / 2;
-          const d    = Math.abs(mid - vpCenter);
+          const d    = Math.abs(mid - centerY);
           const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
           return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
         });
@@ -100,63 +102,57 @@ gsap.registerPlugin(ScrollTrigger);
         track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
       }
 
-      // Helpers to read slide midpoints
-      function getSlideMid(i) {
-        const r = slides[i].getBoundingClientRect();
-        return r.top + r.height / 2;
+      // Compute startY/endY so first/last are FULL (scale~1) at start/end
+      function computeEndpoints(useMaskCenter) {
+        const centerY = getCenterY(useMaskCenter);
+
+        let startY = 0;
+        gsap.set(track, { y: startY });
+        layoutTick(useMaskCenter);
+
+        // 2-pass start refine
+        startY += (centerY - getSlideMid(0));
+        gsap.set(track, { y: startY });
+        layoutTick(useMaskCenter);
+        startY += (centerY - getSlideMid(0));
+        gsap.set(track, { y: startY });
+        layoutTick(useMaskCenter);
+
+        let endY = startY;
+
+        // 2-pass end refine
+        endY += (centerY - getSlideMid(slides.length - 1));
+        gsap.set(track, { y: endY });
+        layoutTick(useMaskCenter);
+        endY += (centerY - getSlideMid(slides.length - 1));
+        gsap.set(track, { y: endY });
+        layoutTick(useMaskCenter);
+
+        // Restore to start
+        gsap.set(track, { y: startY });
+        layoutTick(useMaskCenter);
+
+        return { startY, endY };
       }
 
-      // ------------------------
-      // Compute startY/endY so first & last land "full" (centered)
-      // ------------------------
-      const vpCenter = window.innerHeight / 2;
-
-      let startY = 0;
-      gsap.set(track, { y: startY });
-      layoutTick();
-
-      // 2-pass refine for start
-      startY += (vpCenter - getSlideMid(0));
-      gsap.set(track, { y: startY });
-      layoutTick();
-      startY += (vpCenter - getSlideMid(0));
-      gsap.set(track, { y: startY });
-      layoutTick();
-
-      // 2-pass refine for end
-      let endY = startY;
-      endY += (vpCenter - getSlideMid(slides.length - 1));
-      gsap.set(track, { y: endY });
-      layoutTick();
-      endY += (vpCenter - getSlideMid(slides.length - 1));
-      gsap.set(track, { y: endY });
-      layoutTick();
-
-      // Restore to start
-      gsap.set(track, { y: startY });
-      layoutTick();
-
-      const travel = Math.abs(endY - startY);
-      const pinDistance = Math.ceil(travel * SLOWNESS);
-
-      // Update function shared by desktop/mobile triggers
-      function applyProgress(p, snapEnd) {
+      function applyProgress(p, startY, endY, useMaskCenter, snapEnd) {
         const clamped = Math.min(1, Math.max(0, p));
-        const SNAP_EPS = snapEnd ? 0.999 : 2; // if snapEnd true, use near-1 snap; else never snap
+        const SNAP_EPS = snapEnd ? 0.999 : 2; // snap only when requested
         const useEnd = clamped >= SNAP_EPS;
 
-        const y = useEnd
-          ? endY
-          : startY + (endY - startY) * clamped;
-
+        const y = useEnd ? endY : startY + (endY - startY) * clamped;
         gsap.set(track, { y });
-        layoutTick();
+        layoutTick(useMaskCenter);
       }
 
-      // ------------------------
-      // Desktop pinned trigger
-      // ------------------------
-      function createDesktopTrigger() {
+      // ---- Desktop trigger (pinned, viewport center) ----
+      function buildDesktop() {
+        const useMaskCenter = false;
+        const { startY, endY } = computeEndpoints(useMaskCenter);
+
+        const travel = Math.abs(endY - startY);
+        const pinDistance = Math.ceil(travel * SLOWNESS);
+
         ScrollTrigger.create({
           id: stId,
           trigger: section,
@@ -166,73 +162,71 @@ gsap.registerPlugin(ScrollTrigger);
           pin: true,
           anticipatePin: 1,
           onUpdate(self) {
-            applyProgress(self.progress, true); // snap at end
+            applyProgress(self.progress, startY, endY, useMaskCenter, true);
           }
-          // markers:true
         });
       }
 
-      // ------------------------
-      // Mobile: no pin (prevents tap blocking / menu issues)
-      // ------------------------
-function createMobileTrigger() {
-  ScrollTrigger.create({
-    id: stId,
-    trigger: mask,          // 👈 pin ONLY the gallery mask
-    start: "top top",
-    end: "+=" + pinDistance,
-    scrub: true,
-    pin: true,              // 👈 pin is back ON
-    anticipatePin: 1,
-    pinSpacing: true,       // keep natural flow
-    onUpdate(self) {
-      applyProgress(self.progress, true);
-    }
-  });
-}
+      // ---- Mobile trigger (pinned, mask center, burger-safe) ----
+      function buildMobile() {
+        const useMaskCenter = true;
+        const { startY, endY } = computeEndpoints(useMaskCenter);
 
+        const travel = Math.abs(endY - startY);
+        const pinDistance = Math.ceil(travel * SLOWNESS);
 
-      // Create appropriate trigger based on current width
+        ScrollTrigger.create({
+          id: stId,
+          trigger: mask,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: true,
+          anticipatePin: 1,
+          pinSpacing: true,
+
+          // ✅ This prevents the pin-spacer from blocking taps (burger!)
+          onRefresh(self) {
+            const spacer = self.pin && self.pin.parentNode; // pin-spacer wrapper
+            if (spacer && spacer.classList && spacer.classList.contains("pin-spacer")) {
+              spacer.style.pointerEvents = "none";
+              spacer.style.zIndex = "0";
+            }
+            // keep actual gallery interactive if you ever need it
+            if (self.pin) self.pin.style.pointerEvents = "auto";
+          },
+
+          onUpdate(self) {
+            applyProgress(self.progress, startY, endY, useMaskCenter, true);
+          }
+        });
+      }
+
       const isMobile = window.innerWidth <= 900;
-      if (isMobile) createMobileTrigger();
-      else createDesktopTrigger();
+      if (isMobile) buildMobile();
+      else buildDesktop();
 
-      // ------------------------
-      // Resize: rebuild this instance cleanly
-      // ------------------------
+      // Resize rebuild (this instance)
       let t;
       window.addEventListener("resize", () => {
         clearTimeout(t);
         t = setTimeout(() => {
-          // Kill this trigger
           ScrollTrigger.getAll().forEach(st => {
             if (st?.vars?.id === stId) st.kill();
           });
-
-          // Allow re-init of this section
           section.dataset.splitGalleryInit = "0";
-
-          // Re-init all (safe)
           initAll();
-
-          // Refresh ST
           ScrollTrigger.refresh();
-        }, 200);
+        }, 220);
       });
     });
   }
 
-  // Boot after Webflow
   function boot() {
     const start = () => initAll();
-
-    if (window.Webflow && Array.isArray(window.Webflow)) {
-      window.Webflow.push(start);
-    } else if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", start, { once: true });
-    } else {
-      start();
-    }
+    if (window.Webflow && Array.isArray(window.Webflow)) window.Webflow.push(start);
+    else if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+    else start();
   }
 
   boot();
