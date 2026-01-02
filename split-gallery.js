@@ -151,7 +151,7 @@ gsap.registerPlugin(ScrollTrigger);
         const { startY, endY } = computeEndpoints(useMaskCenter);
 
         const travel = Math.abs(endY - startY);
-        const pinDistance = Math.ceil(travel * SLOWNESS * 1.2);
+        const pinDistance = Math.ceil(travel * SLOWNESS);
 
         ScrollTrigger.create({
           id: stId,
