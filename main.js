@@ -1,9 +1,3 @@
-console.log("[AGL] main.js ✅", "v12", new Date().toISOString());
-
-/* AGL Webflow Scripts - main.js
-   Tip: Never put secret keys in here.
-*/
-
 (() => {
   // Wait until the DOM exists
   const ready = (fn) => {
