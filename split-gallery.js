@@ -182,22 +182,27 @@ gsap.registerPlugin(ScrollTrigger);
       },
 
       // ===== MOBILE (FIXED) =====
-      "(max-width: 900px)": function () {
-        // Trigger when the gallery actually reaches the top
-        ScrollTrigger.create({
-          id: "splitGallery-mobile",
-          trigger: mask,
-          start: "top top",
-          end: "+=" + pinDistance,
-          scrub: true,
-          pin: mask,
-          anticipatePin: 1,
-          onUpdate(self) {
-            const y = yStart - naturalTravel * self.progress;
-            gsap.set(track, { y });
-            layoutTick();
-          },
-        });// split-gallery.js
+ // ✅ MOBILE (pin the in-flow element so it reserves space and releases properly)
+"(max-width: 900px)": function () {
+  ScrollTrigger.create({
+    id: "splitGallery-mobile",
+    trigger: media,        // in-flow trigger
+    start: "top top",
+    end: "+=" + pinDistance,
+    scrub: true,
+    pin: media,            // ✅ pin the in-flow media (NOT the absolute mask)
+    pinSpacing: true,
+    anticipatePin: 1,
+    onUpdate(self) {
+      const y = yStart - naturalTravel * self.progress;
+      gsap.set(track, { y });
+      layoutTick();
+    }
+  });
+}
+
+        
+        // split-gallery.js
 // Requires GSAP + ScrollTrigger loaded BEFORE this script.
 gsap.registerPlugin(ScrollTrigger);
 
