@@ -1,6 +1,7 @@
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
+
   function initAll() {
     const sections = Array.from(document.querySelectorAll(".c-split-gallery"));
     if (!sections.length) return;
@@ -25,36 +26,29 @@ gsap.registerPlugin(ScrollTrigger);
       const FALLOFF   = 0.55;
       const EPS       = 0.5;
 
-      // Make "slower feel" via scrub, not longer scroll distance:
-      const DESKTOP_SCRUB = 1.0;  // try 0.8–1.4
-      const MOBILE_SCRUB  = 1.0;  // try 0.6–1.2
-
-      // Start bias so first card feels full at pin start:
-      const START_OFFSET_FACTOR_DESKTOP = 0.18; // 0.20–0.35
-      const START_OFFSET_FACTOR_MOBILE  = 0.18; // 0.10–0.30
+      const DESKTOP_SCRUB = 1.0;
+      const MOBILE_SCRUB  = 0.8;
 
       const stId = `splitGallery_${index}`;
 
-      // Kill existing trigger for this instance
+      // Kill any existing trigger for this instance
       ScrollTrigger.getAll().forEach(st => {
         if (st?.vars?.id === stId) st.kill();
       });
 
-      // Measure gallery size (must be non-zero)
+      // Measure gallery
       const galleryH = mask.clientHeight || 0;
       const galleryW = mask.clientWidth  || 0;
       if (galleryH < 10 || galleryW < 10) return;
 
-      // Base slide size (matches CodePen: 60rem x 60rem, width fits column)
-      const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const baseH = galleryH;  // <-- full height of the mask (100vh)
+      // Slides are FULL HEIGHT of gallery (100vh)
+      const baseH = galleryH;
       const baseW = galleryW;
 
-
-      // Prep
+      // Prep containers
       gsap.set(track, { position: "relative" });
 
-      slides.forEach((slide) => {
+      slides.forEach(slide => {
         gsap.set(slide, {
           position: "absolute",
           left: 0,
@@ -79,7 +73,7 @@ gsap.registerPlugin(ScrollTrigger);
 
       // Center reference:
       // - Desktop: viewport center
-      // - Mobile: mask center (so nav/header doesn't throw it off)
+      // - Mobile: mask center (safer under fixed nav)
       function getCenterY(useMaskCenter) {
         if (!useMaskCenter) return window.innerHeight / 2;
         const r = mask.getBoundingClientRect();
@@ -114,7 +108,7 @@ gsap.registerPlugin(ScrollTrigger);
         track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
       }
 
-      // Compute startY/endY so first/last are near FULL at start/end
+      // Compute endpoints so first and last slides hit FULL
       function computeEndpoints(useMaskCenter) {
         const centerY = getCenterY(useMaskCenter);
 
@@ -122,50 +116,42 @@ gsap.registerPlugin(ScrollTrigger);
         gsap.set(track, { y: startY });
         layoutTick(useMaskCenter);
 
-        // 2-pass start refine
-        startY += (centerY - getSlideMid(0));
-        gsap.set(track, { y: startY });
-        layoutTick(useMaskCenter);
+        // refine start
         startY += (centerY - getSlideMid(0));
         gsap.set(track, { y: startY });
         layoutTick(useMaskCenter);
 
         let endY = startY;
 
-        // 2-pass end refine
-        endY += (centerY - getSlideMid(slides.length - 1));
-        gsap.set(track, { y: endY });
-        layoutTick(useMaskCenter);
+        // refine end
         endY += (centerY - getSlideMid(slides.length - 1));
         gsap.set(track, { y: endY });
         layoutTick(useMaskCenter);
 
-        // Restore to start
+        // restore
         gsap.set(track, { y: startY });
         layoutTick(useMaskCenter);
 
         return { startY, endY };
       }
 
-      function applyProgress(p, startY, endY, useMaskCenter, snapEnd) {
+      function applyProgress(p, startY, endY, useMaskCenter) {
         const clamped = Math.min(1, Math.max(0, p));
-        const SNAP_EPS = snapEnd ? 0.999 : 2;
-        const useEnd = clamped >= SNAP_EPS;
-
-        const y = useEnd ? endY : startY + (endY - startY) * clamped;
+        const y = startY + (endY - startY) * clamped;
         gsap.set(track, { y });
         layoutTick(useMaskCenter);
       }
 
+      // ---------- Desktop ----------
       function buildDesktop() {
         const useMaskCenter = false;
-        let { startY, endY } = computeEndpoints(useMaskCenter);
-
-        // Bias start so first slide appears full right at pin start
-        startY += baseH * START_OFFSET_FACTOR_DESKTOP;
+        const { startY, endY } = computeEndpoints(useMaskCenter);
 
         const travel = Math.abs(endY - startY);
-        const pinDistance = Math.ceil(travel); // IMPORTANT: no multipliers
+        const pinDistance = Math.ceil(travel);
+
+        // Set initial frame (prevents top gap)
+        applyProgress(0, startY, endY, useMaskCenter);
 
         ScrollTrigger.create({
           id: stId,
@@ -176,73 +162,17 @@ gsap.registerPlugin(ScrollTrigger);
           pin: true,
           anticipatePin: 1,
           onUpdate(self) {
-            applyProgress(self.progress, startY, endY, useMaskCenter, true);
+            applyProgress(self.progress, startY, endY, useMaskCenter);
           }
         });
       }
 
+      // ---------- Mobile ----------
       function buildMobile() {
         const useMaskCenter = true;
-        let { startY, endY } = computeEndpoints(useMaskCenter);
-
-        // Smaller bias for mobile
-        startY += baseH * START_OFFSET_FACTOR_MOBILE;
+        const { startY, endY } = computeEndpoints(useMaskCenter);
 
         const travel = Math.abs(endY - startY);
-        const pinDistance = Math.ceil(travel); // IMPORTANT: no multipliers
+        const pinDistance = Math.ceil(travel);
 
-        ScrollTrigger.create({
-          id: stId,
-          trigger: mask,
-          start: "top top",
-          end: "+=" + pinDistance,
-          scrub: MOBILE_SCRUB,
-          pin: true,
-          anticipatePin: 1,
-          pinSpacing: true,
-
-          // Burger-safe: prevent spacer from blocking taps
-          onRefresh(self) {
-            const spacer = self.pin && self.pin.parentNode;
-            if (spacer && spacer.classList && spacer.classList.contains("pin-spacer")) {
-              spacer.style.pointerEvents = "none";
-              spacer.style.zIndex = "0";
-            }
-            if (self.pin) self.pin.style.pointerEvents = "auto";
-          },
-
-          onUpdate(self) {
-            applyProgress(self.progress, startY, endY, useMaskCenter, true);
-          }
-        });
-      }
-
-      const isMobile = window.innerWidth <= 900;
-      if (isMobile) buildMobile();
-      else buildDesktop();
-
-      // Resize rebuild (this instance)
-      let t;
-      window.addEventListener("resize", () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-          ScrollTrigger.getAll().forEach(st => {
-            if (st?.vars?.id === stId) st.kill();
-          });
-          section.dataset.splitGalleryInit = "0";
-          initAll();
-          ScrollTrigger.refresh();
-        }, 220);
-      });
-    });
-  }
-
-  function boot() {
-    const start = () => initAll();
-    if (window.Webflow && Array.isArray(window.Webflow)) window.Webflow.push(start);
-    else if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
-    else start();
-  }
-
-  boot();
-})();
+        applyProgress(0, startY, endY, useMaskCenter);
