@@ -36,8 +36,10 @@ gsap.registerPlugin(ScrollTrigger);
       const galleryW = mask.clientWidth  || 0;
       if (galleryH < 10 || galleryW < 10) return;
 
-      const baseH = galleryH;
-      const baseW = galleryW;
+const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+const baseH = 60 * rootFont;   // same as CodePen
+const baseW = galleryW;
+
 
       // Prep
       gsap.set(track, { position: "relative" });
@@ -93,8 +95,14 @@ function getSlideTop(i) {
 
 const maskTop = getMaskTop();
 
-const scales = slides.map((slide, i) => {
+const scales = slides.map(slide => {
   const rect = slide.getBoundingClientRect();
+  const mid  = rect.top + rect.height / 2;
+  const d    = Math.abs(mid - centerY);
+  const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
+  return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+});
+
 
   // FIRST slide → top-aligned = full
   if (i === 0) {
@@ -179,9 +187,14 @@ const scales = slides.map((slide, i) => {
       function buildDesktop() {
         const useMaskCenter = false;
         const { startY, endY } = computeEndpoints(useMaskCenter);
+        // Nudge start so first slide begins closer to full
+const START_OFFSET = baseH * 0.25; // tweak 0.2–0.35
+const adjustedStartY = startY + START_OFFSET;
+
 
         const travel = Math.abs(endY - startY);
-        const pinDistance = Math.ceil(travel * SLOWNESS);
+        const pinDistance = Math.ceil(travel);
+
 
         ScrollTrigger.create({
           id: stId,
