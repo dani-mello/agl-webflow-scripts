@@ -378,3 +378,31 @@ window.Webflow.push(function () {
 
 
 
+
+window.Webflow ||= [];
+window.Webflow.push(function () {
+  const btn = document.querySelector(".nav-btn-mobile");
+  const overlay = document.querySelector(".mobile-overlay");
+  if (!btn || !overlay) return;
+
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const open = !btn.classList.contains("is-open");
+
+    // Button X animation
+    btn.classList.toggle("is-open", open);
+
+    // Overlay visibility
+    overlay.classList.toggle("is-open", open);
+
+    // Optional a11y
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    overlay.setAttribute("aria-hidden", open ? "false" : "true");
+  }, true);
+});
+
+
+
+
