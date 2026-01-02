@@ -1,12 +1,12 @@
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
+
   function initAll() {
     const sections = document.querySelectorAll(".c-split-gallery");
     if (!sections.length) return;
 
     sections.forEach((section, index) => {
-      // Prevent double init
       if (section.dataset.sgInit === "1") return;
       section.dataset.sgInit = "1";
 
@@ -18,8 +18,8 @@ gsap.registerPlugin(ScrollTrigger);
       const imgs   = slides.map(s => s.querySelector(".c-split-gallery_image")).filter(Boolean);
       if (!slides.length || !imgs.length) return;
 
-      // ---------- Tunables (stable) ----------
-      const CARD_H_REM = 60;   // like CodePen
+      // ----- Tunables -----
+      const CARD_H_REM = 60;
       const MIN_SCALE  = 0.55;
       const FALLOFF    = 0.60;
       const EPS        = 0.5;
@@ -28,12 +28,11 @@ gsap.registerPlugin(ScrollTrigger);
       const baseH = CARD_H_REM * rootFont;
 
       const galleryW = mask.clientWidth || section.clientWidth || window.innerWidth;
-      const galleryH = mask.clientHeight || window.innerHeight;
 
       // Prep
       gsap.set(track, { position: "relative", y: 0 });
 
-      slides.forEach((slide) => {
+      slides.forEach(slide => {
         gsap.set(slide, {
           position: "absolute",
           left: 0,
@@ -58,55 +57,63 @@ gsap.registerPlugin(ScrollTrigger);
 
       function layoutTick() {
         const centerY = window.innerHeight / 2;
+        let y = 0;
 
-        const scales = slides.map((slide) => {
+        slides.forEach(slide => {
           const rect = slide.getBoundingClientRect();
           const mid  = rect.top + rect.height / 2;
           const d    = Math.abs(mid - centerY);
           const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-          return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+          const s    = MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+
+          slide.style.top       = `${y}px`;
+          slide.style.transform = `scale(${s})`;
+          slide.style.zIndex    = String(1000 + Math.round(s * 1000));
+
+          y += baseH * s - EPS;
         });
 
-        let y = 0;
-        for (let i = 0; i < slides.length; i++) {
-          const s = scales[i];
-          slides[i].style.top       = `${y}px`;
-          slides[i].style.transform = `scale(${s})`;
-          slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
-          y += baseH * s - EPS;
-        }
-
-        track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
-
+        track.style.height = `${Math.max(y + EPS, window.innerHeight + 1)}px`;
         return y;
       }
 
-      // Initial layout to get correct track height
-      const stackHeight = layoutTick();
-      const naturalTravel = Math.max(stackHeight - galleryH, 0);
+      // Initial measure
+      let stackHeight = layoutTick();
+      let maxTravel = Math.max(stackHeight - window.innerHeight, 0);
 
-      // Make the whole section tall enough to scroll through the travel.
-      // This removes ALL “gap” problems because the space belongs to the section.
-      section.style.minHeight = `calc(100vh + ${naturalTravel}px)`;
+      // Section must own the scroll distance (no pin-spacer, no gaps)
+      const applySectionHeight = () => {
+        section.style.minHeight = `calc(100vh + ${Math.ceil(maxTravel)}px)`;
+      };
+      applySectionHeight();
 
-      // Create a ScrollTrigger that only drives progress (NO pin)
+      // Kill old trigger for this instance
       const stId = `sg-${index}`;
       ScrollTrigger.getAll().forEach(st => { if (st?.vars?.id === stId) st.kill(); });
 
-      ScrollTrigger.create({
+      let refreshT;
+      const st = ScrollTrigger.create({
         id: stId,
         trigger: section,
         start: "top top",
-        end: "+=" + Math.ceil(naturalTravel),
+        end: () => "+=" + Math.ceil(maxTravel),
         scrub: 1,
         onUpdate(self) {
-          const y = -naturalTravel * self.progress;
+          // Move track
+          const y = -maxTravel * self.progress;
           gsap.set(track, { y });
-          layoutTick();
-        },
-        onRefresh() {
-          // Ensure mask stays 100vh (some Webflow layouts can override)
-          mask.style.height = "100vh";
+
+          // Re-layout (scales can change stack height)
+          stackHeight = layoutTick();
+          const newTravel = Math.max(stackHeight - window.innerHeight, 0);
+
+          // If travel grew, expand section + refresh (throttled)
+          if (newTravel > maxTravel + 2) {
+            maxTravel = newTravel;
+            applySectionHeight();
+            clearTimeout(refreshT);
+            refreshT = setTimeout(() => ScrollTrigger.refresh(), 50);
+          }
         }
       });
 
@@ -115,7 +122,7 @@ gsap.registerPlugin(ScrollTrigger);
       window.addEventListener("resize", () => {
         clearTimeout(t);
         t = setTimeout(() => {
-          ScrollTrigger.getById(stId)?.kill();
+          st.kill();
           section.dataset.sgInit = "0";
           initAll();
           ScrollTrigger.refresh();
@@ -131,4 +138,5 @@ gsap.registerPlugin(ScrollTrigger);
   } else {
     initAll();
   }
+
 })();
