@@ -45,7 +45,7 @@ gsap.registerPlugin(ScrollTrigger);
       eps: 0.5,
 
       // NEW: how much of the scroll should “hold” at the start (0..0.2 is typical)
-      startHold: 0.05
+      startHold: 0.07
     };
 
     const cfg = isSmall ? MOBILE : DESKTOP;
@@ -90,7 +90,7 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-            // Case B: wrapper containing <img>
+      // Case B: wrapper containing <img>
       const innerImg = imageEl ? imageEl.querySelector("img") : null;
       if (innerImg) {
         gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
@@ -114,8 +114,6 @@ gsap.registerPlugin(ScrollTrigger);
         gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
       }
     }
-
-
 
     // Slides as cards, flush right
     slides.forEach((slide) => {
