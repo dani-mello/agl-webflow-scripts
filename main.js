@@ -201,42 +201,46 @@ console.log("[AGL] main.js ✅", "v12", new Date().toISOString());
       });
     });
 
-     // ----------------------------
-    // mobile: mobile menu
     // ----------------------------
+// MOBILE: mobile menu
+// ----------------------------
+(() => {
+  const burger  = document.querySelector(".nav-btn-mobile");
+  const overlay = document.querySelector(".mobile-overlay");
+  const panels  = Array.from(document.querySelectorAll(".mobile-panel"));
 
-     document.addEventListener("DOMContentLoaded", () => {
+  if (!burger || !overlay || !panels.length) {
+    console.warn("[AGL] Mobile menu missing elements", { burger: !!burger, overlay: !!overlay, panels: panels.length });
+    return;
+  }
 
-  const burger = document.querySelector('.nav-btn-mobile');
-  const overlay = document.querySelector('.mobile-overlay');
-  const panels = [...document.querySelectorAll('.mobile-panel')];
-
-  let current = 'main';
-
-  const getPanel = key => panels.find(p => p.dataset.target === key);
+  let current = "main";
+  const getPanel = (key) => panels.find(p => p.dataset.target === key);
 
   const resetPanels = () => {
-    panels.forEach(p => p.classList.remove('is-active', 'is-prev'));
+    panels.forEach(p => p.classList.remove("is-active", "is-prev"));
   };
 
   const openOverlay = () => {
-    overlay.classList.add('is-open');
-    burger.classList.add('is-open');
-    document.documentElement.classList.add('no-scroll');
+    overlay.classList.add("is-open");
+    burger.classList.add("is-open");
+    document.documentElement.classList.add("no-scroll");
 
     resetPanels();
-    const main = getPanel('main');
-    main?.classList.add('is-active');
-    requestAnimationFrame(() => animatePanelLinks(main));
-    current = 'main';
+    const main = getPanel("main");
+    if (main) {
+      main.classList.add("is-active");
+      requestAnimationFrame(() => animatePanelLinks(main));
+    }
+    current = "main";
   };
 
   const closeOverlay = () => {
-    overlay.classList.remove('is-open');
-    burger.classList.remove('is-open');
-    document.documentElement.classList.remove('no-scroll');
+    overlay.classList.remove("is-open");
+    burger.classList.remove("is-open");
+    document.documentElement.classList.remove("no-scroll");
     resetPanels();
-    current = 'main';
+    current = "main";
   };
 
   const goTo = (target) => {
@@ -244,48 +248,53 @@ console.log("[AGL] main.js ✅", "v12", new Date().toISOString());
     const curr = getPanel(current);
     if (!next || next === curr) return;
 
-    curr?.classList.remove('is-active');
-    curr?.classList.add('is-prev');
+    curr?.classList.remove("is-active");
+    curr?.classList.add("is-prev");
 
-    next.classList.add('is-active');
-    next.classList.remove('is-prev');
+    next.classList.add("is-active");
+    next.classList.remove("is-prev");
 
     requestAnimationFrame(() => animatePanelLinks(next));
     current = target;
   };
 
-  burger?.addEventListener('click', e => {
+  burger.addEventListener("click", (e) => {
     e.preventDefault();
-    overlay.classList.contains('is-open') ? closeOverlay() : openOverlay();
-  });
+    e.stopPropagation();
+    overlay.classList.contains("is-open") ? closeOverlay() : openOverlay();
+  }, true);
 
-  overlay?.addEventListener('click', e => {
-
-    const contact = e.target.closest('.mobile-contact');
+  overlay.addEventListener("click", (e) => {
+    const contact = e.target.closest(".mobile-contact");
     if (contact) {
       e.preventDefault();
       closeOverlay();
-      document.querySelector('.contact-overlay')?.classList.add('is-open');
-      document.documentElement.classList.add('no-scroll');
+      document.querySelector(".contact-overlay")?.classList.add("is-open");
+      document.documentElement.classList.add("no-scroll");
       return;
     }
 
-    const back = e.target.closest('.btn-options-mobile-return');
+    const back = e.target.closest(".btn-options-mobile-return");
     if (back) {
       e.preventDefault();
       goTo(back.dataset.back);
       return;
     }
 
-    const go = e.target.closest('[data-go]');
+    const go = e.target.closest("[data-go]");
     if (go) {
       e.preventDefault();
       goTo(go.dataset.go);
     }
-
   });
 
-});
+  // Escape closes
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && overlay.classList.contains("is-open")) closeOverlay();
+  });
+
+})();
+
 
     // ----------------------------
     // Contact overlay open/close
@@ -342,67 +351,5 @@ console.log("[AGL] main.js ✅", "v12", new Date().toISOString());
     onPage("home", () => {});
   });
 })();
-
-
-window.Webflow ||= [];
-window.Webflow.push(function () {
-
-  // Use event delegation so it still works if Webflow re-renders elements
-  function toggleFromEvent(e) {
-    const btn = e.target.closest(".nav-btn-mobile");
-    if (!btn) return;
-
-    // Stop anything else from hijacking the click
-    e.preventDefault();
-    e.stopPropagation();
-
-    const nav = btn.closest(".c-nav, .w-nav, nav, header") || document.body;
-
-    const isOpen = !btn.classList.contains("is-open");
-    btn.classList.toggle("is-open", isOpen);
-    nav.classList.toggle("is-open", isOpen);
-
-    // accessibility (optional)
-    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
-  }
-
-  // Capture phase helps if another handler is interfering
-  document.addEventListener("click", toggleFromEvent, true);
-
-  // iOS sometimes prefers touchstart
-  document.addEventListener("touchstart", function (e) {
-    toggleFromEvent(e);
-  }, { capture: true, passive: false });
-
-});
-
-
-
-
-window.Webflow ||= [];
-window.Webflow.push(function () {
-  const btn = document.querySelector(".nav-btn-mobile");
-  const overlay = document.querySelector(".mobile-overlay");
-  if (!btn || !overlay) return;
-
-  btn.addEventListener("click", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const open = !btn.classList.contains("is-open");
-
-    // Button X animation
-    btn.classList.toggle("is-open", open);
-
-    // Overlay visibility
-    overlay.classList.toggle("is-open", open);
-
-    // Optional a11y
-    btn.setAttribute("aria-expanded", open ? "true" : "false");
-    overlay.setAttribute("aria-hidden", open ? "false" : "true");
-  }, true);
-});
-
-
 
 
