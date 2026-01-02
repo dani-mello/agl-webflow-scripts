@@ -1,7 +1,6 @@
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
-
   function initAll() {
     const sections = Array.from(document.querySelectorAll(".c-split-gallery"));
     if (!sections.length) return;
@@ -15,14 +14,24 @@ gsap.registerPlugin(ScrollTrigger);
       if (!mask || !track) return;
 
       const slides = Array.from(track.querySelectorAll(".c-split-gallery_slide"));
-      const imgs   = slides.map(s => s.querySelector("img.c-split-gallery_image")).filter(Boolean);
+      const imgs   = slides
+        .map(s => s.querySelector("img.c-split-gallery_image"))
+        .filter(Boolean);
+
       if (!slides.length || !imgs.length) return;
 
       // ---------- Tunables ----------
       const MIN_SCALE = 0.5;
       const FALLOFF   = 0.55;
       const EPS       = 0.5;
-      const SLOWNESS  = 1.0;
+
+      // Make "slower feel" via scrub, not longer scroll distance:
+      const DESKTOP_SCRUB = 1.0;  // try 0.8–1.4
+      const MOBILE_SCRUB  = 1.0;  // try 0.6–1.2
+
+      // Start bias so first card feels full at pin start:
+      const START_OFFSET_FACTOR_DESKTOP = 0.25; // 0.20–0.35
+      const START_OFFSET_FACTOR_MOBILE  = 0.18; // 0.10–0.30
 
       const stId = `splitGallery_${index}`;
 
@@ -36,10 +45,10 @@ gsap.registerPlugin(ScrollTrigger);
       const galleryW = mask.clientWidth  || 0;
       if (galleryH < 10 || galleryW < 10) return;
 
-const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-const baseH = 60 * rootFont;   // same as CodePen
-const baseW = galleryW;
-
+      // Base slide size (matches CodePen: 60rem x 60rem, width fits column)
+      const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const baseH = 60 * rootFont;
+      const baseW = galleryW;
 
       // Prep
       gsap.set(track, { position: "relative" });
@@ -81,52 +90,16 @@ const baseW = galleryW;
         return r.top + r.height / 2;
       }
 
-      function getMaskTop() {
-  return mask.getBoundingClientRect().top;
-}
-
-function getSlideTop(i) {
-  return slides[i].getBoundingClientRect().top;
-}
-
-      
       function layoutTick(useMaskCenter) {
         const centerY = getCenterY(useMaskCenter);
 
-const maskTop = getMaskTop();
-
-const scales = slides.map(slide => {
-  const rect = slide.getBoundingClientRect();
-  const mid  = rect.top + rect.height / 2;
-  const d    = Math.abs(mid - centerY);
-  const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-  return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
-});
-
-
-  // FIRST slide → top-aligned = full
-  if (i === 0) {
-    const d = Math.abs(rect.top - maskTop);
-    const norm = Math.min(1, d / rect.height);
-    return 1 - norm * (1 - MIN_SCALE);
-  }
-
-  // LAST slide → top-aligned = full
-  if (i === slides.length - 1) {
-    const d = Math.abs(rect.top - maskTop);
-    const norm = Math.min(1, d / rect.height);
-    return 1 - norm * (1 - MIN_SCALE);
-  }
-
-  // MIDDLE slides → center falloff (unchanged behaviour)
-  const mid = rect.top + rect.height / 2;
-  const d   = Math.abs(mid - centerY);
-  const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-  return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
-});
-
-
-
+        const scales = slides.map(slide => {
+          const rect = slide.getBoundingClientRect();
+          const mid  = rect.top + rect.height / 2;
+          const d    = Math.abs(mid - centerY);
+          const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
+          return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+        });
 
         let y = 0;
         for (let i = 0; i < slides.length; i++) {
@@ -140,7 +113,7 @@ const scales = slides.map(slide => {
         track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
       }
 
-      // Compute startY/endY so first/last are FULL (scale~1) at start/end
+      // Compute startY/endY so first/last are near FULL at start/end
       function computeEndpoints(useMaskCenter) {
         const centerY = getCenterY(useMaskCenter);
 
@@ -175,7 +148,7 @@ const scales = slides.map(slide => {
 
       function applyProgress(p, startY, endY, useMaskCenter, snapEnd) {
         const clamped = Math.min(1, Math.max(0, p));
-        const SNAP_EPS = snapEnd ? 0.999 : 2; // snap only when requested
+        const SNAP_EPS = snapEnd ? 0.999 : 2;
         const useEnd = clamped >= SNAP_EPS;
 
         const y = useEnd ? endY : startY + (endY - startY) * clamped;
@@ -183,25 +156,22 @@ const scales = slides.map(slide => {
         layoutTick(useMaskCenter);
       }
 
-      // ---- Desktop trigger (pinned, viewport center) ----
       function buildDesktop() {
         const useMaskCenter = false;
-        const { startY, endY } = computeEndpoints(useMaskCenter);
-        // Nudge start so first slide begins closer to full
-const START_OFFSET = baseH * 0.25; // tweak 0.2–0.35
-const adjustedStartY = startY + START_OFFSET;
+        let { startY, endY } = computeEndpoints(useMaskCenter);
 
+        // Bias start so first slide appears full right at pin start
+        startY += baseH * START_OFFSET_FACTOR_DESKTOP;
 
         const travel = Math.abs(endY - startY);
-        const pinDistance = Math.ceil(travel);
-
+        const pinDistance = Math.ceil(travel); // IMPORTANT: no multipliers
 
         ScrollTrigger.create({
           id: stId,
           trigger: section,
           start: "top top",
           end: "+=" + pinDistance,
-          scrub: 1.0,
+          scrub: DESKTOP_SCRUB,
           pin: true,
           anticipatePin: 1,
           onUpdate(self) {
@@ -210,32 +180,33 @@ const adjustedStartY = startY + START_OFFSET;
         });
       }
 
-      // ---- Mobile trigger (pinned, mask center, burger-safe) ----
       function buildMobile() {
         const useMaskCenter = true;
-        const { startY, endY } = computeEndpoints(useMaskCenter);
+        let { startY, endY } = computeEndpoints(useMaskCenter);
+
+        // Smaller bias for mobile
+        startY += baseH * START_OFFSET_FACTOR_MOBILE;
 
         const travel = Math.abs(endY - startY);
-        const pinDistance = Math.ceil(travel * SLOWNESS * 2);
+        const pinDistance = Math.ceil(travel); // IMPORTANT: no multipliers
 
         ScrollTrigger.create({
           id: stId,
           trigger: mask,
           start: "top top",
           end: "+=" + pinDistance,
-          scrub: true,
+          scrub: MOBILE_SCRUB,
           pin: true,
           anticipatePin: 1,
           pinSpacing: true,
 
-          // ✅ This prevents the pin-spacer from blocking taps (burger!)
+          // Burger-safe: prevent spacer from blocking taps
           onRefresh(self) {
-            const spacer = self.pin && self.pin.parentNode; // pin-spacer wrapper
+            const spacer = self.pin && self.pin.parentNode;
             if (spacer && spacer.classList && spacer.classList.contains("pin-spacer")) {
               spacer.style.pointerEvents = "none";
               spacer.style.zIndex = "0";
             }
-            // keep actual gallery interactive if you ever need it
             if (self.pin) self.pin.style.pointerEvents = "auto";
           },
 
