@@ -42,7 +42,10 @@ gsap.registerPlugin(ScrollTrigger);
       minScale: 0.35,
       falloff: 0.40,
       slowness: 1.6,
-      eps: 0.5
+      eps: 0.5,
+
+      // NEW: how much of the scroll should “hold” at the start (0..0.2 is typical)
+      startHold: 0.07
     };
 
     const cfg = isSmall ? MOBILE : DESKTOP;
@@ -197,6 +200,17 @@ gsap.registerPlugin(ScrollTrigger);
     // If mobile layout is still collapsed, stop here (keeps first card visible)
     if (isSmall && mask.clientHeight < 50) return;
 
+    // NEW: progress mapping to “hold” first image at 100% briefly on mobile
+    function mapProgress(p) {
+      if (!isSmall) return p;
+
+      const hold = cfg.startHold || 0;
+      if (hold <= 0) return p;
+
+      if (p <= hold) return 0;
+      return (p - hold) / (1 - hold);
+    }
+
     ScrollTrigger.matchMedia({
 
       // ===== DESKTOP (LOCKED) =====
@@ -225,11 +239,23 @@ gsap.registerPlugin(ScrollTrigger);
           start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
-          pin: media,          // ✅ pin the in-flow element (creates proper spacer)
+          pin: media,          // ✅ in-flow spacer
           pinSpacing: true,
           anticipatePin: 1,
+
+          // NEW: force exact start frame when entering (prevents tiny “catch-up”)
+          onEnter() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+          onEnterBack() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+
           onUpdate(self) {
-            const y = yStart - naturalTravel * self.progress;
+            const p = mapProgress(self.progress);   // NEW
+            const y = yStart - naturalTravel * p;   // NEW
             gsap.set(track, { y });
             layoutTick();
           }
