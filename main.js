@@ -344,5 +344,37 @@ console.log("[AGL] main.js ✅", "v12", new Date().toISOString());
 })();
 
 
+window.Webflow ||= [];
+window.Webflow.push(function () {
+
+  // Use event delegation so it still works if Webflow re-renders elements
+  function toggleFromEvent(e) {
+    const btn = e.target.closest(".nav-btn-mobile");
+    if (!btn) return;
+
+    // Stop anything else from hijacking the click
+    e.preventDefault();
+    e.stopPropagation();
+
+    const nav = btn.closest(".c-nav, .w-nav, nav, header") || document.body;
+
+    const isOpen = !btn.classList.contains("is-open");
+    btn.classList.toggle("is-open", isOpen);
+    nav.classList.toggle("is-open", isOpen);
+
+    // accessibility (optional)
+    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+
+  // Capture phase helps if another handler is interfering
+  document.addEventListener("click", toggleFromEvent, true);
+
+  // iOS sometimes prefers touchstart
+  document.addEventListener("touchstart", function (e) {
+    toggleFromEvent(e);
+  }, { capture: true, passive: false });
+
+});
+
 
 
