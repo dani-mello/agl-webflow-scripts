@@ -1,5 +1,4 @@
 // split-gallery.js
-// Requires GSAP + ScrollTrigger loaded BEFORE this script.
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
@@ -15,7 +14,7 @@ gsap.registerPlugin(ScrollTrigger);
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
 
-    const media = section.querySelector(".c-split-gallery_media"); // in-flow
+    const media = section.querySelector(".c-split-gallery_media");
     const mask  = section.querySelector(".c-split-gallery_mask");
     const track = section.querySelector(".c-split-gallery_track");
     const slides = Array.from(section.querySelectorAll(".c-split-gallery_slide"));
@@ -26,7 +25,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     const isSmall = window.innerWidth <= BREAKPOINT;
 
-    // ===== Desktop settings (LOCKED) =====
+    // Desktop locked
     const DESKTOP = {
       cardWRem: 60,
       cardHRem: 60,
@@ -36,25 +35,28 @@ gsap.registerPlugin(ScrollTrigger);
       eps: 0.5
     };
 
-    // ===== Mobile settings (only mobile tweaks) =====
+    // Mobile tuned
     const MOBILE = {
       cardHvh: 72,
       minScale: 0.35,
       falloff: 0.40,
       slowness: 1.6,
-      eps: 0.5
+      eps: 0.5,
+
+      // ✅ New: hold the first “hero” moment a little
+      // 0.06 = first ~6% of scroll progress stays on slide 1 at 100%
+      startHold: 0.06
     };
 
     const cfg = isSmall ? MOBILE : DESKTOP;
 
-    // Clear the CSS "translateY(100%)" hiding the track
+    // Clear CSS hiding transform
     gsap.set(track, { clearProps: "transform" });
     gsap.set(track, { position: "relative", padding: 0, margin: 0, willChange: "transform" });
 
     const rootFont =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
-    // Card size
     let cardWpx, cardHpx, baseH;
 
     if (!isSmall) {
@@ -69,11 +71,9 @@ gsap.registerPlugin(ScrollTrigger);
       baseH = cardHpx;
     }
 
-    // --- Helper: ensure we end up with a real "painted" image surface ---
     function normalizeSlideMedia(slide) {
       const imageEl = slide.querySelector(".c-split-gallery_image") || slide;
 
-      // Case A: .c-split-gallery_image IS the <img>
       if (imageEl && imageEl.tagName === "IMG") {
         gsap.set(imageEl, {
           position: "absolute",
@@ -87,7 +87,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Case B: wrapper containing <img>
       const innerImg = imageEl ? imageEl.querySelector("img") : null;
       if (innerImg) {
         gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
@@ -103,7 +102,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Case C: background-image div (common in Webflow)
       if (imageEl) {
         imageEl.style.backgroundSize = "cover";
         imageEl.style.backgroundPosition = "center";
@@ -112,7 +110,7 @@ gsap.registerPlugin(ScrollTrigger);
       }
     }
 
-    // Slides as cards, flush right
+    // Slides/cards (flush right)
     slides.forEach((slide) => {
       gsap.set(slide, {
         position: "absolute",
@@ -180,26 +178,39 @@ gsap.registerPlugin(ScrollTrigger);
       return y;
     }
 
-    // Paint once
+    // Initial paint
     gsap.set(track, { y: 0 });
     layoutTick();
 
+    // Solve hero positions
     const yStart = solveYForSlide(0);
     const yEnd   = solveYForSlide(slides.length - 1);
 
     const naturalTravel = Math.max(yStart - yEnd, 0);
     const pinDistance   = Math.ceil(naturalTravel * cfg.slowness);
 
-    // ✅ Ensure something is visible immediately (prevents “blank until scroll”)
+    // Force first frame to exactly yStart
     gsap.set(track, { y: yStart });
     layoutTick();
 
-    // If mobile layout is still collapsed, stop here (keeps first card visible)
     if (isSmall && mask.clientHeight < 50) return;
+
+    // ---- Progress mapper with optional “start hold” (mobile only) ----
+    function mapProgress(p) {
+      if (!isSmall) return p;
+
+      const hold = cfg.startHold || 0;
+      if (hold <= 0) return p;
+
+      // First `hold` portion of progress stays at 0,
+      // remaining portion maps 0..1
+      if (p <= hold) return 0;
+      return (p - hold) / (1 - hold);
+    }
 
     ScrollTrigger.matchMedia({
 
-      // ===== DESKTOP (LOCKED) =====
+      // DESKTOP (LOCKED)
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
           id: "splitGallery-desktop",
@@ -217,53 +228,49 @@ gsap.registerPlugin(ScrollTrigger);
         });
       },
 
-      // ===== MOBILE (pin in-flow element so it doesn't overlap next sections) =====
+      // MOBILE (smoother start)
       "(max-width: 900px)": function () {
-        ScrollTrigger.create({
+        const st = ScrollTrigger.create({
           id: "splitGallery-mobile",
           trigger: media,
           start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
-          pin: media,          // ✅ pin the in-flow element (creates proper spacer)
+          pin: media,
           pinSpacing: true,
           anticipatePin: 1,
+
+          // ✅ Ensure first frame is yStart BEFORE the first scrub update
+          onEnter() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+          onEnterBack() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+          onRefresh() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+
           onUpdate(self) {
-            const y = yStart - naturalTravel * self.progress;
+            const p = mapProgress(self.progress);
+            const y = yStart - naturalTravel * p;
             gsap.set(track, { y });
             layoutTick();
           }
         });
+
+        // Extra safety: snap to start immediately after creation
+        gsap.set(track, { y: yStart });
+        layoutTick();
+
+        return st;
       }
 
     });
 
-    // Refresh after <img> loads (mobile often needs it)
+    // Refresh after images load
     const imgEls = Array.from(section.querySelectorAll("img"));
-    let pending = 0;
-    imgEls.forEach((img) => {
-      if (!img.complete) {
-        pending++;
-        img.addEventListener("load", () => {
-          pending--;
-          if (pending === 0) ScrollTrigger.refresh();
-        }, { once: true });
-      }
-    });
-
-    ScrollTrigger.refresh();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initSplitGallery);
-  } else {
-    initSplitGallery();
-  }
-
-  let t;
-  window.addEventListener("resize", () => {
-    clearTimeout(t);
-    t = setTimeout(initSplitGallery, 200);
-  });
-
-})();
+    let pending
