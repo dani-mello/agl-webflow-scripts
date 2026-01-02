@@ -159,7 +159,7 @@ gsap.registerPlugin(ScrollTrigger);
           start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
-          pin: mask,
+          pin: media,
           pinSpacing: true,
           anticipatePin: 1,
           onUpdate(self) {
