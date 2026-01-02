@@ -7,42 +7,47 @@ gsap.registerPlugin(ScrollTrigger);
     if (!sections.length) return;
 
     sections.forEach((section, index) => {
-
-      if (section.dataset.splitInit === "1") return;
-      section.dataset.splitInit = "1";
+      if (section.dataset.sgInit === "1") return;
+      section.dataset.sgInit = "1";
 
       const mask  = section.querySelector(".c-split-gallery_mask");
       const track = section.querySelector(".c-split-gallery_track");
-      const slides = [...section.querySelectorAll(".c-split-gallery_slide")];
-      const images = [...section.querySelectorAll(".c-split-gallery_image")];
+      if (!mask || !track) return;
 
-      if (!mask || !track || !slides.length) return;
+      const slides = [...track.querySelectorAll(".c-split-gallery_slide")];
+      const imgs   = slides.map(s => s.querySelector(".c-split-gallery_image")).filter(Boolean);
+      if (!slides.length) return;
 
-      const galleryH = mask.clientHeight;
-      const galleryW = mask.clientWidth;
-      if (!galleryH || !galleryW) return;
+      // ---------- Tunables (FROM CODEPEN) ----------
+      const CARD_W_REM = 60;
+      const CARD_H_REM = 60;
+      const MIN_SCALE  = 0.5;
+      const FALLOFF    = 0.55;
+      const EPS        = 0.5;
 
-      // ---- Tunables (safe) ----
-      const MIN_SCALE = 0.6;
-      const FALLOFF   = 0.6;
-      const CARD_H    = galleryH;
-      const EPS       = 0.5;
+      const SLOWNESS_DESKTOP = 1.0; // do NOT increase
+      const SLOWNESS_MOBILE  = 1.0;
 
-      // Prep
+      const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const baseH = CARD_H_REM * rootFont;
+      const baseW = mask.clientWidth;
+
+      // Prep containers
       gsap.set(track, { position: "relative" });
 
       slides.forEach(slide => {
         gsap.set(slide, {
           position: "absolute",
           left: 0,
-          width: galleryW,
-          height: CARD_H,
+          width: baseW + "px",
+          height: baseH + "px",
           overflow: "hidden",
-          transformOrigin: "right top"
+          transformOrigin: "right top",
+          willChange: "transform, top"
         });
       });
 
-      gsap.set(images, {
+      gsap.set(imgs, {
         position: "absolute",
         inset: 0,
         width: "100%",
@@ -50,55 +55,60 @@ gsap.registerPlugin(ScrollTrigger);
         objectFit: "cover"
       });
 
+      const galleryH = mask.clientHeight || window.innerHeight;
+
       function layout() {
         const centerY = window.innerHeight / 2;
         let y = 0;
 
-        slides.forEach((slide, i) => {
+        slides.forEach(slide => {
           const rect = slide.getBoundingClientRect();
-          const mid = rect.top + rect.height / 2;
-          const d = Math.abs(mid - centerY);
+          const mid  = rect.top + rect.height / 2;
+          const d    = Math.abs(mid - centerY);
           const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-          const scale = MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+          const s    = MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
 
           slide.style.top = `${y}px`;
-          slide.style.transform = `scale(${scale})`;
-          slide.style.zIndex = 1000 + Math.round(scale * 1000);
+          slide.style.transform = `scale(${s})`;
+          slide.style.zIndex = 1000 + Math.round(s * 1000);
 
-          y += CARD_H * scale - EPS;
+          y += baseH * s - EPS;
         });
 
-        track.style.height = `${y}px`;
+        track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
       }
 
-      // Initial layout
       layout();
 
-      const travel = track.clientHeight - galleryH;
-      if (travel <= 0) return;
+      const naturalTravel = Math.max(track.clientHeight - galleryH, 0);
+      if (!naturalTravel) return;
+
+      const isMobile = window.innerWidth <= 900;
+      const pinDistance = Math.ceil(
+        naturalTravel * (isMobile ? SLOWNESS_MOBILE : SLOWNESS_DESKTOP)
+      );
 
       ScrollTrigger.create({
-        id: `split-${index}`,
+        id: `sg-${index}`,
         trigger: section,
         start: "top top",
-        end: `+=${travel}`,
-        pin: true,
+        end: "+=" + pinDistance,
         scrub: 1,
+        pin: true,
         anticipatePin: 1,
         onUpdate(self) {
-          gsap.set(track, { y: -travel * self.progress });
+          const y = -naturalTravel * self.progress;
+          gsap.set(track, { y });
           layout();
         }
       });
 
-      // Resize safety
       window.addEventListener("resize", () => {
-        ScrollTrigger.getById(`split-${index}`)?.kill();
-        section.dataset.splitInit = "0";
+        ScrollTrigger.getById(`sg-${index}`)?.kill();
+        section.dataset.sgInit = "0";
         initAll();
         ScrollTrigger.refresh();
       });
-
     });
   }
 
