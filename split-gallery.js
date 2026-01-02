@@ -79,16 +79,44 @@ gsap.registerPlugin(ScrollTrigger);
         return r.top + r.height / 2;
       }
 
+      function getMaskTop() {
+  return mask.getBoundingClientRect().top;
+}
+
+function getSlideTop(i) {
+  return slides[i].getBoundingClientRect().top;
+}
+
+      
       function layoutTick(useMaskCenter) {
         const centerY = getCenterY(useMaskCenter);
 
-const scales = slides.map(slide => {
+const maskTop = getMaskTop();
+
+const scales = slides.map((slide, i) => {
   const rect = slide.getBoundingClientRect();
-  const mid  = rect.top + rect.height / 2;
-  const d    = Math.abs(mid - centerY);
+
+  // FIRST slide → top-aligned = full
+  if (i === 0) {
+    const d = Math.abs(rect.top - maskTop);
+    const norm = Math.min(1, d / rect.height);
+    return 1 - norm * (1 - MIN_SCALE);
+  }
+
+  // LAST slide → top-aligned = full
+  if (i === slides.length - 1) {
+    const d = Math.abs(rect.top - maskTop);
+    const norm = Math.min(1, d / rect.height);
+    return 1 - norm * (1 - MIN_SCALE);
+  }
+
+  // MIDDLE slides → center falloff (unchanged behaviour)
+  const mid = rect.top + rect.height / 2;
+  const d   = Math.abs(mid - centerY);
   const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
   return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
 });
+
 
 
 
