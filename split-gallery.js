@@ -5,6 +5,12 @@ gsap.registerPlugin(ScrollTrigger);
 (function () {
   const BREAKPOINT = 900;
 
+  function killSplitGalleryTriggers() {
+    ScrollTrigger.getAll().forEach((st) => {
+      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) st.kill();
+    });
+  }
+
   function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
@@ -18,12 +24,9 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!mask || !track || slides.length < 2 || imgs.length < 2) return;
 
-    // Kill only our triggers (avoid nuking other site ScrollTriggers)
-    ScrollTrigger.getAll().forEach((st) => {
-      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) st.kill();
-    });
+    killSplitGalleryTriggers();
 
-    // ---- Tunables ----
+    // ---- Tunables (unchanged desktop feel) ----
     const CARD_W_REM = 60;
     const CARD_H_REM = 60;
     const MIN_SCALE = 0.5;
@@ -36,12 +39,20 @@ gsap.registerPlugin(ScrollTrigger);
     const baseH = CARD_H_REM * rootFont;
 
     // Prep containers
-    gsap.set(track, { position: "relative", padding: 0, margin: 0, clearProps: "height" });
+    gsap.set(track, {
+      position: "relative",
+      padding: 0,
+      margin: 0,
+      clearProps: "height",
+      willChange: "transform",
+    });
 
+    // ✅ Flush RIGHT: use right:0 (instead of left:0) + transform origin already right
     slides.forEach((slide) => {
       gsap.set(slide, {
         position: "absolute",
-        left: 0,
+        right: 0,
+        left: "auto",
         width: `${CARD_W_REM}rem`,
         height: `${CARD_H_REM}rem`,
         margin: 0,
@@ -61,25 +72,24 @@ gsap.registerPlugin(ScrollTrigger);
       objectPosition: "center",
     });
 
-    // Use mask center for scaling (more stable than viewport center, esp. when pinned)
+    // ---- Helpers ----
     function getCenterY() {
       const r = mask.getBoundingClientRect();
+      // fallback if mask height is 0 for any reason
+      if (!r.height) return window.innerHeight / 2;
       return r.top + r.height / 2;
-    }
-
-    function scaleForSlide(slideRectMid, centerY) {
-      const d = Math.abs(slideRectMid - centerY);
-      const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-      return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
     }
 
     function layoutTick() {
       const centerY = getCenterY();
+      const galleryH = mask.clientHeight || window.innerHeight;
 
       const scales = slides.map((slide) => {
         const rect = slide.getBoundingClientRect();
         const mid = rect.top + rect.height / 2;
-        return scaleForSlide(mid, centerY);
+        const d = Math.abs(mid - centerY);
+        const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
+        return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
       });
 
       let y = 0;
@@ -91,17 +101,12 @@ gsap.registerPlugin(ScrollTrigger);
         y += baseH * s - EPS;
       }
 
-      const galleryH = mask.clientHeight || window.innerHeight;
       track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
     }
 
     // Iteratively solve track.y so slide[index] is centered in the mask
     function solveYForSlide(index) {
-      const galleryH = mask.clientHeight || window.innerHeight;
       let y = 0;
-
-      // Start from a guess: put slide roughly in view
-      y = Math.max(0, galleryH * 0.25);
 
       gsap.set(track, { y });
       layoutTick();
@@ -122,35 +127,33 @@ gsap.registerPlugin(ScrollTrigger);
       return y;
     }
 
-    // Make sure layout has run at least once
+    // Initial layout
     gsap.set(track, { y: 0 });
     layoutTick();
 
-    // ✅ Start/end Y values that guarantee 100% hero moments
+    // ✅ Start/end hero positions (first and last at 100%)
     const yStart = solveYForSlide(0);
     const yEnd = solveYForSlide(slides.length - 1);
 
-    // If something weird happens (e.g. heights 0), bail safely
     if (!isFinite(yStart) || !isFinite(yEnd)) return;
 
     const naturalTravel = Math.max(yStart - yEnd, 0);
     const pinDistance = Math.ceil(naturalTravel * SLOWNESS);
 
     const isSmall = window.innerWidth <= BREAKPOINT;
-    const triggerElement = isSmall ? mask : section;
 
-    // Build ScrollTrigger
+    // ✅ Desktop: pin the whole section (unchanged feel)
+    // ✅ Mobile: trigger on section, but pin ONLY the mask (this fixes “not showing” / collapsing)
     ScrollTrigger.create({
       id: "splitGallery-main",
-      trigger: triggerElement,
-      start: "top top",
+      trigger: section,
+      start: isSmall ? "top top" : "top top",
       end: "+=" + pinDistance,
       scrub: true,
-      pin: true,
+      pin: isSmall ? mask : true, // key mobile fix
       anticipatePin: 1,
       invalidateOnRefresh: true,
       onRefreshInit() {
-        // Re-solve positions on refresh for accuracy
         gsap.set(track, { y: 0 });
         layoutTick();
       },
@@ -162,18 +165,17 @@ gsap.registerPlugin(ScrollTrigger);
       },
     });
 
-    // Final refresh to lock measurements
     ScrollTrigger.refresh();
   }
 
-  // --- init once DOM is ready ---
+  // Init
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSplitGallery);
   } else {
     initSplitGallery();
   }
 
-  // --- rebuild on resize (debounced) ---
+  // Rebuild on resize (debounced)
   let t;
   window.addEventListener("resize", () => {
     clearTimeout(t);
