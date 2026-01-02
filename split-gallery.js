@@ -82,13 +82,17 @@ gsap.registerPlugin(ScrollTrigger);
       function layoutTick(useMaskCenter) {
         const centerY = getCenterY(useMaskCenter);
 
-        const scales = slides.map(slide => {
-          const rect = slide.getBoundingClientRect();
-          const mid  = rect.top + rect.height / 2;
-          const d    = Math.abs(mid - centerY);
-          const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-          return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
-        });
+        const scales = slides.map((slide, i) => {
+  // Force first and last slides to be full size at edges
+  if (i === 0 || i === slides.length - 1) return 1;
+
+  const rect = slide.getBoundingClientRect();
+  const mid  = rect.top + rect.height / 2;
+  const d    = Math.abs(mid - centerY);
+  const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
+  return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+});
+
 
         let y = 0;
         for (let i = 0; i < slides.length; i++) {
