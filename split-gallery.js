@@ -142,23 +142,65 @@ layoutTick();
     const travel = Math.abs(endY - startY);
     const pinDistance = Math.ceil(travel * SLOWNESS);
 
-    const isSmall        = window.innerWidth <= 900;
-    const triggerElement = isSmall ? mask : section;
+   const stId = `splitGallery_${index}`;
 
-    const stId = `splitGallery_${index}`;
-    ScrollTrigger.getAll().forEach(st => {
-      if (st?.vars?.id === stId) st.kill();
-    });
+// Kill previous instance (safe on resize / re-init)
+ScrollTrigger.getAll().forEach(st => {
+  if (st?.vars?.id === stId) st.kill();
+});
 
+ScrollTrigger.matchMedia({
+
+  // =========================
+  // DESKTOP (pinned)
+  // =========================
+  "(min-width: 901px)": function () {
     ScrollTrigger.create({
       id: stId,
-      trigger: triggerElement,
+      trigger: section,
       start: "top top",
       end: "+=" + pinDistance,
       scrub: true,
       pin: true,
       anticipatePin: 1,
       onUpdate(self) {
+        const p = Math.min(1, Math.max(0, self.progress));
+        const SNAP_EPS = 0.999;
+        const useEnd = p >= SNAP_EPS;
+
+        const y = useEnd
+          ? endY
+          : startY + (endY - startY) * p;
+
+        gsap.set(track, { y });
+        layoutTick();
+      }
+      // markers: true
+    });
+  },
+
+  // =========================
+  // MOBILE (no pin – fixes menu)
+  // =========================
+  "(max-width: 900px)": function () {
+    ScrollTrigger.create({
+      id: stId,
+      trigger: section,
+      start: "top bottom",
+      end: "bottom top",
+      scrub: true,
+      pin: false,
+      onUpdate(self) {
+        const p = Math.min(1, Math.max(0, self.progress));
+        const y = startY + (endY - startY) * p;
+
+        gsap.set(track, { y });
+        layoutTick();
+      }
+    });
+  }
+});
+
   // Clamp so we don't drift past the final "full image" frame
   const p = Math.min(1, Math.max(0, self.progress));
 
