@@ -22,7 +22,7 @@ gsap.registerPlugin(ScrollTrigger);
       const MIN_SCALE = 0.5;
       const FALLOFF   = 0.55;
       const EPS       = 0.5;
-      const SLOWNESS  = 2.0;
+      const SLOWNESS  = 1.0;
 
       const stId = `splitGallery_${index}`;
 
@@ -158,7 +158,7 @@ gsap.registerPlugin(ScrollTrigger);
           trigger: section,
           start: "top top",
           end: "+=" + pinDistance,
-          scrub: true,
+          scrub: 1.0,
           pin: true,
           anticipatePin: 1,
           onUpdate(self) {
