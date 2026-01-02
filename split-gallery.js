@@ -45,7 +45,7 @@ gsap.registerPlugin(ScrollTrigger);
       eps: 0.5,
 
       // NEW: how much of the scroll should “hold” at the start (0..0.2 is typical)
-      startHold: 0.07
+      startHold: 0.1
     };
 
     const cfg = isSmall ? MOBILE : DESKTOP;
