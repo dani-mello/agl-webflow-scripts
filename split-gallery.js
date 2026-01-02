@@ -60,31 +60,90 @@ function initSplitGallery() {
   const galleryH = mask.clientHeight || window.innerHeight;
 
   // Start so the first card is visible at MIN_SCALE height
-  const startY = Math.max(0, galleryH - baseH * MIN_SCALE);
-  gsap.set(track, { y: startY });
+ // --- remove this old startY logic ---
+// const startY = Math.max(0, galleryH - baseH * MIN_SCALE);
+// gsap.set(track, { y: startY });
 
-  function layoutTick() {
-    const vpCenter = window.innerHeight / 2;
+function layoutTick() {
+  const vpCenter = window.innerHeight / 2;
 
-    const scales = slides.map(slide => {
-      const rect = slide.getBoundingClientRect();
-      const mid  = rect.top + rect.height / 2;
-      const d    = Math.abs(mid - vpCenter);
-      const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-      return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm); // 0.5..1..0.5
-    });
+  const scales = slides.map(slide => {
+    const rect  = slide.getBoundingClientRect();
+    const mid   = rect.top + rect.height / 2;
+    const d     = Math.abs(mid - vpCenter);
+    const norm  = Math.min(1, d / (window.innerHeight * FALLOFF));
+    return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+  });
 
-    let y = 0;
-    for (let i = 0; i < slides.length; i++) {
-      const s = scales[i];
-      slides[i].style.top       = `${y}px`;
-      slides[i].style.transform = `scale(${s})`;
-      slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
-      y += baseH * s - EPS;
-    }
-
-    track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
+  let y = 0;
+  for (let i = 0; i < slides.length; i++) {
+    const s = scales[i];
+    slides[i].style.top       = `${y}px`;
+    slides[i].style.transform = `scale(${s})`;
+    slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
+    y += baseH * s - EPS;
   }
+
+  track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
+}
+
+/**
+ * Find a track.y value that centers a given slide in the viewport.
+ * Simple iterative solver (fast + stable).
+ */
+function solveYForSlide(index) {
+  const vpCenter = window.innerHeight / 2;
+  let y = 0;
+
+  // Start from a reasonable guess so it converges quickly
+  gsap.set(track, { y });
+  layoutTick();
+
+  for (let k = 0; k < 8; k++) {
+    const rect = slides[index].getBoundingClientRect();
+    const mid  = rect.top + rect.height / 2;
+    const delta = vpCenter - mid;   // +delta means we need to move it DOWN
+    y += delta;                     // adjust track.y by the delta
+    gsap.set(track, { y });
+    layoutTick();
+    if (Math.abs(delta) < 0.5) break;
+  }
+
+  return y;
+}
+
+// 1) Compute the exact start/end y’s that give full-size “hero” moments
+const yStart = solveYForSlide(0);
+const yEnd   = solveYForSlide(slides.length - 1);
+
+// 2) Travel is simply the distance between those positions
+const naturalTravel = Math.max(yStart - yEnd, 0);
+
+// 3) Now build ScrollTrigger using yStart → yEnd mapping
+function buildPin() {
+  const pinDistance = Math.ceil(naturalTravel * SLOWNESS);
+  const isSmall = window.innerWidth <= 900;
+  const triggerElement = isSmall ? mask : section;
+
+  ScrollTrigger.create({
+    trigger: triggerElement,
+    start: "top top",
+    end: "+=" + pinDistance,
+    scrub: true,
+    pin: true,
+    anticipatePin: 1,
+    onUpdate(self) {
+      const p = self.progress;           // 0..1
+      const y = yStart - naturalTravel * p; // yStart -> yEnd
+      gsap.set(track, { y });
+      layoutTick();
+    }
+    // , markers: true
+  });
+}
+
+buildPin();
+
 
   // Initial paint so track height is real
   layoutTick();
