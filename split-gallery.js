@@ -30,7 +30,7 @@ gsap.registerPlugin(ScrollTrigger);
       const MOBILE_SCRUB  = 1.0;  // try 0.6–1.2
 
       // Start bias so first card feels full at pin start:
-      const START_OFFSET_FACTOR_DESKTOP = 0.25; // 0.20–0.35
+      const START_OFFSET_FACTOR_DESKTOP = 0.18; // 0.20–0.35
       const START_OFFSET_FACTOR_MOBILE  = 0.18; // 0.10–0.30
 
       const stId = `splitGallery_${index}`;
@@ -47,8 +47,9 @@ gsap.registerPlugin(ScrollTrigger);
 
       // Base slide size (matches CodePen: 60rem x 60rem, width fits column)
       const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const baseH = 60 * rootFont;
+      const baseH = galleryH;  // <-- full height of the mask (100vh)
       const baseW = galleryW;
+
 
       // Prep
       gsap.set(track, { position: "relative" });
