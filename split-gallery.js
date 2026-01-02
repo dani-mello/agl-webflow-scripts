@@ -159,8 +159,8 @@ gsap.registerPlugin(ScrollTrigger);
           start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
-          pin: media,
-          pinSpacing: true,
+          pin: true,
+          pinSpacing: false,
           anticipatePin: 1,
           onUpdate(self) {
             applyProgress(self.progress, startY, endY, useMaskCenter, true);
