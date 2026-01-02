@@ -90,30 +90,7 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Case B: wrapper containing <img>
-      const innerImg = imageEl ? imageEl.querySelector("img") : null;
-      if (innerImg) {
-        gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
-        gsap.set(innerImg, {
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center",
-          display: "block"
-        });
-        return;
-      }
 
-      // Case C: background-image div (common in Webflow)
-      if (imageEl) {
-        imageEl.style.backgroundSize = "cover";
-        imageEl.style.backgroundPosition = "center";
-        imageEl.style.backgroundRepeat = "no-repeat";
-        gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
-      }
-    }
 
     // Slides as cards, flush right
     slides.forEach((slide) => {
