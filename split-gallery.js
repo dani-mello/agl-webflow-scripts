@@ -3,7 +3,13 @@ gsap.registerPlugin(ScrollTrigger);
 (function () {
   const BREAKPOINT = 900;
 
-  function init() {
+  function killSplit() {
+    ScrollTrigger.getAll().forEach(st => {
+      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) st.kill();
+    });
+  }
+
+  function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
 
@@ -14,12 +20,9 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!mask || !track || slides.length < 2 || imgs.length < 2) return;
 
-    // Kill only our triggers
-    ScrollTrigger.getAll().forEach(st => {
-      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) st.kill();
-    });
+    killSplit();
 
-    // ---- SAME TUNABLES AS BEFORE (don’t touch desktop feel) ----
+    // Tunables (keep same “feel”)
     const CARD_W_REM = 60;
     const CARD_H_REM = 60;
     const MIN_SCALE  = 0.5;
@@ -30,7 +33,7 @@ gsap.registerPlugin(ScrollTrigger);
     const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     const baseH = CARD_H_REM * rootFont;
 
-    // Prep: flush right
+    // Prep track + slides (flush right)
     gsap.set(track, { position: "relative", padding: 0, margin: 0, willChange: "transform" });
 
     slides.forEach(slide => {
@@ -57,7 +60,6 @@ gsap.registerPlugin(ScrollTrigger);
       objectPosition: "center"
     });
 
-    // Use mask center when possible (prevents mobile weirdness)
     function centerY() {
       const r = mask.getBoundingClientRect();
       return (r.height ? (r.top + r.height / 2) : window.innerHeight / 2);
@@ -105,7 +107,7 @@ gsap.registerPlugin(ScrollTrigger);
       return y;
     }
 
-    // Initial paint
+    // Paint once
     gsap.set(track, { y: 0 });
     layoutTick();
 
@@ -114,20 +116,9 @@ gsap.registerPlugin(ScrollTrigger);
     const naturalTravel = Math.max(yStart - yEnd, 0);
     const pinDistance   = Math.ceil(naturalTravel * SLOWNESS);
 
-    // --- IMPORTANT: MOBILE MUST HAVE HEIGHT ---
-    // If mask height is 0, we bail to avoid “nothing appears” / infinite weirdness.
-    // (This is also a clue your CSS is collapsing.)
-    if ((window.innerWidth <= BREAKPOINT) && (mask.clientHeight < 50)) {
-      // Still show the first slide (so it’s not blank)
-      gsap.set(track, { y: yStart });
-      layoutTick();
-      return;
-    }
-
-    // Desktop + Mobile: separate triggers, desktop untouched in behaviour
     ScrollTrigger.matchMedia({
 
-      // ===== DESKTOP (LOCKED) =====
+      // DESKTOP (LOCKED)
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
           id: "splitGallery-desktop",
@@ -135,7 +126,7 @@ gsap.registerPlugin(ScrollTrigger);
           start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
-          pin: true,              // desktop pins section (same as your working setup)
+          pin: true,
           anticipatePin: 1,
           onUpdate(self) {
             const y = yStart - naturalTravel * self.progress;
@@ -145,15 +136,15 @@ gsap.registerPlugin(ScrollTrigger);
         });
       },
 
-      // ===== MOBILE (FIXED) =====
+      // MOBILE (NOW VISIBLE because CSS overflow is fixed)
       "(max-width: 900px)": function () {
         ScrollTrigger.create({
           id: "splitGallery-mobile",
-          trigger: section,       // trigger on section so it actually exists in flow
+          trigger: mask,      // start when gallery actually reaches top
           start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
-          pin: mask,              // pin ONLY the mask (prevents copy getting pinned weirdly)
+          pin: mask,
           anticipatePin: 1,
           onUpdate(self) {
             const y = yStart - naturalTravel * self.progress;
@@ -162,23 +153,21 @@ gsap.registerPlugin(ScrollTrigger);
           }
         });
       }
-
     });
 
     ScrollTrigger.refresh();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", initSplitGallery);
   } else {
-    init();
+    initSplitGallery();
   }
 
-  // Debounced resize rebuild
   let t;
   window.addEventListener("resize", () => {
     clearTimeout(t);
-    t = setTimeout(() => init(), 200);
+    t = setTimeout(initSplitGallery, 200);
   });
 
 })();
