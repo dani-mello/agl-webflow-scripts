@@ -1,237 +1,236 @@
-// Requires GSAP + ScrollTrigger already loaded globally
+// Split Gallery (Webflow) — Desktop pinned, Mobile not pinned
+// Requires GSAP + ScrollTrigger loaded globally.
 gsap.registerPlugin(ScrollTrigger);
 
-(function initAllSplitGalleries() {
-  const sections = Array.from(document.querySelectorAll(".c-split-gallery"));
-  if (!sections.length) return;
+(function () {
+  function initAll() {
+    const sections = Array.from(document.querySelectorAll(".c-split-gallery"));
+    if (!sections.length) return;
 
-  sections.forEach((section, index) => {
-    // Prevent double init per element
-    if (section.dataset.splitGalleryInit === "1") return;
-    section.dataset.splitGalleryInit = "1";
+    sections.forEach((section, index) => {
+      // Prevent double init unless we explicitly reset on resize
+      if (section.dataset.splitGalleryInit === "1") return;
+      section.dataset.splitGalleryInit = "1";
 
-    const mask  = section.querySelector(".c-split-gallery_mask");
-    const track = section.querySelector(".c-split-gallery_track");
-    const slides = track ? Array.from(track.querySelectorAll(".c-split-gallery_slide")) : [];
-    const imgs   = slides.map(s => s.querySelector("img.c-split-gallery_image")).filter(Boolean);
+      const mask  = section.querySelector(".c-split-gallery_mask");
+      const track = section.querySelector(".c-split-gallery_track");
+      if (!mask || !track) return;
 
-    if (!mask || !track || !slides.length || !imgs.length) return;
+      const slides = Array.from(track.querySelectorAll(".c-split-gallery_slide"));
+      const imgs   = slides
+        .map(s => s.querySelector("img.c-split-gallery_image"))
+        .filter(Boolean);
 
-    // --- Tunables ---
-    const MIN_SCALE = 0.5;
-    const FALLOFF   = 0.55;
-    const EPS       = 0.5;
-    const SLOWNESS  = 2.0;
+      if (!slides.length || !imgs.length) return;
 
-    // Use real mask size so:
-    // - width touches right edge
-    // - max state can be 100vh
-    const galleryH = mask.clientHeight || window.innerHeight;
-    const galleryW = mask.clientWidth  || section.clientWidth;
+      // ------------------------
+      // Tunables
+      // ------------------------
+      const MIN_SCALE = 0.5;
+      const FALLOFF   = 0.55;
+      const EPS       = 0.5;
+      const SLOWNESS  = 2.0;
 
-    // Slides are sized to the mask (so "scale(1)" = full height)
-    const baseH = galleryH;
-    const baseW = galleryW;
+      // Measure gallery size (mobile can be 0 if parent has no height)
+      // If mask is 0, bail (CSS needs min-height on mobile media)
+      const galleryH = mask.clientHeight || 0;
+      const galleryW = mask.clientWidth || 0;
+      if (galleryH < 10 || galleryW < 10) return;
 
-    // Prepare containers
-    gsap.set(track, { position: "relative" });
+      const baseH = galleryH; // "full" height
+      const baseW = galleryW; // touch right edge
 
-    slides.forEach((slide) => {
-      gsap.set(slide, {
+      // Unique id per instance
+      const stId = `splitGallery_${index}`;
+
+      // Kill existing triggers for this instance (safe)
+      ScrollTrigger.getAll().forEach(st => {
+        if (st?.vars?.id === stId) st.kill();
+      });
+
+      // ------------------------
+      // Prep
+      // ------------------------
+      gsap.set(track, { position: "relative" });
+
+      slides.forEach((slide) => {
+        gsap.set(slide, {
+          position: "absolute",
+          left: 0,
+          width: baseW + "px",
+          height: baseH + "px",
+          margin: 0,
+          overflow: "hidden",
+          display: "block",
+          transformOrigin: "right top",
+          willChange: "transform, top"
+        });
+      });
+
+      gsap.set(imgs, {
         position: "absolute",
-        left: 0,
-        width: baseW + "px",
-        height: baseH + "px",
-        margin: 0,
-        overflow: "hidden",
-        display: "block",
-        transformOrigin: "right top",
-        willChange: "transform, top"
-      });
-    });
-
-    gsap.set(imgs, {
-      position: "absolute",
-      inset: 0,
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      objectPosition: "center"
-    });
-
-    // --- Layout function (same logic, but using baseH = galleryH) ---
-    function layoutTick() {
-      const vpCenter = window.innerHeight / 2;
-
-      const scales = slides.map(slide => {
-        const rect = slide.getBoundingClientRect();
-        const mid  = rect.top + rect.height / 2;
-        const d    = Math.abs(mid - vpCenter);
-        const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
-        return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm); // 0.5..1..0.5
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        objectPosition: "center"
       });
 
-      let y = 0;
-      for (let i = 0; i < slides.length; i++) {
-        const s = scales[i];
-        slides[i].style.top       = `${y}px`;
-        slides[i].style.transform = `scale(${s})`;
-        slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
-        y += baseH * s - EPS;
+      // Layout tick (same stack math as CodePen)
+      function layoutTick() {
+        const vpCenter = window.innerHeight / 2;
+
+        const scales = slides.map(slide => {
+          const rect = slide.getBoundingClientRect();
+          const mid  = rect.top + rect.height / 2;
+          const d    = Math.abs(mid - vpCenter);
+          const norm = Math.min(1, d / (window.innerHeight * FALLOFF));
+          return MIN_SCALE + (1 - MIN_SCALE) * (1 - norm);
+        });
+
+        let y = 0;
+        for (let i = 0; i < slides.length; i++) {
+          const s = scales[i];
+          slides[i].style.top       = `${y}px`;
+          slides[i].style.transform = `scale(${s})`;
+          slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
+          y += baseH * s - EPS;
+        }
+
+        track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
       }
 
-      track.style.height = `${Math.max(y + EPS, galleryH + 1)}px`;
-    }
+      // Helpers to read slide midpoints
+      function getSlideMid(i) {
+        const r = slides[i].getBoundingClientRect();
+        return r.top + r.height / 2;
+      }
 
-    // Initial paint to get height
-    layoutTick();
+      // ------------------------
+      // Compute startY/endY so first & last land "full" (centered)
+      // ------------------------
+      const vpCenter = window.innerHeight / 2;
 
-    // ------------------------------------------------------------------
-    // ✅ Start + end on FULL images
-    //
-    // We can't "force scale(1)" directly (scale is based on viewport center),
-    // but we CAN start/end so the first/last slide centers pass through the
-    // viewport center at the beginning/end of the scroll.
-    //
-    // We do that by setting startY and endY based on slide midpoint targets.
-    // ------------------------------------------------------------------
+      let startY = 0;
+      gsap.set(track, { y: startY });
+      layoutTick();
 
-    // Helper: slide midpoint in viewport for current track y
-    function getSlideMid(i) {
-      const r = slides[i].getBoundingClientRect();
-      return r.top + r.height / 2;
-    }
+      // 2-pass refine for start
+      startY += (vpCenter - getSlideMid(0));
+      gsap.set(track, { y: startY });
+      layoutTick();
+      startY += (vpCenter - getSlideMid(0));
+      gsap.set(track, { y: startY });
+      layoutTick();
 
-    const vpCenter = window.innerHeight / 2;
+      // 2-pass refine for end
+      let endY = startY;
+      endY += (vpCenter - getSlideMid(slides.length - 1));
+      gsap.set(track, { y: endY });
+      layoutTick();
+      endY += (vpCenter - getSlideMid(slides.length - 1));
+      gsap.set(track, { y: endY });
+      layoutTick();
 
-// --- Solve startY (2-pass) so ONLY the first slide is fully in view ---
-let startY = 0;
+      // Restore to start
+      gsap.set(track, { y: startY });
+      layoutTick();
 
-// Pass 1
-gsap.set(track, { y: startY });
-layoutTick();
-startY += (vpCenter - getSlideMid(0));
+      const travel = Math.abs(endY - startY);
+      const pinDistance = Math.ceil(travel * SLOWNESS);
 
-// Pass 2 (re-layout changes stack slightly, so refine)
-gsap.set(track, { y: startY });
-layoutTick();
-startY += (vpCenter - getSlideMid(0));
-
-// Apply final
-gsap.set(track, { y: startY });
-layoutTick();
-
-// --- Solve endY (2-pass) so the last slide lands full and stays ---
-let endY = startY;
-
-// Pass 1
-endY += (vpCenter - getSlideMid(slides.length - 1));
-gsap.set(track, { y: endY });
-layoutTick();
-
-// Pass 2 refine
-endY += (vpCenter - getSlideMid(slides.length - 1));
-gsap.set(track, { y: endY });
-layoutTick();
-
-// Restore to start
-gsap.set(track, { y: startY });
-layoutTick();
-
-
-    const travel = Math.abs(endY - startY);
-    const pinDistance = Math.ceil(travel * SLOWNESS);
-
-   const stId = `splitGallery_${index}`;
-
-// Kill previous instance (safe on resize / re-init)
-ScrollTrigger.getAll().forEach(st => {
-  if (st?.vars?.id === stId) st.kill();
-});
-
-ScrollTrigger.matchMedia({
-
-  // =========================
-  // DESKTOP (pinned)
-  // =========================
-  "(min-width: 901px)": function () {
-    ScrollTrigger.create({
-      id: stId,
-      trigger: section,
-      start: "top top",
-      end: "+=" + pinDistance,
-      scrub: true,
-      pin: true,
-      anticipatePin: 1,
-      onUpdate(self) {
-        const p = Math.min(1, Math.max(0, self.progress));
-        const SNAP_EPS = 0.999;
-        const useEnd = p >= SNAP_EPS;
+      // Update function shared by desktop/mobile triggers
+      function applyProgress(p, snapEnd) {
+        const clamped = Math.min(1, Math.max(0, p));
+        const SNAP_EPS = snapEnd ? 0.999 : 2; // if snapEnd true, use near-1 snap; else never snap
+        const useEnd = clamped >= SNAP_EPS;
 
         const y = useEnd
           ? endY
-          : startY + (endY - startY) * p;
+          : startY + (endY - startY) * clamped;
 
         gsap.set(track, { y });
         layoutTick();
       }
-      // markers: true
-    });
-  },
 
-  // =========================
-  // MOBILE (no pin – fixes menu)
-  // =========================
-  "(max-width: 900px)": function () {
-    ScrollTrigger.create({
-      id: stId,
-      trigger: section,
-      start: "top bottom",
-      end: "bottom top",
-      scrub: true,
-      pin: false,
-      onUpdate(self) {
-        const p = Math.min(1, Math.max(0, self.progress));
-        const y = startY + (endY - startY) * p;
-
-        gsap.set(track, { y });
-        layoutTick();
+      // ------------------------
+      // Desktop pinned trigger
+      // ------------------------
+      function createDesktopTrigger() {
+        ScrollTrigger.create({
+          id: stId,
+          trigger: section,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: true,
+          anticipatePin: 1,
+          onUpdate(self) {
+            applyProgress(self.progress, true); // snap at end
+          }
+          // markers:true
+        });
       }
+
+      // ------------------------
+      // Mobile: no pin (prevents tap blocking / menu issues)
+      // ------------------------
+      function createMobileTrigger() {
+        ScrollTrigger.create({
+          id: stId,
+          trigger: section,
+          start: "top bottom",
+          end: "bottom top",
+          scrub: true,
+          pin: false,
+          onUpdate(self) {
+            applyProgress(self.progress, false);
+          }
+        });
+      }
+
+      // Create appropriate trigger based on current width
+      const isMobile = window.innerWidth <= 900;
+      if (isMobile) createMobileTrigger();
+      else createDesktopTrigger();
+
+      // ------------------------
+      // Resize: rebuild this instance cleanly
+      // ------------------------
+      let t;
+      window.addEventListener("resize", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          // Kill this trigger
+          ScrollTrigger.getAll().forEach(st => {
+            if (st?.vars?.id === stId) st.kill();
+          });
+
+          // Allow re-init of this section
+          section.dataset.splitGalleryInit = "0";
+
+          // Re-init all (safe)
+          initAll();
+
+          // Refresh ST
+          ScrollTrigger.refresh();
+        }, 200);
+      });
     });
   }
-});
 
-  // Clamp so we don't drift past the final "full image" frame
-  const p = Math.min(1, Math.max(0, self.progress));
+  // Boot after Webflow
+  function boot() {
+    const start = () => initAll();
 
-  // When we’re extremely close to the end, snap to endY and stop jitter
-  const SNAP_EPS = 0.999; // tweak if you want earlier snap
-  const useEnd = p >= SNAP_EPS;
+    if (window.Webflow && Array.isArray(window.Webflow)) {
+      window.Webflow.push(start);
+    } else if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", start, { once: true });
+    } else {
+      start();
+    }
+  }
 
-  const y = useEnd
-    ? endY
-    : startY + (endY - startY) * p;
-
-  gsap.set(track, { y });
-  layoutTick();
-}
-
-      // markers: true
-    });
-
-    // Rebuild on resize (per instance)
-    let t;
-    window.addEventListener("resize", () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        // allow re-init
-        section.dataset.splitGalleryInit = "0";
-        ScrollTrigger.getAll().forEach(st => {
-          if (st?.vars?.id === stId) st.kill();
-        });
-        initAllSplitGalleries();
-        ScrollTrigger.refresh();
-      }, 150);
-    });
-  });
+  boot();
 })();
