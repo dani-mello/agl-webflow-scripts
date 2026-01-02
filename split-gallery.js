@@ -104,26 +104,40 @@ gsap.registerPlugin(ScrollTrigger);
 
     const vpCenter = window.innerHeight / 2;
 
-    // Find startY so FIRST slide mid ~= vpCenter
-    // We'll do a small search around 0..galleryH range (stable, fast)
-    let startY = 0;
-    gsap.set(track, { y: 0 });
-    layoutTick();
+// --- Solve startY (2-pass) so ONLY the first slide is fully in view ---
+let startY = 0;
 
-    // Adjust startY by the delta between first mid and vpCenter
-    startY += (vpCenter - getSlideMid(0));
-    gsap.set(track, { y: startY });
-    layoutTick();
+// Pass 1
+gsap.set(track, { y: startY });
+layoutTick();
+startY += (vpCenter - getSlideMid(0));
 
-    // Now compute endY so LAST slide mid ~= vpCenter
-    let endY = startY;
-    endY += (vpCenter - getSlideMid(slides.length - 1));
-    gsap.set(track, { y: endY });
-    layoutTick();
+// Pass 2 (re-layout changes stack slightly, so refine)
+gsap.set(track, { y: startY });
+layoutTick();
+startY += (vpCenter - getSlideMid(0));
 
-    // Restore to start position
-    gsap.set(track, { y: startY });
-    layoutTick();
+// Apply final
+gsap.set(track, { y: startY });
+layoutTick();
+
+// --- Solve endY (2-pass) so the last slide lands full and stays ---
+let endY = startY;
+
+// Pass 1
+endY += (vpCenter - getSlideMid(slides.length - 1));
+gsap.set(track, { y: endY });
+layoutTick();
+
+// Pass 2 refine
+endY += (vpCenter - getSlideMid(slides.length - 1));
+gsap.set(track, { y: endY });
+layoutTick();
+
+// Restore to start
+gsap.set(track, { y: startY });
+layoutTick();
+
 
     const travel = Math.abs(endY - startY);
     const pinDistance = Math.ceil(travel * SLOWNESS);
@@ -145,11 +159,21 @@ gsap.registerPlugin(ScrollTrigger);
       pin: true,
       anticipatePin: 1,
       onUpdate(self) {
-        const p = self.progress; // 0..1
-        const y = startY + (endY - startY) * p;
-        gsap.set(track, { y });
-        layoutTick();
-      }
+  // Clamp so we don't drift past the final "full image" frame
+  const p = Math.min(1, Math.max(0, self.progress));
+
+  // When we’re extremely close to the end, snap to endY and stop jitter
+  const SNAP_EPS = 0.999; // tweak if you want earlier snap
+  const useEnd = p >= SNAP_EPS;
+
+  const y = useEnd
+    ? endY
+    : startY + (endY - startY) * p;
+
+  gsap.set(track, { y });
+  layoutTick();
+}
+
       // markers: true
     });
 
