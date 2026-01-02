@@ -175,19 +175,22 @@ gsap.registerPlugin(ScrollTrigger);
       // ------------------------
       // Mobile: no pin (prevents tap blocking / menu issues)
       // ------------------------
-      function createMobileTrigger() {
-        ScrollTrigger.create({
-          id: stId,
-          trigger: section,
-          start: "top bottom",
-          end: "bottom top",
-          scrub: true,
-          pin: false,
-          onUpdate(self) {
-            applyProgress(self.progress, false);
-          }
-        });
-      }
+function createMobileTrigger() {
+  ScrollTrigger.create({
+    id: stId,
+    trigger: mask,          // 👈 pin ONLY the gallery mask
+    start: "top top",
+    end: "+=" + pinDistance,
+    scrub: true,
+    pin: true,              // 👈 pin is back ON
+    anticipatePin: 1,
+    pinSpacing: true,       // keep natural flow
+    onUpdate(self) {
+      applyProgress(self.progress, true);
+    }
+  });
+}
+
 
       // Create appropriate trigger based on current width
       const isMobile = window.innerWidth <= 900;
