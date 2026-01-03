@@ -1,14 +1,7 @@
-/* inline-gallery.js
-   - Webflow/component safe (class-based, no IDs)
-   - Supports multiple galleries on a page
-   - Builds & updates progress segments
-*/
-
 (() => {
-  const VISIBLE = 1.5; // peek amount (we can make this responsive later)
+  const VISIBLE = 1.5;
 
   function initGallery(root) {
-    // Prevent double init (Webflow can trigger multiple ready events)
     if (root.dataset.igInit === "1") return;
     root.dataset.igInit = "1";
 
@@ -18,7 +11,19 @@
     const next = root.querySelector(".ig-next");
     const progress = root.querySelector(".ig-progress");
 
-    if (!track || slides.length < 2 || !prev || !next || !progress) return;
+    console.log("[IG] initGallery", {
+      hasTrack: !!track,
+      slides: slides.length,
+      hasProgress: !!progress,
+      hasPrev: !!prev,
+      hasNext: !!next
+    });
+
+    // ✅ For debugging: only require track + slides + progress
+    if (!track || slides.length < 2 || !progress) {
+      console.warn("[IG] Skipping gallery (missing required elements)");
+      return;
+    }
 
     const N = slides.length;
     let index = 0;
@@ -32,6 +37,7 @@
       progress.appendChild(seg);
     }
     const segs = Array.from(progress.children);
+    console.log("[IG] segments built:", segs.length);
 
     function computeMetrics() {
       const r0 = slides[0].getBoundingClientRect();
@@ -52,85 +58,60 @@
       track.style.transform = `translate3d(${-index * stepPx}px, 0, 0)`;
     }
 
-    function updateButtons() {
-      prev.classList.toggle("is-disabled", index === 0);
-      next.classList.toggle("is-disabled", index >= maxIndex());
-      prev.setAttribute("aria-disabled", index === 0 ? "true" : "false");
-      next.setAttribute("aria-disabled", index >= maxIndex() ? "true" : "false");
-    }
-
     function updateProgress() {
       segs.forEach((s) => s.classList.remove("is-active"));
       const active = Math.min(index, N - 1);
-      if (segs[active]) segs[active].classList.add("is-active");
+      segs[active]?.classList.add("is-active");
     }
 
     function goTo(i) {
       index = clampIndex(i);
       applyTransform();
-      updateButtons();
       updateProgress();
     }
 
-    function nextOne() { goTo(index + 1); }
-    function prevOne() { goTo(index - 1); }
+    // Wire buttons only if they exist
+    if (next) {
+      next.addEventListener("click", (e) => {
+        e.preventDefault();
+        goTo(index + 1);
+      });
+    }
+    if (prev) {
+      prev.addEventListener("click", (e) => {
+        e.preventDefault();
+        goTo(index - 1);
+      });
+    }
 
-    next.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (next.classList.contains("is-disabled")) return;
-      nextOne();
+    window.addEventListener("resize", () => {
+      computeMetrics();
+      goTo(index);
     });
 
-    prev.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (prev.classList.contains("is-disabled")) return;
-      prevOne();
-    });
-
-    // Resize handler (scoped) + debounced a bit
-    let resizeT;
-    const onResize = () => {
-      clearTimeout(resizeT);
-      resizeT = setTimeout(() => {
-        computeMetrics();
-        goTo(index);
-      }, 50);
-    };
-    window.addEventListener("resize", onResize);
-
-    // Initial
     computeMetrics();
     goTo(0);
   }
 
   function initAll() {
-    document.querySelectorAll(".inline-gallery").forEach(initGallery);
+    const galleries = document.querySelectorAll(".inline-gallery");
+    console.log("[IG] initAll galleries found:", galleries.length);
+    galleries.forEach(initGallery);
   }
 
-  // Robust init (Webflow + normal sites)
-  function runOnceWhenReady(fn) {
-    let ran = false;
-    const run = () => {
-      if (ran) return;
-      ran = true;
-      fn();
-    };
+  // Robust init (works in Webflow preview + published)
+  const run = () => initAll();
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", run, { once: true });
-    } else {
-      run();
-    }
-
-    window.addEventListener("load", run, { once: true });
-
-    if (window.Webflow && typeof window.Webflow.push === "function") {
-      window.Webflow.push(run);
-    }
-
-    setTimeout(run, 0);
-    setTimeout(run, 300);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
   }
+  window.addEventListener("load", run, { once: true });
+  setTimeout(run, 0);
+  setTimeout(run, 300);
 
-  runOnceWhenReady(initAll);
+  if (window.Webflow && typeof window.Webflow.push === "function") {
+    window.Webflow.push(run);
+  }
 })();
