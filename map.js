@@ -1,5 +1,3 @@
-
-
 // map.js
 (function () {
   console.log("%c[AGL MAP] map.js loaded", "font-weight:bold; font-size:14px;");
@@ -9,9 +7,15 @@
   var branchOrSha = "main";
 
   // Cache-bust so jsDelivr doesn't serve stale SVG
- var SVG_URL =
-  "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg?v=" + Date.now();
-
+  var SVG_URL =
+    "https://cdn.jsdelivr.net/gh/" +
+    owner +
+    "/" +
+    repo +
+    "@" +
+    branchOrSha +
+    "/map.svg?v=" +
+    Date.now();
 
   var containerId = "agl-map-container";
   var PANEL_HIDDEN_CLASS = "is-hidden";
@@ -20,12 +24,9 @@
     return window.matchMedia("(max-width: 768px)").matches;
   }
 
-  // ...rest of your code...
-
-
-
-
-  // Your region copy
+  // --------------------------------------------
+  // Region copy (keys must match data-region)
+  // --------------------------------------------
   var regionData = {
     aoraki: {
       title: "Aoraki / Mount Cook",
@@ -44,8 +45,11 @@
     },
   };
 
+  // --------------------------------------------
+  // Init interactions + GSAP AFTER SVG inject
+  // --------------------------------------------
   function initMap(container) {
-    // IMPORTANT: query INSIDE the injected SVG/container
+    // IMPORTANT: query INSIDE injected SVG
     var regions = container.querySelectorAll(".map-region");
     var pins = container.querySelectorAll('g[id^="pin-"]');
 
@@ -88,6 +92,7 @@
     }
 
     function clearActive() {
+      // NodeList.forEach is fine in modern browsers; keeping as-is
       regions.forEach(function (r) {
         r.classList.remove("map-region_active");
       });
@@ -115,6 +120,7 @@
       });
     });
 
+    // Tap/click outside hides panel (mobile only)
     document.addEventListener("click", function (e) {
       if (!isMobile()) return;
 
@@ -127,7 +133,9 @@
       }
     });
 
+    // --------------------------------------------
     // GSAP animation (optional)
+    // --------------------------------------------
     if (typeof gsap !== "undefined") {
       var tl = gsap.timeline();
 
@@ -142,6 +150,7 @@
       });
 
       if (pins.length) {
+        // hide pins at time 0 (no flash)
         tl.set(
           pins,
           { opacity: 0, scale: 0.6, y: 14, transformOrigin: "50% 50%" },
@@ -161,17 +170,24 @@
           "-=0.25"
         );
       }
+    } else {
+      console.warn("[AGL MAP] GSAP not found — skipping animation.");
     }
   }
 
+  // --------------------------------------------
+  // Load SVG into container
+  // --------------------------------------------
   function loadSvg() {
     var container = document.getElementById(containerId);
+
+    console.log("[AGL MAP] container found?", !!container, "id:", containerId, container);
+
     if (!container) {
       console.warn("[AGL MAP] Container not found:", containerId);
       return;
     }
 
-    // STEP 2B.3 — prove the SVG fetch works (or show why it doesn't)
     console.log("[AGL MAP] SVG_URL =", SVG_URL);
 
     fetch(SVG_URL, { cache: "no-store" })
@@ -186,9 +202,12 @@
         );
 
         if (!res.ok) {
-          // Try to read body to see if it's HTML 404 page etc.
+          // often a CDN 404 returns HTML — show a preview
           return res.text().then(function (txt) {
-            console.error("[AGL MAP] Bad response body (first 200):", txt.slice(0, 200));
+            console.error(
+              "[AGL MAP] Bad response body (first 200):",
+              txt.slice(0, 200)
+            );
             throw res;
           });
         }
@@ -197,10 +216,15 @@
       })
       .then(function (svgText) {
         console.log("[AGL MAP] first 120 chars:", svgText.slice(0, 120));
+
         container.innerHTML = svgText;
 
         console.log("[AGL MAP] SVG injected. Length:", svgText.length);
-        console.log("[AGL MAP] container:", container);
+
+        // extra sanity check counts (same as initMap but before)
+        var regionsCount = container.querySelectorAll(".map-region").length;
+        var pinsCount = container.querySelectorAll('g[id^="pin-"]').length;
+        console.log("[AGL MAP] regions found:", regionsCount, "pins:", pinsCount);
 
         initMap(container);
       })
@@ -211,4 +235,4 @@
 
   // Run once DOM is ready
   document.addEventListener("DOMContentLoaded", loadSvg);
-})(); // <-- keep THIS single closer at the very end
+})();
