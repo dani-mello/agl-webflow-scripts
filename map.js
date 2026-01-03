@@ -1,3 +1,6 @@
+console.log("[AGL MAP] SVG injected. Length:", svgText.length);
+
+
 (function () {
   var owner = 'dani-mello';
   var repo  = 'agl-webflow-scripts';
