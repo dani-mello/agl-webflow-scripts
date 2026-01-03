@@ -22,7 +22,7 @@
 
   // ...rest of your code...
 
-})(); // <-- keep THIS single closer at the very end
+
 
 
   // Your region copy
@@ -211,4 +211,4 @@
 
   // Run once DOM is ready
   document.addEventListener("DOMContentLoaded", loadSvg);
-})(); // ✅ keeps “Unexpected end of input” away
+})(); // <-- keep THIS single closer at the very end
