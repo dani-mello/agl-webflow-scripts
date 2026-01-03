@@ -5,9 +5,13 @@
 */
 
 (() => {
-  const VISIBLE = 1.5; // 1.5 shows a peek of the next slide
+  const VISIBLE = 1.5; // peek amount (we can make this responsive later)
 
   function initGallery(root) {
+    // Prevent double init (Webflow can trigger multiple ready events)
+    if (root.dataset.igInit === "1") return;
+    root.dataset.igInit = "1";
+
     const track = root.querySelector(".inline-gallery__track");
     const slides = track ? Array.from(track.querySelectorAll(".ig-slide")) : [];
     const prev = root.querySelector(".ig-prev");
@@ -83,49 +87,50 @@
       prevOne();
     });
 
-    window.addEventListener("resize", () => {
-      computeMetrics();
-      goTo(index);
-    });
+    // Resize handler (scoped) + debounced a bit
+    let resizeT;
+    const onResize = () => {
+      clearTimeout(resizeT);
+      resizeT = setTimeout(() => {
+        computeMetrics();
+        goTo(index);
+      }, 50);
+    };
+    window.addEventListener("resize", onResize);
 
+    // Initial
     computeMetrics();
     goTo(0);
   }
 
   function initAll() {
-  const galleries = document.querySelectorAll(".inline-gallery");
-  console.log("galleries found:", galleries.length);
-  galleries.forEach(initGallery);
-}
-
-/* ---- Robust init (Webflow + normal sites) ---- */
-function runOnceWhenReady(fn) {
-  let ran = false;
-  const run = () => {
-    if (ran) return;
-    ran = true;
-    fn();
-  };
-
-  // DOM ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", run, { once: true });
-  } else {
-    run();
+    document.querySelectorAll(".inline-gallery").forEach(initGallery);
   }
 
-  // Window load fallback (Webflow can inject/alter DOM after DOMContentLoaded)
-  window.addEventListener("load", run, { once: true });
+  // Robust init (Webflow + normal sites)
+  function runOnceWhenReady(fn) {
+    let ran = false;
+    const run = () => {
+      if (ran) return;
+      ran = true;
+      fn();
+    };
 
-  // Webflow hook (if available)
-  if (window.Webflow && typeof window.Webflow.push === "function") {
-    window.Webflow.push(run);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", run, { once: true });
+    } else {
+      run();
+    }
+
+    window.addEventListener("load", run, { once: true });
+
+    if (window.Webflow && typeof window.Webflow.push === "function") {
+      window.Webflow.push(run);
+    }
+
+    setTimeout(run, 0);
+    setTimeout(run, 300);
   }
 
-  // Last-resort fallback (covers weird embed/script order)
-  setTimeout(run, 0);
-  setTimeout(run, 300);
-}
-
-runOnceWhenReady(initAll);
-
+  runOnceWhenReady(initAll);
+})();
