@@ -93,16 +93,39 @@
   }
 
   function initAll() {
-    document.querySelectorAll(".inline-gallery").forEach(initGallery);
+  const galleries = document.querySelectorAll(".inline-gallery");
+  console.log("galleries found:", galleries.length);
+  galleries.forEach(initGallery);
+}
+
+/* ---- Robust init (Webflow + normal sites) ---- */
+function runOnceWhenReady(fn) {
+  let ran = false;
+  const run = () => {
+    if (ran) return;
+    ran = true;
+    fn();
+  };
+
+  // DOM ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
   }
 
-  // Webflow-safe init + normal sites
+  // Window load fallback (Webflow can inject/alter DOM after DOMContentLoaded)
+  window.addEventListener("load", run, { once: true });
+
+  // Webflow hook (if available)
   if (window.Webflow && typeof window.Webflow.push === "function") {
-    window.Webflow.push(initAll);
-  } else if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initAll);
-  } else {
-    initAll();
+    window.Webflow.push(run);
   }
-})();
+
+  // Last-resort fallback (covers weird embed/script order)
+  setTimeout(run, 0);
+  setTimeout(run, 300);
+}
+
+runOnceWhenReady(initAll);
 
