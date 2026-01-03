@@ -11,34 +11,21 @@
     const next = root.querySelector(".ig-next");
     const progress = root.querySelector(".ig-progress");
 
-    console.log("[IG] initGallery", {
-      hasTrack: !!track,
-      slides: slides.length,
-      hasProgress: !!progress,
-      hasPrev: !!prev,
-      hasNext: !!next
-    });
-
-    // ✅ For debugging: only require track + slides + progress
-    if (!track || slides.length < 2 || !progress) {
-      console.warn("[IG] Skipping gallery (missing required elements)");
-      return;
-    }
+    // Require only what we need for progress + sliding
+    if (!track || slides.length < 2 || !progress) return;
 
     const N = slides.length;
     let index = 0;
     let stepPx = 0;
 
-    // Build progress segments
-for (let i = 0; i < N; i++) {
-  const seg = document.createElement("div");
-  seg.className = "ig-progress__seg";
-  progress.appendChild(seg);
-}
-
-
+    // Build progress segments (clear first)
+    progress.innerHTML = "";
+    for (let i = 0; i < N; i++) {
+      const seg = document.createElement("div");
+      seg.className = "ig-progress__seg";
+      progress.appendChild(seg);
+    }
     const segs = Array.from(progress.children);
-    console.log("[IG] segments built:", segs.length);
 
     function computeMetrics() {
       const r0 = slides[0].getBoundingClientRect();
@@ -59,49 +46,44 @@ for (let i = 0; i < N; i++) {
       track.style.transform = `translate3d(${-index * stepPx}px, 0, 0)`;
     }
 
-
     function updateProgress() {
-  segs.forEach((s) => s.classList.remove("is-active"));
-  const active = Math.min(index, N - 1);
-  if (segs[active]) segs[active].classList.add("is-active");
-}
-
-
-  const active = Math.min(index, N - 1);
-  if (segs[active]) {
-    segs[active].classList.add("is-active");
-    // DEBUG: force active state
-    segs[active].style.opacity = "1";
-    segs[active].style.height = "10px";
-  }
-}
-
+      segs.forEach((s) => s.classList.remove("is-active"));
+      const active = Math.min(index, N - 1);
+      segs[active]?.classList.add("is-active");
+    }
 
     function goTo(i) {
       index = clampIndex(i);
       applyTransform();
       updateProgress();
+      if (prev) prev.classList.toggle("is-disabled", index === 0);
+      if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
-  
-
-    // Wire buttons only if they exist
+    // Buttons (optional)
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
+        if (next.classList.contains("is-disabled")) return;
         goTo(index + 1);
       });
     }
     if (prev) {
       prev.addEventListener("click", (e) => {
         e.preventDefault();
+        if (prev.classList.contains("is-disabled")) return;
         goTo(index - 1);
       });
     }
 
+    // Resize
+    let t;
     window.addEventListener("resize", () => {
-      computeMetrics();
-      goTo(index);
+      clearTimeout(t);
+      t = setTimeout(() => {
+        computeMetrics();
+        goTo(index);
+      }, 60);
     });
 
     computeMetrics();
@@ -109,14 +91,11 @@ for (let i = 0; i < N; i++) {
   }
 
   function initAll() {
-    const galleries = document.querySelectorAll(".inline-gallery");
-    console.log("[IG] initAll galleries found:", galleries.length);
-    galleries.forEach(initGallery);
+    document.querySelectorAll(".inline-gallery").forEach(initGallery);
   }
 
-  // Robust init (works in Webflow preview + published)
+  // Webflow + normal sites
   const run = () => initAll();
-
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run, { once: true });
   } else {
@@ -125,7 +104,6 @@ for (let i = 0; i < N; i++) {
   window.addEventListener("load", run, { once: true });
   setTimeout(run, 0);
   setTimeout(run, 300);
-
   if (window.Webflow && typeof window.Webflow.push === "function") {
     window.Webflow.push(run);
   }
