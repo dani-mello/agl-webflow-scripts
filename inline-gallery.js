@@ -60,6 +60,87 @@
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
+
+
+    
+    // --- Drag / swipe (pointer events) ---
+let isDown = false;
+let startX = 0;
+let startTranslate = 0;
+let currentTranslate = 0;
+let moved = false;
+
+function getTranslateX(el) {
+  const t = getComputedStyle(el).transform;
+  if (!t || t === "none") return 0;
+  const m = new DOMMatrixReadOnly(t);
+  return m.m41; // translateX
+}
+
+function setTranslateX(x) {
+  track.style.transform = `translate3d(${x}px, 0, 0)`;
+}
+
+function onDown(e) {
+  // only left-click / primary touch
+  if (e.button !== undefined && e.button !== 0) return;
+
+  isDown = true;
+  moved = false;
+  track.style.transition = "none";
+
+  startX = e.clientX;
+  startTranslate = getTranslateX(track);
+  currentTranslate = startTranslate;
+
+  root.setPointerCapture?.(e.pointerId);
+}
+
+function onMove(e) {
+  if (!isDown) return;
+  const dx = e.clientX - startX;
+  if (Math.abs(dx) > 3) moved = true;
+
+  currentTranslate = startTranslate + dx;
+  setTranslateX(currentTranslate);
+}
+
+function onUp(e) {
+  if (!isDown) return;
+  isDown = false;
+
+  // restore snapping transition
+  track.style.transition = "transform 300ms ease";
+
+  const dx = e.clientX - startX;
+  const threshold = stepPx * 0.18; // ~18% of slide step
+
+  if (dx < -threshold) goTo(index + 1);
+  else if (dx > threshold) goTo(index - 1);
+  else goTo(index); // snap back
+}
+
+// Attach drag to the mask (better UX than the whole page)
+const mask = root.querySelector(".inline-gallery__mask") || root;
+mask.style.touchAction = "pan-y"; // allow vertical scroll, capture horizontal
+
+mask.addEventListener("pointerdown", onDown);
+mask.addEventListener("pointermove", onMove);
+mask.addEventListener("pointerup", onUp);
+mask.addEventListener("pointercancel", onUp);
+
+// Prevent click-through if user dragged
+mask.addEventListener("click", (e) => {
+  if (moved) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, true);
+
+
+
+    
+
     // Buttons (optional)
     if (next) {
       next.addEventListener("click", (e) => {
