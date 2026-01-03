@@ -8,9 +8,10 @@ window.__MAP_BOOT__ = "executed";
   var branchOrSha = "main";
 
   // Cache-bust so jsDelivr doesn't serve stale SVG
-  var SVG_URL =
-    "https://cdn.jsdelivr.net/gh/" +
-    owner + "/" + repo + "@" + branchOrSha + "/map.svg?v=" + Date.now();
+var SVG_URL =
+  "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg?v=" + Date.now();
+
+  
 
   var containerId = "agl-map-container";
   var PANEL_HIDDEN_CLASS = "is-hidden";
