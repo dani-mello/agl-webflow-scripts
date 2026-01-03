@@ -1,4 +1,6 @@
-console.log("MAP BOOT: top of file");
+alert("MAP BOOT: map.js executed");
+window.__MAP_BOOT__ = "executed";
+
 
 
 
