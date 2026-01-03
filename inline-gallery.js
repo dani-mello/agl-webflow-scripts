@@ -30,12 +30,19 @@
     let stepPx = 0;
 
     // Build progress segments
-    progress.innerHTML = "";
-    for (let i = 0; i < N; i++) {
-      const seg = document.createElement("div");
-      seg.className = "ig-progress__seg";
-      progress.appendChild(seg);
-    }
+for (let i = 0; i < N; i++) {
+  const seg = document.createElement("div");
+  seg.className = "ig-progress__seg";
+
+  // DEBUG: force visible no matter what CSS is doing
+  seg.style.background = "#ff00ff";
+  seg.style.opacity = "0.25";
+  seg.style.height = "2px";
+  seg.style.borderRadius = "999px";
+
+  progress.appendChild(seg);
+}
+
     const segs = Array.from(progress.children);
     console.log("[IG] segments built:", segs.length);
 
