@@ -234,5 +234,11 @@
   }
 
   // Run once DOM is ready
+  if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", loadSvg);
+} else {
+  // DOM already ready (very common in Webflow)
+  loadSvg();
+}
+
 })();
