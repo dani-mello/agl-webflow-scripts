@@ -1,7 +1,3 @@
-console.log("[AGL MAP] SVG injected. Length:", svg.length);
-console.log("[AGL MAP] regions:", document.querySelectorAll(".map-region").length);
-
-
 // map.js
 (function () {
   var owner = "dani-mello";
