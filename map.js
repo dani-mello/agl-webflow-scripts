@@ -9,7 +9,7 @@ window.__MAP_BOOT__ = "executed";
 
   // Cache-bust so jsDelivr doesn't serve stale SVG
 var SVG_URL =
-  "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg?v=" + Date.now();
+  "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg" + Date.now();
 
   
 
