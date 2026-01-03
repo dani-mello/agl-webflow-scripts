@@ -33,15 +33,9 @@
 for (let i = 0; i < N; i++) {
   const seg = document.createElement("div");
   seg.className = "ig-progress__seg";
-
-  // DEBUG: force visible no matter what CSS is doing
-  seg.style.background = "#ff00ff";
-  seg.style.opacity = "0.25";
-  seg.style.height = "2px";
-  seg.style.borderRadius = "999px";
-
   progress.appendChild(seg);
 }
+
 
     const segs = Array.from(progress.children);
     console.log("[IG] segments built:", segs.length);
@@ -67,12 +61,11 @@ for (let i = 0; i < N; i++) {
 
 
     function updateProgress() {
-  segs.forEach((s) => {
-    s.classList.remove("is-active");
-    // DEBUG: force inactive state
-    s.style.opacity = "0.25";
-    s.style.height = "2px";
-  });
+  segs.forEach((s) => s.classList.remove("is-active"));
+  const active = Math.min(index, N - 1);
+  if (segs[active]) segs[active].classList.add("is-active");
+}
+
 
   const active = Math.min(index, N - 1);
   if (segs[active]) {
