@@ -1,3 +1,7 @@
+console.log("[AGL MAP] SVG injected. Length:", svg.length);
+console.log("[AGL MAP] regions:", document.querySelectorAll(".map-region").length);
+
+
 // map.js
 (function () {
   var owner = "dani-mello";
@@ -5,8 +9,7 @@
   var branchOrSha = "main";
 
   var SVG_URL =
-    "https://cdn.jsdelivr.net/gh/" +
-    owner + "/" + repo + "@" + branchOrSha + "/map.svg";
+    "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg";
 
   var containerId = "agl-map-container";
   var PANEL_HIDDEN_CLASS = "is-hidden";
