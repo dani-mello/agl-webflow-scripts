@@ -67,129 +67,36 @@
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
-    // --- Drag / swipe (pointer events) — smoother + resistance ---
-let isDown = false;
-let startX = 0;
-let startTranslate = 0;
-let currentTranslate = 0;
-let moved = false;
+    // --- Drag / swipe (pointer events) ---
+    let isDown = false;
+    let startX = 0;
+    let startTranslate = 0;
+    let moved = false;
 
-let rafId = null;
-let pendingX = null;
-
-function getTranslateX(el) {
-  const t = getComputedStyle(el).transform;
-  if (!t || t === "none") return 0;
-  const m = new DOMMatrixReadOnly(t);
-  return m.m41;
-}
-
-function setTranslateX(x) {
-  track.style.transform = `translate3d(${x}px, 0, 0)`;
-}
-
-function minTranslate() {
-  // leftmost = last index
-  return -maxIndex() * stepPx;
-}
-function maxTranslate() {
-  // rightmost = first index
-  return 0;
-}
-
-function applyWithResistance(x) {
-  const minX = minTranslate();
-  const maxX = maxTranslate();
-
-  if (x > maxX) {
-    const over = x - maxX;
-    return maxX + over * 0.25; // resistance
-  }
-  if (x < minX) {
-    const over = x - minX;
-    return minX + over * 0.25; // resistance
-  }
-  return x;
-}
-
-// Attach drag to the mask
-const mask = root.querySelector(".inline-gallery__mask") || root;
-mask.style.touchAction = "pan-y";
-
-function scheduleMove(x) {
-  pendingX = x;
-  if (rafId) return;
-  rafId = requestAnimationFrame(() => {
-    rafId = null;
-    if (pendingX == null) return;
-    setTranslateX(applyWithResistance(pendingX));
-  });
-}
-
-function onDown(e) {
-  if (e.button !== undefined && e.button !== 0) return;
-
-  isDown = true;
-  moved = false;
-
-  track.style.transition = "none";
-
-  startX = e.clientX;
-  startTranslate = getTranslateX(track);
-  currentTranslate = startTranslate;
-
-  mask.setPointerCapture?.(e.pointerId);
-
-  // prevent browser from “grabbing” images/links
-  e.preventDefault();
-}
-
-function onMove(e) {
-  if (!isDown) return;
-
-  const dx = e.clientX - startX;
-  if (Math.abs(dx) > 3) moved = true;
-
-  currentTranslate = startTranslate + dx;
-  scheduleMove(currentTranslate);
-
-  e.preventDefault();
-}
-
-function onUp(e) {
-  if (!isDown) return;
-  isDown = false;
-
-  // snap back with transition
-  track.style.transition = "transform 300ms ease";
-
-  const dx = e.clientX - startX;
-  const threshold = stepPx * 0.18;
-
-  if (dx < -threshold) goTo(index + 1);
-  else if (dx > threshold) goTo(index - 1);
-  else goTo(index);
-
-  e.preventDefault();
-}
-
-mask.addEventListener("pointerdown", onDown, { passive: false });
-mask.addEventListener("pointermove", onMove, { passive: false });
-mask.addEventListener("pointerup", onUp, { passive: false });
-mask.addEventListener("pointercancel", onUp, { passive: false });
-
-// Prevent click-through if user dragged
-mask.addEventListener(
-  "click",
-  (e) => {
-    if (moved) {
-      e.preventDefault();
-      e.stopPropagation();
+    function getTranslateX(el) {
+      const t = getComputedStyle(el).transform;
+      if (!t || t === "none") return 0;
+      const m = new DOMMatrixReadOnly(t);
+      return m.m41;
     }
-  },
-  true
-);
 
+    function setTranslateX(x) {
+      track.style.transform = `translate3d(${x}px, 0, 0)`;
+    }
+
+    // Attach drag to the mask (better UX)
+    const mask = root.querySelector(".inline-gallery__mask") || root;
+    mask.style.touchAction = "pan-y"; // allow vertical scroll, capture horizontal drags
+
+    function onDown(e) {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      isDown = true;
+      moved = false;
+
+      track.style.transition = "none";
+      startX = e.clientX;
+      startTranslate = getTranslateX(track);
 
       // capture on the same element that received pointerdown
       mask.setPointerCapture?.(e.pointerId);
