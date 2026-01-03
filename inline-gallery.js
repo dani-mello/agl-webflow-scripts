@@ -65,17 +65,32 @@ for (let i = 0; i < N; i++) {
       track.style.transform = `translate3d(${-index * stepPx}px, 0, 0)`;
     }
 
+
     function updateProgress() {
-      segs.forEach((s) => s.classList.remove("is-active"));
-      const active = Math.min(index, N - 1);
-      segs[active]?.classList.add("is-active");
-    }
+  segs.forEach((s) => {
+    s.classList.remove("is-active");
+    // DEBUG: force inactive state
+    s.style.opacity = "0.25";
+    s.style.height = "2px";
+  });
+
+  const active = Math.min(index, N - 1);
+  if (segs[active]) {
+    segs[active].classList.add("is-active");
+    // DEBUG: force active state
+    segs[active].style.opacity = "1";
+    segs[active].style.height = "10px";
+  }
+}
+
 
     function goTo(i) {
       index = clampIndex(i);
       applyTransform();
       updateProgress();
     }
+
+  
 
     // Wire buttons only if they exist
     if (next) {
