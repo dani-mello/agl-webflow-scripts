@@ -2,16 +2,16 @@
 
 // map.js
 (function () {
+  console.log("%c[AGL MAP] map.js loaded", "font-weight:bold; font-size:14px;");
+
   var owner = "dani-mello";
   var repo = "agl-webflow-scripts";
   var branchOrSha = "main";
 
   // Cache-bust so jsDelivr doesn't serve stale SVG
-var SVG_URL =
-  "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg?v=" + Date.now();
-
-
-  
+  var SVG_URL =
+    "https://cdn.jsdelivr.net/gh/" +
+    owner + "/" + repo + "@" + branchOrSha + "/map.svg?v=" + Date.now();
 
   var containerId = "agl-map-container";
   var PANEL_HIDDEN_CLASS = "is-hidden";
@@ -19,6 +19,11 @@ var SVG_URL =
   function isMobile() {
     return window.matchMedia("(max-width: 768px)").matches;
   }
+
+  // ...rest of your code...
+
+})(); // <-- keep THIS single closer at the very end
+
 
   // Your region copy
   var regionData = {
