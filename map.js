@@ -1,4 +1,6 @@
 console.log("[AGL MAP] SVG injected. Length:", svgText.length);
+console.log("[AGL MAP] container:", container);
+
 
 
 (function () {
