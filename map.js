@@ -1,4 +1,4 @@
-console.log("MAP VERSION 2026-01-04 22:15 NZ");
+
 
 
 // map.js
@@ -168,3 +168,6 @@ console.log("MAP VERSION 2026-01-04 22:15 NZ");
   // Run once DOM is ready
   document.addEventListener("DOMContentLoaded", loadSvg);
 })(); // ✅ THIS is the bit that prevents "Unexpected end of input"
+
+
+console.log("MAP VERSION 2026-01-04 22:15 NZ");
