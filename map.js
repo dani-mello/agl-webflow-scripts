@@ -1,17 +1,16 @@
 alert("MAP BOOT: map.js executed");
 window.__MAP_BOOT__ = "executed";
 
-
-
-
 // map.js
 (function () {
   var owner = "dani-mello";
   var repo = "agl-webflow-scripts";
   var branchOrSha = "main";
 
+  // Cache-bust so jsDelivr doesn't serve stale SVG
   var SVG_URL =
-    "https://cdn.jsdelivr.net/gh/dani-mello/agl-webflow-scripts@main/map.svg";
+    "https://cdn.jsdelivr.net/gh/" +
+    owner + "/" + repo + "@" + branchOrSha + "/map.svg?v=" + Date.now();
 
   var containerId = "agl-map-container";
   var PANEL_HIDDEN_CLASS = "is-hidden";
@@ -49,8 +48,16 @@ window.__MAP_BOOT__ = "executed";
     var descEl = document.getElementById("region-description");
     var linkEl = document.getElementById("region-link");
 
+    console.log("[AGL MAP] regions found:", regions.length, "pins:", pins.length);
+
     if (!regions.length || !panel || !titleEl || !descEl || !linkEl) {
-      console.warn("[AGL MAP] Missing regions or panel elements.");
+      console.warn("[AGL MAP] Missing regions or panel elements.", {
+        regions: regions.length,
+        panel: !!panel,
+        titleEl: !!titleEl,
+        descEl: !!descEl,
+        linkEl: !!linkEl,
+      });
       return;
     }
 
@@ -58,7 +65,10 @@ window.__MAP_BOOT__ = "executed";
 
     function setPanel(key) {
       var data = regionData[key];
-      if (!data) return;
+      if (!data) {
+        console.warn("[AGL MAP] No regionData for key:", key);
+        return;
+      }
 
       titleEl.textContent = data.title;
       descEl.textContent = data.description;
@@ -82,6 +92,7 @@ window.__MAP_BOOT__ = "executed";
 
     regions.forEach(function (regionEl) {
       var key = regionEl.dataset.region;
+      if (!key) console.warn("[AGL MAP] region missing data-region:", regionEl);
 
       regionEl.addEventListener("mouseenter", function () {
         if (isMobile()) return;
@@ -125,7 +136,11 @@ window.__MAP_BOOT__ = "executed";
       });
 
       if (pins.length) {
-        tl.set(pins, { opacity: 0, scale: 0.6, y: 14, transformOrigin: "50% 50%" }, 0);
+        tl.set(
+          pins,
+          { opacity: 0, scale: 0.6, y: 14, transformOrigin: "50% 50%" },
+          0
+        );
 
         tl.to(
           pins,
@@ -150,12 +165,32 @@ window.__MAP_BOOT__ = "executed";
       return;
     }
 
-    fetch(SVG_URL)
+    // STEP 2B.3 — prove the SVG fetch works (or show why it doesn't)
+    console.log("[AGL MAP] SVG_URL =", SVG_URL);
+
+    fetch(SVG_URL, { cache: "no-store" })
       .then(function (res) {
-        if (!res.ok) throw res;
+        console.log(
+          "[AGL MAP] fetch status:",
+          res.status,
+          "ok:",
+          res.ok,
+          "final url:",
+          res.url
+        );
+
+        if (!res.ok) {
+          // Try to read body to see if it's HTML 404 page etc.
+          return res.text().then(function (txt) {
+            console.error("[AGL MAP] Bad response body (first 200):", txt.slice(0, 200));
+            throw res;
+          });
+        }
+
         return res.text();
       })
       .then(function (svgText) {
+        console.log("[AGL MAP] first 120 chars:", svgText.slice(0, 120));
         container.innerHTML = svgText;
 
         console.log("[AGL MAP] SVG injected. Length:", svgText.length);
@@ -170,7 +205,4 @@ window.__MAP_BOOT__ = "executed";
 
   // Run once DOM is ready
   document.addEventListener("DOMContentLoaded", loadSvg);
-})(); // ✅ THIS is the bit that prevents "Unexpected end of input"
-
-
-
+})(); // ✅ keeps “Unexpected end of input” away
