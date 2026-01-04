@@ -30,7 +30,8 @@
   var regionData = {
     aoraki: {
       title: "Aoraki / Mount Cook",
-      description: "Glaciers, seracs, and serious alpine objectives — our home range.",
+      description:
+        "Glaciers, seracs, and serious alpine objectives — our home range.",
       url: "#aoraki-trips",
     },
     aspiring: {
@@ -49,13 +50,6 @@
   // Init interactions + GSAP AFTER SVG inject
   // --------------------------------------------
   function initMap(container) {
-    // Prevent double-init if script runs twice or loadSvg called twice
-    if (container.__AGL_MAP_INITED__) {
-      console.warn("[AGL MAP] initMap skipped (already initialised).");
-      return;
-    }
-    container.__AGL_MAP_INITED__ = true;
-
     // IMPORTANT: query INSIDE injected SVG
     var regions = container.querySelectorAll(".map-region");
     var pins = container.querySelectorAll('g[id^="pin-"]');
@@ -65,39 +59,36 @@
     var descEl = document.getElementById("region-description");
     var linkEl = document.getElementById("region-link");
 
-    console.log("[AGL MAP] initMap: regions:", regions.length, "pins:", pins.length);
+    console.log("[AGL MAP] regions found:", regions.length, "pins:", pins.length);
+    console.log(
+      "[AGL MAP] panel/title/desc/link:",
+      !!panel,
+      !!titleEl,
+      !!descEl,
+      !!linkEl
+    );
 
-    if (!regions.length || !panel || !titleEl || !descEl || !linkEl) {
-      console.warn("[AGL MAP] Missing regions or panel elements.", {
-        regions: regions.length,
-        panel: !!panel,
-        titleEl: !!titleEl,
-        descEl: !!descEl,
-        linkEl: !!linkEl,
-      });
-
-      // If panel missing, still ensure pins are visible (don’t leave them hidden)
-      showPinsWithoutGsap(pins);
-      return;
-    }
-
-    var activeRegionKey = null;
-
+    // --- PANEL HELPERS ---
     function setPanel(key) {
+      console.log("[AGL MAP] setPanel key:", key, "has data?", !!regionData[key]);
+
       var data = regionData[key];
-      if (!data) {
-        console.warn("[AGL MAP] No regionData for key:", key);
-        return;
+      if (!data) return;
+
+      if (titleEl) titleEl.textContent = data.title || "";
+      if (descEl) descEl.textContent = data.description || "";
+
+      if (linkEl) {
+        linkEl.href = data.url || "#";
+        linkEl.style.display = data.url ? "" : "none";
       }
-      titleEl.textContent = data.title;
-      descEl.textContent = data.description;
-      linkEl.href = data.url || "#";
-      panel.classList.remove(PANEL_HIDDEN_CLASS);
+
+      if (panel) panel.classList.remove(PANEL_HIDDEN_CLASS);
     }
 
     function hidePanel() {
       if (!isMobile()) return;
-      panel.classList.add(PANEL_HIDDEN_CLASS);
+      if (panel) panel.classList.add(PANEL_HIDDEN_CLASS);
     }
 
     function clearActive() {
@@ -107,12 +98,16 @@
     }
 
     // Start: hide panel on mobile until first tap
-    if (isMobile()) panel.classList.add(PANEL_HIDDEN_CLASS);
+    if (panel && isMobile()) panel.classList.add(PANEL_HIDDEN_CLASS);
 
-    // Interactions
+    // --- REGION INTERACTIONS ---
+    var activeRegionKey = null;
+
     regions.forEach(function (regionEl) {
-      var key = regionEl.dataset.region;
-      if (!key) console.warn("[AGL MAP] region missing data-region:", regionEl);
+      // In SVG, getAttribute is more reliable than dataset in some cases
+      var key = regionEl.getAttribute("data-region");
+
+      console.log("[AGL MAP] region bind:", regionEl.id || "(no id)", "key:", key);
 
       regionEl.addEventListener("mouseenter", function () {
         if (isMobile()) return;
@@ -121,7 +116,9 @@
       });
 
       regionEl.addEventListener("click", function (e) {
+        e.preventDefault();
         e.stopPropagation();
+
         activeRegionKey = key;
         clearActive();
         regionEl.classList.add("map-region_active");
@@ -133,8 +130,10 @@
     document.addEventListener("click", function (e) {
       if (!isMobile()) return;
 
-      var clickedInsidePanel = panel.contains(e.target);
-      var clickedRegion = e.target.closest(".map-region");
+      var clickedInsidePanel = panel && panel.contains(e.target);
+      var clickedRegion =
+        e.target && e.target.closest && e.target.closest(".map-region");
+
       if (!clickedInsidePanel && !clickedRegion) {
         activeRegionKey = null;
         clearActive();
@@ -143,107 +142,53 @@
     });
 
     // --------------------------------------------
-    // GSAP animation (optional)
+    // GSAP PIN ANIMATION (more reliable for <g>)
     // --------------------------------------------
     var hasGsap = typeof window.gsap !== "undefined";
     console.log("[AGL MAP] GSAP present?", hasGsap);
 
-    if (!hasGsap) {
-      console.warn("[AGL MAP] GSAP not found — skipping animation.");
-      showPinsWithoutGsap(pins);
-      return;
+    if (!pins.length) return;
+
+    // Ensure pins render above regions (SVG stacking order)
+    var svgEl = container.querySelector("svg");
+    if (svgEl) {
+      pins.forEach(function (pin) {
+        svgEl.appendChild(pin);
+      });
     }
 
-    try {
-      // Targets
-      var regionPaths = container.querySelectorAll(".map-region path");
+    if (!hasGsap) return;
 
-      // Ensure pins are on top (SVG stacking order safety)
-      var svgEl = container.querySelector("svg");
-      if (svgEl && pins.length) {
-        pins.forEach(function (pin) {
-          svgEl.appendChild(pin);
-        });
-        console.log("[AGL MAP] pins moved to front:", pins.length);
-      }
+    // Force SVG transform behavior so scale/y work on <g>
+    pins.forEach(function (pin) {
+      pin.style.transformBox = "fill-box";
+      pin.style.transformOrigin = "50% 80%";
+      pin.style.willChange = "transform, opacity";
+    });
 
-      // Set baseline visibility so they never get stuck invisible
-      // (we'll hide them only once we know GSAP is running)
-      gsap.set(pins, { opacity: 1, clearProps: "transform" });
+    // Animate AFTER paint (very important for injected SVG)
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        console.log("[AGL MAP] animating pins now…");
 
-      var tl = gsap.timeline({
-        defaults: { overwrite: "auto" },
-        onComplete: function () {
-          console.log("[AGL MAP] timeline complete ✅");
-        },
-      });
-
-      // Regions in
-      if (regionPaths.length) {
-        tl.from(regionPaths, {
-          opacity: 0,
-          scale: 0.95,
-          transformOrigin: "50% 50%",
-          transformBox: "fill-box",
-          duration: 0.6,
-          ease: "power2.out",
-          stagger: 0.06,
-          delay: 0.1,
-        });
-      } else {
-        console.warn("[AGL MAP] No region paths found for animation.");
-      }
-
-      // Pins in
-      if (pins.length) {
-        // Hide pins at time 0 (no flash) — BUT only now that GSAP is definitely running
-        tl.set(
+        window.gsap.fromTo(
           pins,
-          {
-            opacity: 0,
-            scale: 0.6,
-            y: 14,
-            transformOrigin: "50% 80%",
-            transformBox: "fill-box",
-          },
-          0
-        );
-
-        tl.to(
-          pins,
+          { opacity: 0, y: 14, scale: 0.6 },
           {
             opacity: 1,
-            scale: 1,
             y: 0,
+            scale: 1,
             duration: 0.55,
             ease: "power2.out",
             stagger: 0.14,
-            onStart: function () {
-              console.log("[AGL MAP] pin animation started ▶");
-            },
+            overwrite: "auto",
             onComplete: function () {
-              console.log("[AGL MAP] pin animation finished ✅");
+              console.log("[AGL MAP] pin animation complete ✅");
             },
-          },
-          "-=0.25"
+          }
         );
-      } else {
-        console.warn("[AGL MAP] No pins found to animate.");
-      }
-    } catch (e) {
-      console.error("[AGL MAP] GSAP animation error — falling back to visible pins.", e);
-      showPinsWithoutGsap(pins);
-    }
-  }
-
-  function showPinsWithoutGsap(pins) {
-    // Make sure pins are visible even if animation fails
-    if (!pins || !pins.length) return;
-    pins.forEach(function (pin) {
-      pin.style.opacity = "1";
-      // Don’t force transform removal too aggressively; just ensure visibility
+      });
     });
-    console.log("[AGL MAP] pins forced visible (fallback):", pins.length);
   }
 
   // --------------------------------------------
@@ -252,7 +197,13 @@
   function loadSvg() {
     var container = document.getElementById(containerId);
 
-    console.log("[AGL MAP] container found?", !!container, "id:", containerId, container);
+    console.log(
+      "[AGL MAP] container found?",
+      !!container,
+      "id:",
+      containerId,
+      container
+    );
 
     if (!container) {
       console.warn("[AGL MAP] Container not found:", containerId);
@@ -274,7 +225,10 @@
 
         if (!res.ok) {
           return res.text().then(function (txt) {
-            console.error("[AGL MAP] Bad response body (first 200):", txt.slice(0, 200));
+            console.error(
+              "[AGL MAP] Bad response body (first 200):",
+              txt.slice(0, 200)
+            );
             throw res;
           });
         }
@@ -282,11 +236,12 @@
         return res.text();
       })
       .then(function (svgText) {
+        console.log("[AGL MAP] first 120 chars:", svgText.slice(0, 120));
+
         container.innerHTML = svgText;
 
         console.log("[AGL MAP] SVG injected. Length:", svgText.length);
 
-        // sanity check counts
         var regionsCount = container.querySelectorAll(".map-region").length;
         var pinsCount = container.querySelectorAll('g[id^="pin-"]').length;
         console.log("[AGL MAP] regions found:", regionsCount, "pins:", pinsCount);
@@ -298,7 +253,7 @@
       });
   }
 
-  // Run once DOM is ready
+  // Run once DOM is ready (Webflow often runs scripts after DOM is already ready)
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", loadSvg);
   } else {
