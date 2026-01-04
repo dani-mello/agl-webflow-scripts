@@ -33,7 +33,7 @@ gsap.registerPlugin(ScrollTrigger);
       minScale: 0.5,
       falloff: 0.55,
       slowness: 2.0,
-      eps: 0.5
+      eps: 1
     };
 
     // ===== Mobile settings (only mobile tweaks) =====
