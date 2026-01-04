@@ -115,8 +115,18 @@
       });
     }
 
-    // Start: hide panel on mobile until first tap
-    if (panel && isMobile()) panel.classList.add(PANEL_HIDDEN_CLASS);
+    // Start: show an instructional panel on mobile so people know it's clickable
+if (panel && isMobile()) {
+  panel.classList.remove(PANEL_HIDDEN_CLASS);
+
+  if (titleEl) titleEl.textContent = "Explore the map";
+  if (descEl) descEl.textContent = "Tap a region to see trips and details.";
+  if (linkEl) {
+    linkEl.style.display = "none"; // hide link until a region is selected
+    linkEl.href = "#";
+  }
+}
+
 
     // --- REGION INTERACTIONS ---
     var activeRegionKey = null;
