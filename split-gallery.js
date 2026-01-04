@@ -29,7 +29,7 @@ gsap.registerPlugin(ScrollTrigger);
     // ===== Desktop settings (LOCKED) =====
     const DESKTOP = {
       cardWRem: 50,
-      cardHRem: 100,
+      cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
       slowness: 2.0,
