@@ -20,6 +20,9 @@
   var containerId = "agl-map-container";
   var PANEL_HIDDEN_CLASS = "is-hidden";
 
+  // Add a hook class so you can size it easily in CSS
+  var MAP_READY_CLASS = "is-map-ready";
+
   function isMobile() {
     return window.matchMedia("(max-width: 768px)").matches;
   }
@@ -41,7 +44,8 @@
     },
     fiordland: {
       title: "Fiordland",
-      description: "Remote granite, deep fiords, heavy weather — proper wilderness.",
+      description:
+        "Remote granite, deep fiords, heavy weather — proper wilderness.",
       url: "#fiordland-trips",
     },
   };
@@ -67,6 +71,20 @@
       !!descEl,
       !!linkEl
     );
+
+    // ---- MOBILE SIZE BOOST (optional but useful) ----
+    // This won't break desktop. If you prefer CSS-only, you can remove this block.
+    // It gives the container more presence on small screens.
+    if (isMobile()) {
+      container.style.width = "100%";
+      container.style.maxWidth = "100%";
+      container.style.minHeight = "520px"; // tweak: 480–650 depending on your design
+    } else {
+      container.style.minHeight = "";
+    }
+
+    // Add hook class for CSS targeting
+    container.classList.add(MAP_READY_CLASS);
 
     // --- PANEL HELPERS ---
     function setPanel(key) {
@@ -142,10 +160,12 @@
     });
 
     // --------------------------------------------
-    // GSAP PIN ANIMATION (more reliable for <g>)
+    // GSAP PIN ANIMATION (only when in view)
     // --------------------------------------------
     var hasGsap = typeof window.gsap !== "undefined";
-    console.log("[AGL MAP] GSAP present?", hasGsap);
+    var hasScrollTrigger = typeof window.ScrollTrigger !== "undefined";
+
+    console.log("[AGL MAP] GSAP present?", hasGsap, "ScrollTrigger present?", hasScrollTrigger);
 
     if (!pins.length) return;
 
@@ -157,8 +177,6 @@
       });
     }
 
-    if (!hasGsap) return;
-
     // Force SVG transform behavior so scale/y work on <g>
     pins.forEach(function (pin) {
       pin.style.transformBox = "fill-box";
@@ -166,29 +184,64 @@
       pin.style.willChange = "transform, opacity";
     });
 
-    // Animate AFTER paint (very important for injected SVG)
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        console.log("[AGL MAP] animating pins now…");
-
-        window.gsap.fromTo(
-          pins,
-          { opacity: 0, y: 14, scale: 0.6 },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: 0.55,
-            ease: "power2.out",
-            stagger: 0.14,
-            overwrite: "auto",
-            onComplete: function () {
-              console.log("[AGL MAP] pin animation complete ✅");
-            },
-          }
-        );
+    // Set initial hidden state so they don't flash before trigger
+    if (hasGsap) {
+      window.gsap.set(pins, { opacity: 0, y: 14, scale: 0.6 });
+    } else {
+      // Fallback: no GSAP, just show them
+      pins.forEach(function (pin) {
+        pin.style.opacity = 1;
       });
-    });
+      return;
+    }
+
+    function playPins() {
+      console.log("[AGL MAP] animating pins now…");
+
+      window.gsap.to(pins, {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.55,
+        ease: "power2.out",
+        stagger: 0.14,
+        overwrite: "auto",
+        onComplete: function () {
+          console.log("[AGL MAP] pin animation complete ✅");
+        },
+      });
+    }
+
+    // If ScrollTrigger exists, trigger at 60% viewport
+    if (hasScrollTrigger) {
+      // Safety: register once here (Webflow sometimes runs scripts in weird order)
+      try {
+        window.gsap.registerPlugin(window.ScrollTrigger);
+      } catch (e) {}
+
+      // Animate AFTER paint (important for injected SVG)
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          window.ScrollTrigger.create({
+            trigger: container,        // your map container
+            start: "top 60%",          // ✅ only when map is in view
+            once: true,                // ✅ run once (remove if you want replay)
+            onEnter: playPins,
+            // markers: true,          // uncomment to debug
+          });
+
+          // Make sure ST calculates positions correctly after SVG injection
+          window.ScrollTrigger.refresh();
+        });
+      });
+    } else {
+      // Fallback: no ScrollTrigger → animate on paint
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          playPins();
+        });
+      });
+    }
   }
 
   // --------------------------------------------
