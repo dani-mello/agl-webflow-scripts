@@ -15,9 +15,9 @@ gsap.registerPlugin(ScrollTrigger);
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
 
-    const media = section.querySelector(".c-split-gallery_media"); // in-flow
-    const mask  = section.querySelector(".c-split-gallery_mask");
-    const track = section.querySelector(".c-split-gallery_track");
+    const media  = section.querySelector(".c-split-gallery_media"); // in-flow
+    const mask   = section.querySelector(".c-split-gallery_mask");
+    const track  = section.querySelector(".c-split-gallery_track");
     const slides = Array.from(section.querySelectorAll(".c-split-gallery_slide"));
 
     if (!media || !mask || !track || slides.length < 2) return;
@@ -28,7 +28,9 @@ gsap.registerPlugin(ScrollTrigger);
 
     // ===== Desktop settings (LOCKED) =====
     const DESKTOP = {
-      cardWRem: 50,
+      // ✅ Width is now 100% of parent (mask) instead of fixed rem
+      cardWMode: "parent",
+
       cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
@@ -60,15 +62,22 @@ gsap.registerPlugin(ScrollTrigger);
     // Card size
     let cardWpx, cardHpx, baseH;
 
+    // ✅ Measure parent width (mask) safely
+    const maskW = mask.clientWidth || mask.getBoundingClientRect().width || window.innerWidth;
+    const maskH = mask.clientHeight || mask.getBoundingClientRect().height || window.innerHeight;
+
     if (!isSmall) {
-      cardWpx = cfg.cardWRem * rootFont;
+      // DESKTOP
+      // ✅ 100% of parent width
+      cardWpx = maskW;
+
+      // Height stays in rem (as you had it)
       cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
-      const mW = mask.clientWidth || window.innerWidth;
-      const mH = mask.clientHeight || window.innerHeight;
-      cardWpx = mW;
-      cardHpx = Math.round(mH * (cfg.cardHvh / 100));
+      // MOBILE
+      cardWpx = maskW;
+      cardHpx = Math.round(maskH * (cfg.cardHvh / 100));
       baseH = cardHpx;
     }
 
@@ -147,149 +156,4 @@ gsap.registerPlugin(ScrollTrigger);
         const rect = slide.getBoundingClientRect();
         const mid  = rect.top + rect.height / 2;
         const d    = Math.abs(mid - cy);
-        const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
-        return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
-      });
-
-      let y = 0;
-      for (let i = 0; i < slides.length; i++) {
-        const s = scales[i];
-        slides[i].style.top       = `${y}px`;
-        slides[i].style.transform = `scale(${s})`;
-        slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
-        y += baseH * s - cfg.eps;
-      }
-
-      track.style.height = `${Math.max(y + cfg.eps, galleryH + 1)}px`;
-    }
-
-    function solveYForSlide(index) {
-      let y = 0;
-      gsap.set(track, { y });
-      layoutTick();
-
-      for (let k = 0; k < 10; k++) {
-        const cy = centerY();
-        const rect = slides[index].getBoundingClientRect();
-        const mid  = rect.top + rect.height / 2;
-        const delta = cy - mid;
-        y += delta;
-
-        gsap.set(track, { y });
-        layoutTick();
-
-        if (Math.abs(delta) < 0.5) break;
-      }
-      return y;
-    }
-
-    // Paint once
-    gsap.set(track, { y: 0 });
-    layoutTick();
-
-    const yStart = solveYForSlide(0);
-    const yEnd   = solveYForSlide(slides.length - 1);
-
-    const naturalTravel = Math.max(yStart - yEnd, 0);
-    const pinDistance   = Math.ceil(naturalTravel * cfg.slowness);
-
-    // ✅ Ensure something is visible immediately (prevents “blank until scroll”)
-    gsap.set(track, { y: yStart });
-    layoutTick();
-
-    // If mobile layout is still collapsed, stop here (keeps first card visible)
-    if (isSmall && mask.clientHeight < 50) return;
-
-    // NEW: progress mapping to “hold” first image at 100% briefly on mobile
-    function mapProgress(p) {
-      if (!isSmall) return p;
-
-      const hold = cfg.startHold || 0;
-      if (hold <= 0) return p;
-
-      if (p <= hold) return 0;
-      return (p - hold) / (1 - hold);
-    }
-
-    ScrollTrigger.matchMedia({
-
-      // ===== DESKTOP (LOCKED) =====
-      "(min-width: 901px)": function () {
-        ScrollTrigger.create({
-          id: "splitGallery-desktop",
-          trigger: section,
-          start: "top top",
-          end: "+=" + pinDistance,
-          scrub: true,
-          pin: true,
-          anticipatePin: 1,
-          onUpdate(self) {
-            const y = yStart - naturalTravel * self.progress;
-            gsap.set(track, { y });
-            layoutTick();
-          }
-        });
-      },
-
-      // ===== MOBILE (pin in-flow element so it doesn't overlap next sections) =====
-      "(max-width: 900px)": function () {
-        ScrollTrigger.create({
-          id: "splitGallery-mobile",
-          trigger: media,
-          start: "top top",
-          end: "+=" + pinDistance,
-          scrub: true,
-          pin: media,          // ✅ in-flow spacer
-          pinSpacing: true,
-          anticipatePin: 1,
-
-          // NEW: force exact start frame when entering (prevents tiny “catch-up”)
-          onEnter() {
-            gsap.set(track, { y: yStart });
-            layoutTick();
-          },
-          onEnterBack() {
-            gsap.set(track, { y: yStart });
-            layoutTick();
-          },
-
-          onUpdate(self) {
-            const p = mapProgress(self.progress);   // NEW
-            const y = yStart - naturalTravel * p;   // NEW
-            gsap.set(track, { y });
-            layoutTick();
-          }
-        });
-      }
-
-    });
-
-    // Refresh after <img> loads (mobile often needs it)
-    const imgEls = Array.from(section.querySelectorAll("img"));
-    let pending = 0;
-    imgEls.forEach((img) => {
-      if (!img.complete) {
-        pending++;
-        img.addEventListener("load", () => {
-          pending--;
-          if (pending === 0) ScrollTrigger.refresh();
-        }, { once: true });
-      }
-    });
-
-    ScrollTrigger.refresh();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initSplitGallery);
-  } else {
-    initSplitGallery();
-  }
-
-  let t;
-  window.addEventListener("resize", () => {
-    clearTimeout(t);
-    t = setTimeout(initSplitGallery, 200);
-  });
-
-})();
+        const norm = Math.min(1, d / (window.innerHeight * cfg.fallo*
