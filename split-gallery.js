@@ -32,7 +32,7 @@ gsap.registerPlugin(ScrollTrigger);
       cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
-      slowness: 2.0,
+      slowness: 3.0,
       eps: 1
     };
 
