@@ -127,21 +127,19 @@ gsap.registerPlugin(ScrollTrigger);
     // Slides as cards, flush right
     slides.forEach((slide) => {
       gsap.set(slide, {
-        position: "absolute",
-        right: 0,
-        left: "auto",
-        width: cardWpx + "px",
-        height: cardHpx + "px",
-        margin: 0,
-        overflow: "hidden",
-        display: "block",
-        transformOrigin: "right top",
-        willChange: "transform, top",
-        visibility: "visible"
-      });
+  position: "absolute",
+  right: 0,
+  left: 0,                 // ✅ allow full width
+  width: "100%",           // ✅ parent width (no measuring)
+  height: cardHpx + "px",
+  margin: 0,
+  overflow: "hidden",
+  display: "block",
+  transformOrigin: "right top",
+  willChange: "transform, top",
+  visibility: "visible"
+});
 
-      normalizeSlideMedia(slide);
-    });
 
     function centerY() {
       const r = mask.getBoundingClientRect();
