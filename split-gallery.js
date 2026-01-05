@@ -26,11 +26,9 @@ gsap.registerPlugin(ScrollTrigger);
 
     const isSmall = window.innerWidth <= BREAKPOINT;
 
-    // ===== Desktop settings (LOCKED) =====
     const DESKTOP = {
-      // ✅ Width is now 100% of parent (mask) instead of fixed rem
-      cardWMode: "parent",
-
+      cardWMode: "parent", // ✅ new intent
+      cardWRemFallback: 50, // ✅ fallback if parent width is 0 at init
       cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
@@ -38,54 +36,54 @@ gsap.registerPlugin(ScrollTrigger);
       eps: 1
     };
 
-    // ===== Mobile settings (only mobile tweaks) =====
     const MOBILE = {
       cardHvh: 72,
       minScale: 0.35,
       falloff: 0.40,
       slowness: 1.6,
       eps: 0.5,
-
-      // NEW: how much of the scroll should “hold” at the start (0..0.2 is typical)
       startHold: 0.07
     };
 
     const cfg = isSmall ? MOBILE : DESKTOP;
 
-    // Clear the CSS "translateY(100%)" hiding the track
     gsap.set(track, { clearProps: "transform" });
-    gsap.set(track, { position: "relative", padding: 0, margin: 0, willChange: "transform" });
+    gsap.set(track, { position: "relative", padding: 0, margin: 0, willChange: "transform", width: "100%" });
 
     const rootFont =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
+    // ✅ helper: measure parent width safely (never return 0)
+    function getParentWidthPx() {
+      const w1 = mask.getBoundingClientRect().width;
+      const w2 = section.getBoundingClientRect().width;
+      const w3 = window.innerWidth;
+
+      const w = (w1 && w1 > 10) ? w1 : (w2 && w2 > 10) ? w2 : w3;
+      return Math.max(320, Math.round(w)); // safety floor
+    }
+
     // Card size
     let cardWpx, cardHpx, baseH;
 
-    // ✅ Measure parent width (mask) safely
-    const maskW = mask.clientWidth || mask.getBoundingClientRect().width || window.innerWidth;
-    const maskH = mask.clientHeight || mask.getBoundingClientRect().height || window.innerHeight;
-
     if (!isSmall) {
-      // DESKTOP
-      // ✅ 100% of parent width
-      cardWpx = maskW;
+      // ✅ DESKTOP: 100% of parent (mask), with fallback
+      const parentW = getParentWidthPx();
+      cardWpx = parentW || (cfg.cardWRemFallback * rootFont);
 
-      // Height stays in rem (as you had it)
       cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
-      // MOBILE
-      cardWpx = maskW;
-      cardHpx = Math.round(maskH * (cfg.cardHvh / 100));
+      const mW = mask.getBoundingClientRect().width || window.innerWidth;
+      const mH = mask.getBoundingClientRect().height || window.innerHeight;
+      cardWpx = Math.max(320, Math.round(mW));
+      cardHpx = Math.round(mH * (cfg.cardHvh / 100));
       baseH = cardHpx;
     }
 
-    // --- Helper: ensure we end up with a real "painted" image surface ---
     function normalizeSlideMedia(slide) {
       const imageEl = slide.querySelector(".c-split-gallery_image") || slide;
 
-      // Case A: .c-split-gallery_image IS the <img>
       if (imageEl && imageEl.tagName === "IMG") {
         gsap.set(imageEl, {
           position: "absolute",
@@ -99,7 +97,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Case B: wrapper containing <img>
       const innerImg = imageEl ? imageEl.querySelector("img") : null;
       if (innerImg) {
         gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
@@ -115,7 +112,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Case C: background-image div (common in Webflow)
       if (imageEl) {
         imageEl.style.backgroundSize = "cover";
         imageEl.style.backgroundPosition = "center";
@@ -127,19 +123,21 @@ gsap.registerPlugin(ScrollTrigger);
     // Slides as cards, flush right
     slides.forEach((slide) => {
       gsap.set(slide, {
-  position: "absolute",
-  right: 0,
-  left: 0,                 // ✅ allow full width
-  width: "100%",           // ✅ parent width (no measuring)
-  height: cardHpx + "px",
-  margin: 0,
-  overflow: "hidden",
-  display: "block",
-  transformOrigin: "right top",
-  willChange: "transform, top",
-  visibility: "visible"
-});
+        position: "absolute",
+        right: 0,
+        left: "auto",
+        width: cardWpx + "px",     // ✅ back to px (but now parent-based + safe)
+        height: cardHpx + "px",
+        margin: 0,
+        overflow: "hidden",
+        display: "block",
+        transformOrigin: "right top",
+        willChange: "transform, top",
+        visibility: "visible"
+      });
 
+      normalizeSlideMedia(slide);
+    });
 
     function centerY() {
       const r = mask.getBoundingClientRect();
@@ -154,4 +152,142 @@ gsap.registerPlugin(ScrollTrigger);
         const rect = slide.getBoundingClientRect();
         const mid  = rect.top + rect.height / 2;
         const d    = Math.abs(mid - cy);
-        const norm = Math.min(1, d / (window.innerHeight * cfg.fallo*
+        const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
+        return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
+      });
+
+      let y = 0;
+      for (let i = 0; i < slides.length; i++) {
+        const s = scales[i];
+        slides[i].style.top       = `${y}px`;
+        slides[i].style.transform = `scale(${s})`;
+        slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
+        y += baseH * s - cfg.eps;
+      }
+
+      track.style.height = `${Math.max(y + cfg.eps, galleryH + 1)}px`;
+    }
+
+    function solveYForSlide(index) {
+      let y = 0;
+      gsap.set(track, { y });
+      layoutTick();
+
+      for (let k = 0; k < 10; k++) {
+        const cy = centerY();
+        const rect = slides[index].getBoundingClientRect();
+        const mid  = rect.top + rect.height / 2;
+        const delta = cy - mid;
+        y += delta;
+
+        gsap.set(track, { y });
+        layoutTick();
+
+        if (Math.abs(delta) < 0.5) break;
+      }
+      return y;
+    }
+
+    gsap.set(track, { y: 0 });
+    layoutTick();
+
+    const yStart = solveYForSlide(0);
+    const yEnd   = solveYForSlide(slides.length - 1);
+
+    const naturalTravel = Math.max(yStart - yEnd, 0);
+    const pinDistance   = Math.ceil(naturalTravel * cfg.slowness);
+
+    gsap.set(track, { y: yStart });
+    layoutTick();
+
+    if (isSmall && mask.clientHeight < 50) return;
+
+    function mapProgress(p) {
+      if (!isSmall) return p;
+      const hold = cfg.startHold || 0;
+      if (hold <= 0) return p;
+      if (p <= hold) return 0;
+      return (p - hold) / (1 - hold);
+    }
+
+    ScrollTrigger.matchMedia({
+      "(min-width: 901px)": function () {
+        ScrollTrigger.create({
+          id: "splitGallery-desktop",
+          trigger: section,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: true,
+          anticipatePin: 1,
+          onUpdate(self) {
+            const y = yStart - naturalTravel * self.progress;
+            gsap.set(track, { y });
+            layoutTick();
+          }
+        });
+      },
+
+      "(max-width: 900px)": function () {
+        ScrollTrigger.create({
+          id: "splitGallery-mobile",
+          trigger: media,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: media,
+          pinSpacing: true,
+          anticipatePin: 1,
+          onEnter() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+          onEnterBack() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+          onUpdate(self) {
+            const p = mapProgress(self.progress);
+            const y = yStart - naturalTravel * p;
+            gsap.set(track, { y });
+            layoutTick();
+          }
+        });
+      }
+    });
+
+    const imgEls = Array.from(section.querySelectorAll("img"));
+    let pending = 0;
+    imgEls.forEach((img) => {
+      if (!img.complete) {
+        pending++;
+        img.addEventListener("load", () => {
+          pending--;
+          if (pending === 0) ScrollTrigger.refresh();
+        }, { once: true });
+      }
+    });
+
+    ScrollTrigger.refresh();
+  }
+
+  // ✅ Run after paint so mask width is real (fixes "0px width" issue)
+  function boot() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(initSplitGallery);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
+  let t;
+  window.addEventListener("resize", () => {
+    clearTimeout(t);
+    t = setTimeout(boot, 200);
+  });
+
+})();
