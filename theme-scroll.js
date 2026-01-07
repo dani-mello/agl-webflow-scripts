@@ -1,12 +1,6 @@
 /* theme-scroll.js
- * Alpine Guides — Theme switch on scroll (50% threshold)
- * Toggles `.is-light` on `.page-wrapper`
+ * Toggles `.is-light` on `.page-wrapper` after 50% scroll.
  */
-
-console.log(
-  "%c[AGL] theme-scroll.js loaded ✅",
-  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
-);
 
 (function () {
   if (window.__agThemeScrollInit) return;
@@ -14,7 +8,7 @@ console.log(
 
   const WRAP_SELECTOR = ".page-wrapper";
   const LIGHT_CLASS = "is-light";
-  const THRESHOLD = 0.5; // 50%
+  const THRESHOLD = 0.5;
 
   function getProgress() {
     const doc = document.documentElement;
@@ -24,12 +18,12 @@ console.log(
   }
 
   function applyTheme() {
-    const shouldLight = getProgress() < THRESHOLD; // <-- inverted
-wrap.classList.toggle(LIGHT_CLASS, shouldLight);
+    const wrap = document.querySelector(WRAP_SELECTOR);
+    if (!wrap) return;
 
+    wrap.classList.toggle(LIGHT_CLASS, getProgress() >= THRESHOLD);
   }
 
-  // Init + listeners
   applyTheme();
   window.addEventListener("scroll", applyTheme, { passive: true });
   window.addEventListener("resize", applyTheme);
