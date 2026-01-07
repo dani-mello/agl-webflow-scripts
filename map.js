@@ -5,7 +5,7 @@
   var repo = "agl-webflow-scripts";
   var branchOrSha = "main";
 
-  // Cache-bust so jsDelivr doesn't serve stale SVG
+  // Cache-bust so jsDelivr doesn't serve tale SVG
   var SVG_URL =
     "https://cdn.jsdelivr.net/gh/" +
     owner +
