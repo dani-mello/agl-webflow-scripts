@@ -1,9 +1,10 @@
 // bottom-nav.js
 // Generic bottom fixed submenu (opens a panel + scrolls to section by slug)
 // Works when your sections have id="{slug}" and menu links have data-scroll-to="{slug}"
+// Optional: GSAP stagger entrance for .panel-anim-item inside the panel
 
 console.log(
-  "%cBOTTOM NAV JS LOADED (V2)",
+  "%cBOTTOM NAV JS LOADED (V3)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -20,10 +21,8 @@ console.log(
     // If you have a fixed header too, add its px height here.
     extraOffsetPx: 0,
 
-    // Toggle icon (two-line)
-    toggleItems: ".c-bottom-nav_toggle-items",
-    lineH: ".c-bottom-nav_toggle-line._h",
-    lineV: ".c-bottom-nav_toggle-line._v"
+    // Stagger items inside panel
+    animItem: ".panel-anim-item"
   };
 
   function init() {
@@ -41,57 +40,45 @@ console.log(
 
     const links = Array.from(nav.querySelectorAll(`[${cfg.linkAttr}]`));
 
-    // --- Toggle icon (two-line + -> x) : BULLETPROOF INLINE STYLES ---
-    const toggleItems = nav.querySelector(cfg.toggleItems);
-    const lineH = nav.querySelector(cfg.lineH);
-    const lineV = nav.querySelector(cfg.lineV);
+    // ----------------------------
+    // GSAP stagger (same vibe as top menu)
+    // ----------------------------
+    const animatePanelLinks = (panelEl) => {
+      if (!panelEl) return;
 
-    function forceToggleGeometry() {
-      if (!toggleItems || !lineH || !lineV) return;
+      const items = panelEl.querySelectorAll(cfg.animItem);
+      if (!items.length) return;
 
-      // Predictable box for rotation
-      toggleItems.style.position = "relative";
-      toggleItems.style.width = "22px";
-      toggleItems.style.height = "22px";
+      if (typeof window.gsap === "undefined") return;
 
-      // Overlay both lines at same pivot point
-      [lineH, lineV].forEach((ln) => {
-        ln.style.position = "absolute";
-        ln.style.left = "50%";
-        ln.style.top = "50%";
-        ln.style.width = "22px";
-        ln.style.height = "2px";
-        ln.style.transformOrigin = "center";
-        ln.style.transition = "transform 220ms cubic-bezier(0.22,1,0.36,1)";
+      gsap.killTweensOf(items);
+      gsap.set(items, { autoAlpha: 0, y: 12 });
+
+      // Double rAF helps when panel is transitioning open / layout is settling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          gsap.to(items, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.45,
+            ease: "power3.out",
+            stagger: 0.08,
+            clearProps: "opacity,visibility,transform"
+          });
+        });
       });
-    }
-
-    function setPlus() {
-      if (!lineH || !lineV) return;
-      lineH.style.transform = "translate(-50%, -50%) rotate(0deg)";
-      lineV.style.transform = "translate(-50%, -50%) rotate(90deg)";
-    }
-
-    function setX() {
-      if (!lineH || !lineV) return;
-      lineH.style.transform = "translate(-50%, -50%) rotate(45deg)";
-      lineV.style.transform = "translate(-50%, -50%) rotate(-45deg)";
-    }
-
-    // Init toggle icon state
-    forceToggleGeometry();
-    setPlus();
+    };
 
     function openNav() {
+      if (nav.classList.contains(cfg.openClass)) return;
       nav.classList.add(cfg.openClass);
       bar.setAttribute("aria-expanded", "true");
-      setX();
+      animatePanelLinks(panel);
     }
 
     function closeNav() {
       nav.classList.remove(cfg.openClass);
       bar.setAttribute("aria-expanded", "false");
-      setPlus();
     }
 
     function toggleNav() {
@@ -111,7 +98,11 @@ console.log(
       const el = document.getElementById(id);
       if (!el) return;
 
-      const y = el.getBoundingClientRect().top + window.pageYOffset - cfg.extraOffsetPx;
+      const y =
+        el.getBoundingClientRect().top +
+        window.pageYOffset -
+        cfg.extraOffsetPx;
+
       window.scrollTo({ top: y, behavior: "smooth" });
     }
 
