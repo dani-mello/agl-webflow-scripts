@@ -5,6 +5,7 @@ console.log(
 
 /* theme-scroll.js
  * Toggles `.is-light` on `.page-wrapper` after 50% scroll.
+ * Forces dark on load by removing `.is-light` first.
  */
 
 (function () {
@@ -26,10 +27,17 @@ console.log(
     const wrap = document.querySelector(WRAP_SELECTOR);
     if (!wrap) return;
 
-    wrap.classList.toggle(LIGHT_CLASS, getProgress() >= THRESHOLD);
+    const shouldBeLight = getProgress() >= THRESHOLD;
+    wrap.classList.toggle(LIGHT_CLASS, shouldBeLight);
   }
 
+  // Force dark first (in case the class was left on in Designer)
+  const wrap = document.querySelector(WRAP_SELECTOR);
+  if (wrap) wrap.classList.remove(LIGHT_CLASS);
+
+  // Init + listeners
   applyTheme();
   window.addEventListener("scroll", applyTheme, { passive: true });
   window.addEventListener("resize", applyTheme);
 })();
+
