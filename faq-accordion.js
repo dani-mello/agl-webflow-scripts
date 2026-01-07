@@ -1,10 +1,3 @@
-/*!
- * FAQ Accordion (Webflow / CMS friendly) - Plain Script
- * - Opens/closes answers with height animation
- * - Animates plus -> minus by toggling a class on the item
- * - No dependencies
- */
-
 (function () {
   function initFaqAccordion(userConfig) {
     var cfg = Object.assign(
@@ -12,7 +5,7 @@
         item: ".c-faq-item",
         question: ".c-faq-item_question",
         answer: ".c-faq-item_answer",
-        openClass: "_is-open",
+        openClass: "is-open",      // <— simpler than _is-open
         closeOthers: false,
         durationMs: 280,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
@@ -25,7 +18,6 @@
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Prevent double-binding
     if (window.__faqAccordionBound) return;
     window.__faqAccordionBound = true;
 
@@ -34,21 +26,27 @@
         el.style.height = String(to) + "px";
         return Promise.resolve();
       }
-
-      // Web Animations API
       var anim = el.animate(
         [{ height: from + "px" }, { height: to + "px" }],
         { duration: cfg.durationMs, easing: cfg.easing, fill: "both" }
       );
-
       return anim.finished["catch"](function () {});
     }
 
-    function openItem(item) {
+    function setOpenState(item, q, isOpen) {
+      // State lives on question (easy to style + inspect)
+      q.classList.toggle(cfg.openClass, isOpen);
+      q.setAttribute("aria-expanded", isOpen ? "true" : "false");
+
+      // Optional: also put a data attribute on item if you want
+      item.setAttribute("data-open", isOpen ? "true" : "false");
+    }
+
+    function openItem(item, q) {
       var answer = item.querySelector(cfg.answer);
       if (!answer) return;
 
-      item.classList.add(cfg.openClass);
+      setOpenState(item, q, true);
 
       var startHeight = answer.getBoundingClientRect().height;
 
@@ -63,7 +61,7 @@
       });
     }
 
-    function closeItem(item) {
+    function closeItem(item, q) {
       var answer = item.querySelector(cfg.answer);
       if (!answer) return;
 
@@ -75,37 +73,28 @@
       answer.style.height = startHeight + "px";
       answer.style.overflow = "hidden";
 
-      item.classList.remove(cfg.openClass);
+      setOpenState(item, q, false);
 
       animateHeight(answer, startHeight, 0).then(function () {
         answer.style.height = "0px";
       });
     }
 
-    function toggleItem(item) {
-      var isOpen = item.classList.contains(cfg.openClass);
-
-      if (cfg.closeOthers && !isOpen) {
-        document.querySelectorAll(cfg.item).forEach(function (other) {
-          if (other !== item) closeItem(other);
-        });
-      }
-
-      isOpen ? closeItem(item) : openItem(item);
-    }
-
     function forceClosed() {
       document.querySelectorAll(cfg.item).forEach(function (item) {
+        var q = item.querySelector(cfg.question);
         var answer = item.querySelector(cfg.answer);
-        if (!answer) return;
+        if (!q || !answer) return;
 
-        item.classList.remove(cfg.openClass);
+        q.classList.remove(cfg.openClass);
+        q.setAttribute("aria-expanded", "false");
+        item.setAttribute("data-open", "false");
+
         answer.style.height = "0px";
         answer.style.overflow = "hidden";
       });
     }
 
-    // Delegated click handler (CMS-friendly)
     document.addEventListener("click", function (e) {
       var q = e.target.closest(cfg.question);
       if (!q) return;
@@ -114,12 +103,23 @@
       if (!item) return;
 
       e.preventDefault();
-      toggleItem(item);
+
+      var isOpen = q.getAttribute("aria-expanded") === "true";
+
+      if (cfg.closeOthers && !isOpen) {
+        document.querySelectorAll(cfg.item).forEach(function (other) {
+          if (other === item) return;
+          var oq = other.querySelector(cfg.question);
+          if (!oq) return;
+          closeItem(other, oq);
+        });
+      }
+
+      isOpen ? closeItem(item, q) : openItem(item, q);
     });
 
     if (cfg.forceClosedOnInit) forceClosed();
   }
 
-  // Attach globally
   window.initFaqAccordion = initFaqAccordion;
 })();
