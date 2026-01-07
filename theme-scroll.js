@@ -1,5 +1,5 @@
 console.log(
-  "%c[AGL] theme-scroll.js V3 loaded ✅",
+  "%c[AGL] theme-scroll.js V4 loaded ✅",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
