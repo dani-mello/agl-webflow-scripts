@@ -1,3 +1,10 @@
+console.log(
+  "%cFAQ ACCORDION JS LOADED (v2026-01-DEBUG)",
+  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
+);
+
+
+
 (function () {
   function initFaqAccordion(userConfig) {
     var cfg = Object.assign(
