@@ -1,10 +1,10 @@
 // bottom-nav.js
 // Generic bottom fixed submenu (opens a panel + scrolls to section by slug)
-// Works when your sections have id="{slug}" and menu links have data-scroll-to="{slug}"
-// Optional: GSAP stagger entrance for .panel-anim-item inside the panel
+// Works when sections have id="{slug}" and menu links have data-scroll-to="{slug}"
+// Includes GSAP stagger entrance for links + responsive scroll offset
 
 console.log(
-  "%cBOTTOM NAV JS LOADED (V3)",
+  "%cBOTTOM NAV JS LOADED (V4)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -12,18 +12,23 @@ console.log(
   if (window.__bottomNavInit) return;
   window.__bottomNavInit = true;
 
+  const rem = () =>
+    parseFloat(getComputedStyle(document.documentElement).fontSize);
+
   const cfg = {
     root: ".c-bottom-nav",
-    bar: ".c-bottom-nav_bar", // whole bar is clickable
+    bar: ".c-bottom-nav_bar",          // whole bar is clickable
     panel: ".c-bottom-nav_panel",
     openClass: "is-open",
     linkAttr: "data-scroll-to",
-    // If you have a fixed header too, add its px height here.
-    extraOffsetPx: 0,
 
-    // Stagger items inside panel
+    // Responsive offset:
+    // mobile (<768px): 3rem
+    // desktop: 6rem
+    extraOffsetPx: () => (window.innerWidth < 768 ? rem() * 3 : rem() * 6),
+
+    // Staggered items
     animItem: ".c-bottom-nav_link"
-
   };
 
   function init() {
@@ -34,7 +39,7 @@ console.log(
     const panel = nav.querySelector(cfg.panel);
     if (!bar || !panel) return;
 
-    // a11y hooks
+    // a11y
     if (!panel.id) panel.id = "bottomNavPanel";
     bar.setAttribute("aria-controls", panel.id);
     bar.setAttribute("aria-expanded", "false");
@@ -42,7 +47,7 @@ console.log(
     const links = Array.from(nav.querySelectorAll(`[${cfg.linkAttr}]`));
 
     // ----------------------------
-    // GSAP stagger (same vibe as top menu)
+    // GSAP stagger (matches top menu feel)
     // ----------------------------
     const animatePanelLinks = (panelEl) => {
       if (!panelEl) return;
@@ -55,13 +60,13 @@ console.log(
       gsap.killTweensOf(items);
       gsap.set(items, { autoAlpha: 0, y: 12 });
 
-      // Double rAF helps when panel is transitioning open / layout is settling
+      // Double rAF ensures layout is settled after panel opens
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           gsap.to(items, {
             autoAlpha: 1,
             y: 0,
-            duration: 0.45,
+            duration: 0.4,
             ease: "power3.out",
             stagger: 0.08,
             clearProps: "opacity,visibility,transform"
@@ -93,16 +98,23 @@ console.log(
       toggleNav();
     });
 
-    // Scroll handler
+    // ----------------------------
+    // Scroll with responsive offset
+    // ----------------------------
     function scrollToId(id) {
       if (!id) return;
       const el = document.getElementById(id);
       if (!el) return;
 
+      const offset =
+        typeof cfg.extraOffsetPx === "function"
+          ? cfg.extraOffsetPx()
+          : cfg.extraOffsetPx;
+
       const y =
         el.getBoundingClientRect().top +
         window.pageYOffset -
-        cfg.extraOffsetPx;
+        offset;
 
       window.scrollTo({ top: y, behavior: "smooth" });
     }
