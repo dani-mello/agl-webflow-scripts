@@ -4,15 +4,13 @@ console.log(
 );
 
 /* theme-scroll.js
- * Toggles `.is-light` on `.page-wrapper` after 50% scroll.
- * Forces dark on load by removing `.is-light` first.
+ * Toggles `.is-light` on <body> after 50% scroll.
  */
 
 (function () {
   if (window.__agThemeScrollInit) return;
   window.__agThemeScrollInit = true;
 
-  const WRAP_SELECTOR = ".page-wrapper";
   const LIGHT_CLASS = "is-light";
   const THRESHOLD = 0.5;
 
@@ -24,20 +22,14 @@ console.log(
   }
 
   function applyTheme() {
-    const wrap = document.querySelector(WRAP_SELECTOR);
-    if (!wrap) return;
-
     const shouldBeLight = getProgress() >= THRESHOLD;
-    wrap.classList.toggle(LIGHT_CLASS, shouldBeLight);
+    document.body.classList.toggle(LIGHT_CLASS, shouldBeLight);
   }
 
-  // Force dark first (in case the class was left on in Designer)
-  const wrap = document.querySelector(WRAP_SELECTOR);
-  if (wrap) wrap.classList.remove(LIGHT_CLASS);
+  // Force dark on load
+  document.body.classList.remove(LIGHT_CLASS);
 
-  // Init + listeners
   applyTheme();
   window.addEventListener("scroll", applyTheme, { passive: true });
   window.addEventListener("resize", applyTheme);
 })();
-
