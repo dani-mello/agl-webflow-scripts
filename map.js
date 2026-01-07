@@ -1,6 +1,5 @@
 // map.js
 (function () {
-  console.log("%c[AGL MAP] map.js loaded", "font-weight:bold; font-size:14px;");
 
   var owner = "dani-mello";
   var repo = "agl-webflow-scripts";
