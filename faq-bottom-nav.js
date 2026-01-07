@@ -99,4 +99,48 @@ console.log(
   } else {
     init();
   }
+
+// --- Toggle icon (two-line + -> x) : BULLETPROOF VERSION ---
+const toggleItems = nav.querySelector(".c-bottom-nav_toggle-items");
+const lineH = nav.querySelector(".c-bottom-nav_toggle-line._h");
+const lineV = nav.querySelector(".c-bottom-nav_toggle-line._v");
+
+function forceToggleGeometry() {
+  if (!toggleItems || !lineH || !lineV) return;
+
+  // Force a predictable box for rotation
+  toggleItems.style.position = "relative";
+  toggleItems.style.width = "22px";
+  toggleItems.style.height = "22px";
+
+  // Force both lines to overlay at the same pivot
+  [lineH, lineV].forEach((ln) => {
+    ln.style.position = "absolute";
+    ln.style.left = "50%";
+    ln.style.top = "50%";
+    ln.style.width = "22px";
+    ln.style.height = "2px";
+    ln.style.transformOrigin = "center";
+    ln.style.transition = "transform 220ms cubic-bezier(0.22,1,0.36,1)";
+  });
+}
+
+function setPlus() {
+  if (!lineH || !lineV) return;
+  lineH.style.transform = "translate(-50%, -50%) rotate(0deg)";
+  lineV.style.transform = "translate(-50%, -50%) rotate(90deg)";
+}
+
+function setX() {
+  if (!lineH || !lineV) return;
+  lineH.style.transform = "translate(-50%, -50%) rotate(45deg)";
+  lineV.style.transform = "translate(-50%, -50%) rotate(-45deg)";
+}
+
+// Call once on init
+forceToggleGeometry();
+setPlus();
+
+
+  
 })();
