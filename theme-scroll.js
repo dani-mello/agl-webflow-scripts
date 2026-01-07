@@ -24,10 +24,9 @@ console.log(
   }
 
   function applyTheme() {
-    const wrap = document.querySelector(WRAP_SELECTOR);
-    if (!wrap) return;
+    const shouldLight = getProgress() < THRESHOLD; // <-- inverted
+wrap.classList.toggle(LIGHT_CLASS, shouldLight);
 
-    wrap.classList.toggle(LIGHT_CLASS, getProgress() >= THRESHOLD);
   }
 
   // Init + listeners
