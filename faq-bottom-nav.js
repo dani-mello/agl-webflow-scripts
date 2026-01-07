@@ -22,7 +22,8 @@ console.log(
     extraOffsetPx: 0,
 
     // Stagger items inside panel
-    animItem: ".panel-anim-item"
+    animItem: ".c-bottom-nav_link"
+
   };
 
   function init() {
