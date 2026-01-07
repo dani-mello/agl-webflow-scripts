@@ -1,9 +1,7 @@
 console.log(
-  "%cFAQ ACCORDION JS LOADED (v2026-01-DEBUG)",
+  "%cFAQ ACCORDION JS LOADED (V1)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
-
-
 
 (function () {
   function initFaqAccordion(userConfig) {
@@ -12,11 +10,14 @@ console.log(
         item: ".c-faq-item",
         question: ".c-faq-item_question",
         answer: ".c-faq-item_answer",
-        openClass: "is-open",      // <— simpler than _is-open
+        openClass: "is-open", // class applied to question (optional styling hook)
         closeOthers: false,
         durationMs: 280,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        forceClosedOnInit: true
+        forceClosedOnInit: true,
+
+        // ✅ New: attribute for CSS hook (icon rotation)
+        stateAttr: "data-faq-open"
       },
       userConfig || {}
     );
@@ -25,6 +26,7 @@ console.log(
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Prevent double-binding
     if (window.__faqAccordionBound) return;
     window.__faqAccordionBound = true;
 
@@ -41,12 +43,19 @@ console.log(
     }
 
     function setOpenState(item, q, isOpen) {
-      // State lives on question (easy to style + inspect)
+      // ✅ Question state (optional, but useful)
       q.classList.toggle(cfg.openClass, isOpen);
       q.setAttribute("aria-expanded", isOpen ? "true" : "false");
 
-      // Optional: also put a data attribute on item if you want
-      item.setAttribute("data-open", isOpen ? "true" : "false");
+      // ✅ Item state (this is what your icon CSS should use)
+      item.setAttribute(cfg.stateAttr, isOpen ? "true" : "false");
+
+      // Debug (remove later)
+      console.log("[FAQ] set state:", {
+        isOpen: isOpen,
+        aria: q.getAttribute("aria-expanded"),
+        itemAttr: item.getAttribute(cfg.stateAttr)
+      });
     }
 
     function openItem(item, q) {
@@ -57,9 +66,11 @@ console.log(
 
       var startHeight = answer.getBoundingClientRect().height;
 
+      // Measure full height
       answer.style.height = "auto";
       var targetHeight = answer.scrollHeight;
 
+      // Animate from current -> target
       answer.style.height = startHeight + "px";
       answer.style.overflow = "hidden";
 
@@ -93,25 +104,35 @@ console.log(
         var answer = item.querySelector(cfg.answer);
         if (!q || !answer) return;
 
+        // Reset state
         q.classList.remove(cfg.openClass);
         q.setAttribute("aria-expanded", "false");
-        item.setAttribute("data-open", "false");
+        item.setAttribute(cfg.stateAttr, "false");
 
+        // Reset answer box
         answer.style.height = "0px";
         answer.style.overflow = "hidden";
       });
+
+      console.log("[FAQ] forceClosed complete");
     }
 
+    // Delegated click handler (CMS-friendly)
     document.addEventListener("click", function (e) {
       var q = e.target.closest(cfg.question);
       if (!q) return;
 
       var item = q.closest(cfg.item);
-      if (!item) return;
+      if (!item) {
+        console.warn("[FAQ] clicked question, but no item wrapper found", q);
+        return;
+      }
 
       e.preventDefault();
 
       var isOpen = q.getAttribute("aria-expanded") === "true";
+
+      console.log("[FAQ] click", { isOpen: isOpen, q: q, item: item });
 
       if (cfg.closeOthers && !isOpen) {
         document.querySelectorAll(cfg.item).forEach(function (other) {
