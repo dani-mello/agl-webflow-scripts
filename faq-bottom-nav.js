@@ -25,7 +25,7 @@ console.log(
     const nav = document.querySelector(cfg.root);
     if (!nav) return;
 
-    const toggle = nav.querySelector(cfg.toggle);
+    const toggle = nav.querySelector(".c-bottom-nav_bar");
     const panel = nav.querySelector(cfg.panel);
     if (!toggle || !panel) return;
 
