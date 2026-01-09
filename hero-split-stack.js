@@ -1,4 +1,4 @@
-console.log("SPLIT STACK JS LOADED (V16.1)");
+console.log("SPLIT STACK JS LOADED (V16.2)");
 
 (function () {
   var root = document.querySelector(".c-hero");
