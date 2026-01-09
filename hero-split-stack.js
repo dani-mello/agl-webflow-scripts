@@ -1,4 +1,4 @@
-console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V8 COLOR LOCK)");
+console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V9 COLOR LOCK)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -154,9 +154,9 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V8 COLOR LOCK)");
   });
 
   gsap.to(headline, {
-    delay: 1,
+    delay: 3,
     autoAlpha: 1,
-    duration: 1.5,
+    duration: 2,
     ease: "power2.out",
     onComplete: function () {
       ScrollTrigger.refresh(true);
