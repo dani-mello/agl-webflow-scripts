@@ -85,9 +85,9 @@ console.log(
   ScrollTrigger.create({
     trigger: root,
     start: "top top",
-    end: "+=2800",     // scroll distance
+    end: "+=5200",     // scroll distance
     pin: true,
-    scrub: 0.8,
+    scrub: 1.2,
     anticipatePin: 1,
     invalidateOnRefresh: true,
     animation: tl,
