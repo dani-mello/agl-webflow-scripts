@@ -102,9 +102,9 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
 
   // Fade in headline BEFORE scroll takes over
   gsap.to(headline, {
-    delay: 0.3,
+    delay: 1,
     autoAlpha: 1,
-    duration: 0.8,
+    duration: 1.5,
     ease: "power2.out",
     onComplete: function () {
       ScrollTrigger.refresh(true);
