@@ -67,8 +67,8 @@ console.log(
 
   // Event 2 – split headline + video 1
   tl.add(function () { safePlay(v1); }, "e2");
-  tl.to(leftHalf,  { x: "-12vw", duration: 0.9 }, "e2");
-  tl.to(rightHalf, { x: "12vw",  duration: 0.9 }, "e2");
+  tl.to(".c-hero_h1::before", { x: "-12vw", duration: 0.9 }, "e2");
+  tl.to(".c-hero_h1::after",  { x: "12vw",  duration: 0.9 }, "e2");
   tl.to(p1, { scale: 1, rotate: 0, duration: 1.1 }, "e2");
 
   // Event 3 – video 2
