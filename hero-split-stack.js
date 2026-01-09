@@ -154,9 +154,9 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V7 COLOR LOCK)");
   });
 
   gsap.to(headline, {
-    delay: 0.2,
+    delay: 1,
     autoAlpha: 1,
-    duration: 0.9,
+    duration: 01.5,
     ease: "power2.out",
     onComplete: function () {
       ScrollTrigger.refresh(true);
