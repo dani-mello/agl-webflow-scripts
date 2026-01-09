@@ -81,6 +81,7 @@ console.log("SPLIT STACK JS LOADED (V16.2)");
 
   // ---- LOAD FADE (no scroll yet)
   gsap.to(headline, {
+    delay: 0.8,
     autoAlpha: 1,
     duration: 2,
     ease: "power2.out",
