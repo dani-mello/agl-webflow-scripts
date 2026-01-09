@@ -1,4 +1,4 @@
-console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
+console.log("HERO HEADLINE + VIDEO GROW (V2)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -20,6 +20,10 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
 
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
+
+  // NEW: video move wrapper
+  var bgMove = root.querySelector(".c-hero_bg-move");
+
   if (!headline || !h1) return;
 
   var old = ScrollTrigger.getById("heroHeadlineOnly");
@@ -63,8 +67,16 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
 
   var chars = buildChars();
 
+  // Prevent headline flash (also do opacity:0 in CSS if possible)
   gsap.set(headline, { autoAlpha: 0 });
+
+  // Initial char state
   gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1, willChange: "transform" });
+
+  // NEW: initial video state (70vw-ish + tilt)
+  if (bgMove) {
+    gsap.set(bgMove, { scale: 0.7, rotate: -20, transformOrigin: "50% 50%" });
+  }
 
   function computeTargets() {
     var vw = window.innerWidth || 1200;
@@ -85,9 +97,10 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
+    if (bgMove) gsap.set(bgMove, { scale: 0.7, rotate: -20 });
   });
 
-  // Fade in on load (not tied to scroll)
+  // Fade in headline BEFORE scroll takes over
   gsap.to(headline, {
     delay: 0.3,
     autoAlpha: 1,
@@ -98,16 +111,21 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
     }
   });
 
-  // Timeline
+  // Timeline (scrubbed)
   var tl = gsap.timeline();
 
-  // Hold
-  tl.to({}, { duration: 1.2 });
+  // VIDEO grow/untwist happens early (while headline is holding)
+  // You can adjust duration to control how long it takes across scroll.
+  if (bgMove) {
+    tl.to(bgMove, { scale: 1, rotate: 0, duration: 1.2, ease: "power2.out" }, 0);
+  }
 
-  // Label when burst starts
+  // Hold for a bit (after video settles)
+  tl.to({}, { duration: 1.0 });
+
   tl.addLabel("burstStart");
 
-  // Fly out
+  // Letters fly out
   tl.to(chars, {
     x: function (i, el) { return el._x; },
     y: function (i, el) { return el._y; },
@@ -118,16 +136,12 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
     stagger: { each: 0.01, from: "center" }
   }, "burstStart");
 
-  // Label when burst ends
   tl.addLabel("burstEnd", "burstStart+=2.0");
-
-  // IMPORTANT: don't permanently hide the headline in the timeline.
-  // We'll control visibility based on progress in onUpdate.
 
   var burstStartTime = tl.labels.burstStart;
   var burstEndTime = tl.labels.burstEnd;
 
-  var st = ScrollTrigger.create({
+  ScrollTrigger.create({
     id: "heroHeadlineOnly",
     trigger: root,
     start: "top top",
@@ -141,14 +155,13 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
     onUpdate: function () {
       var t = tl.time();
 
-      // When before burst: headline must be visible and chars must be home
+      // Before burst: headline visible, chars home
       if (t < burstStartTime) {
         gsap.set(headline, { autoAlpha: 1 });
-        // keep chars reset while user scrubs around in the hold zone
         gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
       }
 
-      // During burst: headline visible so you can see letters leaving
+      // During burst: keep headline visible so you can see letters leave
       if (t >= burstStartTime && t <= burstEndTime) {
         gsap.set(headline, { autoAlpha: 1 });
       }
@@ -160,10 +173,9 @@ console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
     },
 
     onEnterBack: function () {
-      // Coming back from below: show headline again
       gsap.set(headline, { autoAlpha: 1 });
     }
+
     // markers: true
   });
-
 })();
