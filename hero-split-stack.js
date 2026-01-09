@@ -1,12 +1,12 @@
-console.log("HERO SPLIT STACK JS LOADED (V17)");
+console.log("HERO HEADLINE ONLY (V1)");
 
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
-  // Prevent double init (Webflow preview/publish/soft reload)
-  if (root.dataset.heroInit === "1") return;
-  root.dataset.heroInit = "1";
+  // Prevent double init
+  if (root.dataset.heroHeadlineInit === "1") return;
+  root.dataset.heroHeadlineInit = "1";
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("GSAP or ScrollTrigger missing");
@@ -21,60 +21,15 @@ console.log("HERO SPLIT STACK JS LOADED (V17)");
 
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
+  if (!headline || !h1) return;
 
-  var p1 = root.querySelector(".c-hero_panel--v1");
-  var p2 = root.querySelector(".c-hero_panel--v2");
-  var p3 = root.querySelector(".c-hero_panel--v3");
+  // kill only our trigger if hot reloaded
+  var old = ScrollTrigger.getById("heroHeadlineOnly");
+  if (old) old.kill();
 
-  var v1 = p1 ? p1.querySelector("video") : null;
-  var v2 = p2 ? p2.querySelector("video") : null;
-  var v3 = p3 ? p3.querySelector("video") : null;
-
-  if (!headline || !h1) {
-    console.warn("Missing .c-hero_headline or .c-hero_h1");
-    return;
-  }
-
-  // Polite refresh (avoid nuking other pinned sections)
-  var refreshQueued = false;
-  function queueRefresh() {
-    if (refreshQueued) return;
-    refreshQueued = true;
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        refreshQueued = false;
-        ScrollTrigger.refresh(true);
-      });
-    });
-  }
-
-  function safePlay(el) {
-    if (!el) return;
-    el.muted = true;
-    el.playsInline = true;
-    try {
-      var p = el.play();
-      if (p && typeof p.catch === "function") p.catch(function () {});
-    } catch (e) {}
-  }
-  function safePause(el) {
-    if (!el) return;
-    try { el.pause(); } catch (e) {}
-  }
-
-  // ---- Ensure initial hidden states (CSS should also set these to avoid flashes)
-  gsap.set(headline, { autoAlpha: 0 });
-  gsap.set([p1, p2, p3], {
-    opacity: 0,
-    scale: 0.001,
-    rotate: -20,
-    transformOrigin: "50% 50%"
-  });
-
-  // ---- SplitText with correct wrapping: words -> chars
+  // --- helpers
   var originalText = h1.textContent;
 
-  // Cleanup prior split if any
   function revertSplits() {
     try {
       if (h1._splitWordCharSplits) {
@@ -109,119 +64,81 @@ console.log("HERO SPLIT STACK JS LOADED (V17)");
     return chars;
   }
 
-  var allChars = buildChars();
+  var chars = buildChars();
 
-  gsap.set(allChars, {
-    opacity: 1,
-    x: 0,
-    y: 0,
-    rotate: 0,
-    willChange: "transform"
-  });
+  gsap.set(headline, { autoAlpha: 0 });
+  gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1, willChange: "transform" });
 
-  // ---- Offscreen targets (guaranteed outside viewport)
   function computeTargets() {
     var vw = window.innerWidth || 1200;
     var vh = window.innerHeight || 800;
-    var radius = Math.sqrt(vw * vw + vh * vh) * 1.35;
+    var radius = Math.sqrt(vw * vw + vh * vh) * 1.35; // guaranteed outside
 
-    for (var i = 0; i < allChars.length; i++) {
+    for (var i = 0; i < chars.length; i++) {
       var a = Math.random() * Math.PI * 2;
       var r = radius * gsap.utils.random(0.9, 1.15);
-      allChars[i]._x = Math.cos(a) * r;
-      allChars[i]._y = Math.sin(a) * r;
-      allChars[i]._r = gsap.utils.random(-140, 140);
+      chars[i]._x = Math.cos(a) * r;
+      chars[i]._y = Math.sin(a) * r;
+      chars[i]._r = gsap.utils.random(-140, 140);
     }
   }
 
   computeTargets();
 
-  // Recompute targets on refresh
+  // recompute per refresh (orientation/resize)
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
-    gsap.set(allChars, { x: 0, y: 0, rotate: 0, opacity: 1 });
+    gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
   });
 
-  // ---- Load fade BEFORE scroll takes over
+  // --- fade in BEFORE scrolling
   gsap.to(headline, {
-    delay: 0.25, // small delay (your request)
+    delay: 0.3,          // tweak delay
     autoAlpha: 1,
     duration: 0.8,
     ease: "power2.out",
     onComplete: function () {
-      queueRefresh();
-      initScrollTimeline();
+      ScrollTrigger.refresh(true);
     }
   });
 
-  function initScrollTimeline() {
-    // Kill existing hero trigger if present (safe, only ours)
-    var old = ScrollTrigger.getById("heroSplitStack");
-    if (old) old.kill();
+  // --- scroll timeline (headline only)
+  var tl = gsap.timeline({ defaults: { ease: "none" } });
 
-    var tl = gsap.timeline();
+  // Hold for a bit
+  tl.to({}, { duration: 1.2 });
 
-    // Hold on scroll
-    tl.to({}, { duration: 1.2 });
+  // Fly out (no fading during travel)
+  tl.to(chars, {
+    x: function (i, el) { return el._x; },
+    y: function (i, el) { return el._y; },
+    rotate: function (i, el) { return el._r; },
+    opacity: 1,
+    duration: 2.0,
+    ease: "power3.in",
+    stagger: { each: 0.01, from: "center" }
+  }, "out");
 
-    // Letters fly out (NO fading)
-    tl.add(function () { safePlay(v1); }, "out");
-    tl.to(allChars, {
-      x: function (i, el) { return el._x; },
-      y: function (i, el) { return el._y; },
-      rotate: function (i, el) { return el._r; },
-      opacity: 1,
-      duration: 2.0,
-      ease: "power3.in",
-      stagger: { each: 0.01, from: "center" }
-    }, "out");
+  // Hide headline only after the motion is clearly visible
+  tl.set(headline, { autoAlpha: 0 }, "out+=2.05");
 
-    // Hide headline only after the motion is visible
-    tl.set(headline, { autoAlpha: 0 }, "out+=2.05");
-
-    // Reveal panels (opacity + scale)
-    tl.to(p1, { opacity: 1, scale: 1, rotate: 0, duration: 1.2 }, "out+=0.2");
-
-    tl.to({}, { duration: 0.6 });
-    tl.add(function () { safePlay(v2); }, "v2");
-    tl.to(p2, { opacity: 1, scale: 1, rotate: 0, duration: 1.1 }, "v2");
-
-    tl.to({}, { duration: 0.6 });
-    tl.add(function () { safePlay(v3); }, "v3");
-    tl.to(p3, { opacity: 1, scale: 1, rotate: 0, duration: 1.1 }, "v3");
-
-    ScrollTrigger.create({
-      id: "heroSplitStack",
-      trigger: root,
-      start: "top top",
-      end: "+=10000",
-      pin: true,
-      scrub: 1.8,
-      anticipatePin: 1,
-      invalidateOnRefresh: true,
-      animation: tl,
-      onLeave: function () { safePause(v1); safePause(v2); },
-      onEnterBack: function () {
-        // Reset panels + headline
-        gsap.set([p1, p2, p3], { opacity: 0, scale: 0.001, rotate: -20 });
-        gsap.set(headline, { autoAlpha: 1 });
-
-        // Rebuild splits for clean back-scrub
-        allChars = buildChars();
-        gsap.set(allChars, { opacity: 1, x: 0, y: 0, rotate: 0, willChange: "transform" });
-        computeTargets();
-        safePlay(v1);
-      }
-      // markers: true
-    });
-  }
-
-  // Refresh after video metadata loads (polite)
-  [v1, v2, v3].forEach(function (vid) {
-    if (!vid) return;
-    vid.addEventListener("loadedmetadata", function () {
-      queueRefresh();
-    }, { once: true });
+  ScrollTrigger.create({
+    id: "heroHeadlineOnly",
+    trigger: root,
+    start: "top top",
+    end: "+=5200",      // adjust scroll length here
+    pin: true,
+    scrub: 1.6,
+    anticipatePin: 1,
+    invalidateOnRefresh: true,
+    animation: tl,
+    onEnterBack: function () {
+      // reset cleanly when scrubbing back up
+      gsap.set(headline, { autoAlpha: 1 });
+      chars = buildChars();
+      gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1, willChange: "transform" });
+      computeTargets();
+    }
+    // markers: true
   });
-
 })();
