@@ -1,5 +1,5 @@
 console.log(
-  "%cSPLIT STACK JS LOADED (V8 - LETTER SCATTER)",
+  "%cSPLIT STACK JS LOADED (V9 - LETTER SCATTER FIXED)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -14,12 +14,8 @@ console.log(
 
   gsap.registerPlugin(ScrollTrigger);
 
-  // Elements
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
-
-  // FX overlay container (must exist in HTML)
-  // <div class="c-hero_h1-fx" aria-hidden="true"></div>
   var fx = headline ? headline.querySelector(".c-hero_h1-fx") : null;
 
   var p1 = root.querySelector(".c-hero_panel--v1");
@@ -34,7 +30,6 @@ console.log(
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Helpers
   function safePlay(el) {
     if (!el) return;
     el.muted = true;
@@ -47,14 +42,13 @@ console.log(
 
   function safePause(el) {
     if (!el) return;
-    try {
-      el.pause();
-    } catch (e) {}
+    try { el.pause(); } catch (e) {}
   }
 
   function buildFxLetters() {
     if (!h1 || !fx) return false;
 
+    // Make FX match the exact same text
     var text = h1.textContent || "";
     fx.innerHTML = "";
 
@@ -68,7 +62,7 @@ console.log(
     return true;
   }
 
-  // Reduced motion fallback
+  // Reduced motion
   if (prefersReduced) {
     gsap.set([p1, p2, p3], { scale: 1, rotate: 0 });
     if (headline) gsap.set(headline, { autoAlpha: 0 });
@@ -76,91 +70,67 @@ console.log(
     return;
   }
 
-  // Initial states
+  // Initial states (videos hidden)
   gsap.set([p1, p2, p3], {
     scale: 0,
     rotate: -20,
     transformOrigin: "50% 50%"
   });
 
+  // Headline visible, real H1 visible, FX hidden
   if (headline) gsap.set(headline, { autoAlpha: 1 });
+  if (h1) gsap.set(h1, { opacity: 1 });
+  if (fx) gsap.set(fx, { autoAlpha: 0 });
 
-  // Make sure FX layer exists and is built
+  // Build FX letters once up front (so it's ready)
   var hasFx = buildFxLetters();
   if (!hasFx) {
     console.warn(
       "Missing .c-hero_h1 and/or .c-hero_h1-fx inside .c-hero_headline. " +
-        "Add: <h1 class='c-hero_h1'>...</h1><div class='c-hero_h1-fx' aria-hidden='true'></div>"
+      "Add: <h1 class='c-hero_h1'>...</h1><div class='c-hero_h1-fx' aria-hidden='true'></div>"
     );
   }
 
-  if (fx) gsap.set(fx, { autoAlpha: 1 });
-
-  // Timeline
+  // Timeline (scroll-driven)
   var tl = gsap.timeline({ defaults: { ease: "power3.inOut" } });
 
-  // Event 1 - headline hold
+  // Event 1: hold the headline
   tl.to({}, { duration: 0.6 });
 
-  // Event 2 - scatter letters + video 1 grows
-  tl.add(
-    function () {
-      safePlay(v1);
-    },
-    "e2"
-  );
+  // Event 2: scatter letters + video 1 grows
+  tl.add(function () { safePlay(v1); }, "e2");
 
-  if (fx) {
-    if (h1) tl.set(h1, { opacity: 0 }, "e2");
-
-    var chars = fx.querySelectorAll(".char");
+  if (fx && hasFx) {
+    tl.set(fx, { autoAlpha: 1 }, "e2");     // show FX overlay
+    tl.set(h1, { opacity: 0 }, "e2");       // hide real H1 visually (still in DOM)
     tl.to(
-      chars,
+      fx.querySelectorAll(".char"),
       {
-        x: function () {
-          return gsap.utils.random(-260, 260);
-        },
-        y: function () {
-          return gsap.utils.random(-220, 220);
-        },
-        rotate: function () {
-          return gsap.utils.random(-60, 60);
-        },
+        x: function () { return gsap.utils.random(-260, 260); },
+        y: function () { return gsap.utils.random(-220, 220); },
+        rotate: function () { return gsap.utils.random(-60, 60); },
         opacity: 0,
         duration: 0.9,
-        ease: "power3.inOut",
         stagger: { each: 0.012, from: "random" }
       },
       "e2"
     );
-
-    // Fade headline layer away
-    tl.to(headline, { autoAlpha: 0, duration: 0.35 }, "e2+=0.35");
-  } else {
-    tl.to(headline, { autoAlpha: 0, duration: 0.35 }, "e2+=0.35");
   }
+
+  // Fade headline away as video takes over
+  tl.to(headline, { autoAlpha: 0, duration: 0.35 }, "e2+=0.35");
 
   // Video 1
   tl.to(p1, { scale: 1, rotate: 0, duration: 1.1 }, "e2");
 
-  // Event 3 - video 2
+  // Event 3: video 2
   tl.to({}, { duration: 0.25 });
-  tl.add(
-    function () {
-      safePlay(v2);
-    },
-    "e3"
-  );
+  tl.add(function () { safePlay(v2); }, "e3");
   tl.to(p2, { scale: 1, rotate: 0, duration: 1.0 }, "e3");
 
-  // Event 4 - video 3
+  // Event 4: video 3
   tl.to({}, { duration: 0.25 });
-  tl.add(
-    function () {
-      safePlay(v3);
-    },
-    "e4"
-  );
+  tl.add(function () { safePlay(v3); }, "e4");
   tl.to(p3, { scale: 1, rotate: 0, duration: 1.0 }, "e4");
 
   // ScrollTrigger
@@ -173,6 +143,7 @@ console.log(
     anticipatePin: 1,
     invalidateOnRefresh: true,
     animation: tl,
+    // markers: true, // <-- TEMP: uncomment to confirm it's progressing
     onLeave: function () {
       safePause(v1);
       safePause(v2);
@@ -180,26 +151,23 @@ console.log(
     onEnterBack: function () {
       safePlay(v1);
 
+      // Reset headline + FX for replay when scrolling back up
       if (headline) gsap.set(headline, { autoAlpha: 1 });
-
-      if (fx && hasFx) {
-        buildFxLetters();
-        var charsBack = fx.querySelectorAll(".char");
-        gsap.set(charsBack, { x: 0, y: 0, rotate: 0, opacity: 1 });
-      }
-
       if (h1) gsap.set(h1, { opacity: 1 });
+      if (fx) {
+        buildFxLetters();
+        gsap.set(fx, { autoAlpha: 0 });
+        gsap.set(fx.querySelectorAll(".char"), { x: 0, y: 0, rotate: 0, opacity: 1 });
+      }
     }
   });
 
-  // Refresh after video metadata loads (Safari/iOS sizing fix)
+  // Refresh after video metadata loads (helps Safari sizing)
   [v1, v2, v3].forEach(function (vid) {
     if (!vid) return;
     vid.addEventListener(
       "loadedmetadata",
-      function () {
-        ScrollTrigger.refresh();
-      },
+      function () { ScrollTrigger.refresh(); },
       { once: true }
     );
   });
