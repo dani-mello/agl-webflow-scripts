@@ -1,10 +1,9 @@
-console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
+console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V7 COLOR LOCK)");
 
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
-  // Prevent double init
   if (root.dataset.heroSplitStackInit === "1") return;
   root.dataset.heroSplitStackInit = "1";
 
@@ -19,11 +18,9 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
-  // Kill only our trigger if hot reloaded
   var old = ScrollTrigger.getById("heroSplitStack");
   if (old) old.kill();
 
-  // ---- Elements ----
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
@@ -32,7 +29,6 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
 
   if (!headline || !h1) return;
 
-  // Force reveal wrappers to be full-bleed (prevents “half on screen” behaviour)
   function forceFullBleed(el) {
     if (!el) return;
     el.style.position = "absolute";
@@ -46,19 +42,15 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
   forceFullBleed(v2Reveal);
   forceFullBleed(v3Reveal);
 
-  // Safari-safe clip helper
   function setClip(el, value) {
     if (!el) return;
     gsap.set(el, { clipPath: value, webkitClipPath: value });
   }
 
-  // Curtain closed: a vertical line at 50% (zero-width shape)
   function curtainClosed(el) {
-    // left-top, right-top, right-bottom, left-bottom — all on x=50%
     setClip(el, "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)");
   }
 
-  // Curtain open: full rectangle
   function curtainOpen(tl, el, pos, dur) {
     if (!el) return tl.to({}, { duration: dur || 1.2 }, pos);
 
@@ -74,7 +66,6 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
     );
   }
 
-  // ---- SplitText build (your existing logic) ----
   var originalText = h1.textContent;
 
   function revertSplits() {
@@ -113,10 +104,13 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
 
   var chars = buildChars();
 
-  // Prevent headline flash
+  // ---- LOCK HEADLINE COLOUR (prevents colour shifts mid-burst) ----
+  var lockedColor = window.getComputedStyle(h1).color;
+  gsap.set(h1, { color: lockedColor });
+  gsap.set(chars, { color: lockedColor });
+
   gsap.set(headline, { autoAlpha: 0 });
 
-  // Initial char state
   gsap.set(chars, {
     x: 0,
     y: 0,
@@ -125,7 +119,6 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
     willChange: "transform"
   });
 
-  // Initial reveal states
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
@@ -147,13 +140,19 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
 
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
+
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
     gsap.set(headline, { autoAlpha: 0 });
+
+    // Re-lock colour on refresh (in case theme vars change)
+    lockedColor = window.getComputedStyle(h1).color;
+    gsap.set(h1, { color: lockedColor });
+    gsap.set(chars, { color: lockedColor });
+
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
   });
 
-  // Fade headline in BEFORE scroll takes over
   gsap.to(headline, {
     delay: 0.2,
     autoAlpha: 1,
@@ -164,25 +163,14 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
     }
   });
 
-  // ---- Timeline (scrubbed) ----
   var tl = gsap.timeline();
 
-  // Hold: video 1 running, headline visible
   tl.to({}, { duration: 0.8 });
-
-  // Video 2 curtain open (TRUE centre -> both sides)
   curtainOpen(tl, v2Reveal, "v2Open", 1.2);
-
-  // Small hold
   tl.to({}, { duration: 0.35 });
-
-  // Video 3 curtain open (TRUE centre -> both sides), stacked on top
   curtainOpen(tl, v3Reveal, "v3Open", 1.2);
-
-  // Small hold
   tl.to({}, { duration: 0.5 });
 
-  // Burst labels
   tl.addLabel("burstStart");
 
   tl.to(
