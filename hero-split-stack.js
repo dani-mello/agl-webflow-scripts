@@ -156,7 +156,7 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V8 COLOR LOCK)");
   gsap.to(headline, {
     delay: 1,
     autoAlpha: 1,
-    duration: 01.5,
+    duration: 1.5,
     ease: "power2.out",
     onComplete: function () {
       ScrollTrigger.refresh(true);
@@ -165,11 +165,11 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V8 COLOR LOCK)");
 
   var tl = gsap.timeline();
 
-  tl.to({}, { duration: 0.8 });
-  curtainOpen(tl, v2Reveal, "v2Open", 1.2);
+  tl.to({}, { duration: 1 });
+  curtainOpen(tl, v2Reveal, "v2Open", 2);
   tl.to({}, { duration: 0.35 });
-  curtainOpen(tl, v3Reveal, "v3Open", 1.2);
-  tl.to({}, { duration: 0.5 });
+  curtainOpen(tl, v3Reveal, "v3Open", 2);
+  tl.to({}, { duration: 1 });
 
   tl.addLabel("burstStart");
 
