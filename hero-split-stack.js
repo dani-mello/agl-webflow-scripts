@@ -1,5 +1,5 @@
 console.log(
-  "%cSPLIT STACK JS LOADED (V16 - FADE IN + TRUE OFFSCREEN BURST)",
+  "%cSPLIT STACK JS LOADED (V17 - FADE IN + TRUE OFFSCREEN BURST)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -18,7 +18,226 @@ console.log(
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
+  var headline = root.querySelector(console.log(
+  "%cSPLIT STACK JS LOADED (V16 - LOAD FADE + SCROLL BURST + VIDEOS)",
+  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
+);
+
+(function () {
+  var root = document.querySelector(".c-hero");
+  if (!root) return;
+
+  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
+    console.warn("GSAP/ScrollTrigger missing.");
+    return;
+  }
+  if (typeof SplitText === "undefined") {
+    console.warn("SplitText not available globally.");
+    return;
+  }
+
+  gsap.registerPlugin(ScrollTrigger, SplitText);
+
   var headline = root.querySelector(".c-hero_headline");
+  var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
+
+  var p1 = root.querySelector(".c-hero_panel--v1");
+  var p2 = root.querySelector(".c-hero_panel--v2");
+  var p3 = root.querySelector(".c-hero_panel--v3");
+
+  var v1 = p1 ? p1.querySelector("video") : null;
+  var v2 = p2 ? p2.querySelector("video") : null;
+  var v3 = p3 ? p3.querySelector("video") : null;
+
+  var prefersReduced =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function safePlay(el) {
+    if (!el) return;
+    el.muted = true;
+    el.playsInline = true;
+    try {
+      var p = el.play();
+      if (p && typeof p.catch === "function") p.catch(function () {});
+    } catch (e) {}
+  }
+
+  function safePause(el) {
+    if (!el) return;
+    try { el.pause(); } catch (e) {}
+  }
+
+  if (!headline || !h1) {
+    console.warn("Missing .c-hero_headline and/or .c-hero_h1");
+    return;
+  }
+
+  // --- Prevent any flashes (headline hidden in CSS already, but we enforce) ---
+  gsap.set(headline, { autoAlpha: 0 });
+
+  // --- Ensure panels start hidden but animatable ---
+  gsap.set([p1, p2, p3], {
+    opacity: 0,
+    scale: 0.001,         // use tiny scale instead of 0 to avoid weird render edge cases
+    rotate: -20,
+    transformOrigin: "50% 50%"
+  });
+
+  if (prefersReduced) {
+    gsap.set(headline, { autoAlpha: 1 });
+    gsap.set([p1, p2, p3], { opacity: 1, scale: 1, rotate: 0 });
+    safePlay(v3);
+    return;
+  }
+
+  // ---------------------------------------------------------
+  // Split text with correct wrapping: words first, then chars
+  // ---------------------------------------------------------
+  var originalText = h1.textContent;
+
+  // cleanup previous splits if any (designer/publish cycle)
+  try {
+    if (h1._splitWordCharSplits) {
+      for (var r = 0; r < h1._splitWordCharSplits.length; r++) h1._splitWordCharSplits[r].revert();
+    }
+    if (h1._splitWords) h1._splitWords.revert();
+  } catch (e) {}
+
+  var splitWords = new SplitText(h1, { type: "words" });
+  var wordCharSplits = [];
+  var allChars = [];
+
+  for (var i = 0; i < splitWords.words.length; i++) {
+    var w = splitWords.words[i];
+    var sc = new SplitText(w, { type: "chars" });
+    wordCharSplits.push(sc);
+    allChars = allChars.concat(sc.chars);
+  }
+  h1._splitWords = splitWords;
+  h1._splitWordCharSplits = wordCharSplits;
+
+  gsap.set(allChars, {
+    willChange: "transform,opacity",
+    opacity: 1,
+    x: 0,
+    y: 0,
+    rotate: 0,
+    transformOrigin: "50% 50%"
+  });
+
+  // ---------------------------------------------------------
+  // Offscreen targets: guarantee OUTSIDE viewport
+  // ---------------------------------------------------------
+  function computeOffscreenTargets() {
+    var vw = window.innerWidth || 1200;
+    var vh = window.innerHeight || 800;
+    var diag = Math.sqrt(vw * vw + vh * vh);
+    var radius = diag * 1.35; // big enough to *definitely* leave screen
+
+    allChars.forEach(function (ch) {
+      var a = Math.random() * Math.PI * 2;
+      var r = radius * gsap.utils.random(0.9, 1.15);
+      ch._burstX = Math.cos(a) * r;
+      ch._burstY = Math.sin(a) * r;
+      ch._burstR = gsap.utils.random(-140, 140);
+    });
+  }
+
+  computeOffscreenTargets();
+
+  ScrollTrigger.addEventListener("refreshInit", function () {
+    computeOffscreenTargets();
+    gsap.set(allChars, { x: 0, y: 0, rotate: 0, opacity: 1 });
+  });
+
+  // ---------------------------------------------------------
+  // Build scroll timeline (but only AFTER the load fade completes)
+  // ---------------------------------------------------------
+  function initScrollTimeline() {
+    var tl = gsap.timeline({ defaults: { ease: "power3.inOut" } });
+
+    // Hold on scroll
+    tl.to({}, { duration: 1.2 }); // increase = more hold before burst
+
+    // Burst letters (NO fading while they move)
+    tl.add(function () { safePlay(v1); }, "out");
+
+    tl.to(allChars, {
+      x: function (idx, el) { return el._burstX; },
+      y: function (idx, el) { return el._burstY; },
+      rotate: function (idx, el) { return el._burstR; },
+      opacity: 1,              // keep visible while moving
+      duration: 2.0,           // slower so you can SEE it
+      ease: "power3.in",
+      stagger: { each: 0.01, from: "center" }
+    }, "out");
+
+    // After they’ve flown out, hide the headline layer (no fade)
+    tl.set(headline, { autoAlpha: 0 }, "out+=2.05");
+
+    // Reveal video 1 (opacity + scale so you actually see it)
+    tl.to(p1, { opacity: 1, scale: 1, rotate: 0, duration: 1.2 }, "out+=0.2");
+
+    // Video 2
+    tl.to({}, { duration: 0.6 });
+    tl.add(function () { safePlay(v2); }, "v2");
+    tl.to(p2, { opacity: 1, scale: 1, rotate: 0, duration: 1.1 }, "v2");
+
+    // Video 3
+    tl.to({}, { duration: 0.6 });
+    tl.add(function () { safePlay(v3); }, "v3");
+    tl.to(p3, { opacity: 1, scale: 1, rotate: 0, duration: 1.1 }, "v3");
+
+    ScrollTrigger.create({
+      trigger: root,
+      start: "top top",
+      end: "+=10000",   // longer scroll = slower overall
+      pin: true,
+      scrub: 1.8,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      animation: tl,
+      // markers: true, // uncomment to debug
+      onLeave: function () { safePause(v1); safePause(v2); },
+      onEnterBack: function () {
+        safePlay(v1);
+
+        // reset visuals when scrubbing back up
+        gsap.set([p1, p2, p3], { opacity: 0, scale: 0.001, rotate: -20 });
+        gsap.set(headline, { autoAlpha: 1 });
+        gsap.set(allChars, { x: 0, y: 0, rotate: 0, opacity: 1 });
+
+        computeOffscreenTargets();
+      }
+    });
+  }
+
+  // ---------------------------------------------------------
+  // LOAD FADE (pre-scroll)
+  // ---------------------------------------------------------
+  gsap.to(headline, {
+    autoAlpha: 1,
+    duration: 0.8,
+    ease: "power2.out",
+    onComplete: function () {
+      // Ensure ST sizes are correct after the load fade
+      ScrollTrigger.refresh();
+      initScrollTimeline();
+    }
+  });
+
+  // Refresh after video metadata loads (Safari sizing fix)
+  [v1, v2, v3].forEach(function (vid) {
+    if (!vid) return;
+    vid.addEventListener(
+      "loadedmetadata",
+      function () { ScrollTrigger.refresh(); },
+      { once: true }
+    );
+  });
+})();
+".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
   var p1 = root.querySelector(".c-hero_panel--v1");
