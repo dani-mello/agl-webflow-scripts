@@ -1,4 +1,4 @@
-console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
+console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -33,8 +33,27 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
 
   if (!headline || !h1) return;
 
+  // Helper: set/animate clip-path in a Safari-safe way
+  function setCurtainClosed(el) {
+    if (!el) return;
+    // Fully closed at centre (0 width) → opens outwards
+    var closed = "inset(0% 50% 0% 50%)";
+    gsap.set(el, { clipPath: closed, webkitClipPath: closed });
+  }
+
+  function tweenCurtainOpen(tl, el, pos) {
+    if (!el) return tl.to({}, { duration: 1.2 }, pos);
+    var open = "inset(0% 0% 0% 0%)";
+    return tl.to(el, {
+      clipPath: open,
+      webkitClipPath: open,
+      duration: 1.2,
+      ease: "power2.inOut"
+    }, pos);
+  }
+
   // ---- Headline split (your existing logic) ----
-  var originalText = h1.textContent;
+  var originalText = h_ATTACH? h1.textContent : "";
 
   function revertSplits() {
     try {
@@ -84,10 +103,9 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
     willChange: "transform"
   });
 
-  // Initial reveal states (closed "curtains" -> centre slice)
-  // If you want a tiny slit visible at start, use 48% instead of 50%.
-  if (v2Reveal) gsap.set(v2Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
-  if (v3Reveal) gsap.set(v3Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
+  // Initial reveal states (closed curtains)
+  setCurtainClosed(v2Reveal);
+  setCurtainClosed(v3Reveal);
 
   function computeTargets() {
     var vw = window.innerWidth || 1200;
@@ -113,8 +131,8 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
     gsap.set(headline, { autoAlpha: 0 });
 
     // Reset reveals (closed)
-    if (v2Reveal) gsap.set(v2Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
-    if (v3Reveal) gsap.set(v3Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
+    setCurtainClosed(v2Reveal);
+    setCurtainClosed(v3Reveal);
   });
 
   // Fade in headline BEFORE scroll takes over
@@ -131,38 +149,22 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
   // ---- Timeline (scrubbed) ----
   var tl = gsap.timeline();
 
-  // (A) Small hold so you see video 1 running + headline present
+  // Hold so you see video 1 running + headline present
   tl.to({}, { duration: 0.8 });
 
-  // (B) Video 2 reveal (centre -> outwards)
-  if (v2Reveal) {
-    tl.to(v2Reveal, {
-      clipPath: "inset(0% 0% 0% 0%)",
-      duration: 1.2,
-      ease: "power2.inOut"
-    }, "v2Open");
-  } else {
-    tl.to({}, { duration: 1.2 });
-  }
+  // Video 2 reveal (centre -> outwards)
+  tweenCurtainOpen(tl, v2Reveal, "v2Open");
 
   // small hold
   tl.to({}, { duration: 0.35 });
 
-  // (C) Video 3 reveal (centre -> outwards), stacked on top of video 2
-  if (v3Reveal) {
-    tl.to(v3Reveal, {
-      clipPath: "inset(0% 0% 0% 0%)",
-      duration: 1.2,
-      ease: "power2.inOut"
-    }, "v3Open");
-  } else {
-    tl.to({}, { duration: 1.2 });
-  }
+  // Video 3 reveal (centre -> outwards), stacked on top
+  tweenCurtainOpen(tl, v3Reveal, "v3Open");
 
   // small hold before burst
   tl.to({}, { duration: 0.5 });
 
-  // (D) HEADLINE BURST (your exact burst behaviour)
+  // HEADLINE BURST (unchanged)
   tl.addLabel("burstStart");
 
   tl.to(chars, {
@@ -194,18 +196,15 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
     onUpdate: function () {
       var t = tl.time();
 
-      // Before burst: headline visible, chars home
       if (t < burstStartTime) {
         gsap.set(headline, { autoAlpha: 1 });
         gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
       }
 
-      // During burst: keep headline visible so you can see letters leave
       if (t >= burstStartTime && t <= burstEndTime) {
         gsap.set(headline, { autoAlpha: 1 });
       }
 
-      // After burst: hide headline (letters are gone)
       if (t > burstEndTime) {
         gsap.set(headline, { autoAlpha: 0 });
       }
