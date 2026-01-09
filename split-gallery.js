@@ -1,23 +1,9 @@
-console.log("split-gallery new v1");
 // split-gallery.js
 // Requires GSAP + ScrollTrigger loaded BEFORE this script.
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
   const BREAKPOINT = 900;
-
-  // ---- Polite refresh (prevents thrashing other pinned sections like hero)
-  let refreshQueued = false;
-  function queueRefresh() {
-    if (refreshQueued) return;
-    refreshQueued = true;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        refreshQueued = false;
-        ScrollTrigger.refresh(true);
-      });
-    });
-  }
 
   function killSplitGalleryTriggers() {
     ScrollTrigger.getAll().forEach((st) => {
@@ -41,8 +27,8 @@ gsap.registerPlugin(ScrollTrigger);
     const isSmall = window.innerWidth <= BREAKPOINT;
 
     const DESKTOP = {
-      cardWMode: "parent",
-      cardWRemFallback: 50,
+      cardWMode: "parent", // ✅ new intent
+      cardWRemFallback: 50, // ✅ fallback if parent width is 0 at init
       cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
@@ -67,19 +53,24 @@ gsap.registerPlugin(ScrollTrigger);
     const rootFont =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
+    // ✅ helper: measure parent width safely (never return 0)
     function getParentWidthPx() {
       const w1 = mask.getBoundingClientRect().width;
       const w2 = section.getBoundingClientRect().width;
       const w3 = window.innerWidth;
+
       const w = (w1 && w1 > 10) ? w1 : (w2 && w2 > 10) ? w2 : w3;
-      return Math.max(320, Math.round(w));
+      return Math.max(320, Math.round(w)); // safety floor
     }
 
+    // Card size
     let cardWpx, cardHpx, baseH;
 
     if (!isSmall) {
+      // ✅ DESKTOP: 100% of parent (mask), with fallback
       const parentW = getParentWidthPx();
       cardWpx = parentW || (cfg.cardWRemFallback * rootFont);
+
       cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
@@ -129,12 +120,13 @@ gsap.registerPlugin(ScrollTrigger);
       }
     }
 
+    // Slides as cards, flush right
     slides.forEach((slide) => {
       gsap.set(slide, {
         position: "absolute",
         right: 0,
         left: "auto",
-        width: cardWpx + "px",
+        width: cardWpx + "px",     // ✅ back to px (but now parent-based + safe)
         height: cardHpx + "px",
         margin: 0,
         overflow: "hidden",
@@ -228,7 +220,6 @@ gsap.registerPlugin(ScrollTrigger);
           scrub: true,
           pin: true,
           anticipatePin: 1,
-          invalidateOnRefresh: true,
           onUpdate(self) {
             const y = yStart - naturalTravel * self.progress;
             gsap.set(track, { y });
@@ -247,7 +238,6 @@ gsap.registerPlugin(ScrollTrigger);
           pin: media,
           pinSpacing: true,
           anticipatePin: 1,
-          invalidateOnRefresh: true,
           onEnter() {
             gsap.set(track, { y: yStart });
             layoutTick();
@@ -266,7 +256,6 @@ gsap.registerPlugin(ScrollTrigger);
       }
     });
 
-    // Image load → polite refresh once images settle
     const imgEls = Array.from(section.querySelectorAll("img"));
     let pending = 0;
     imgEls.forEach((img) => {
@@ -274,15 +263,15 @@ gsap.registerPlugin(ScrollTrigger);
         pending++;
         img.addEventListener("load", () => {
           pending--;
-          if (pending === 0) queueRefresh();
+          if (pending === 0) ScrollTrigger.refresh();
         }, { once: true });
       }
     });
 
-    queueRefresh();
+    ScrollTrigger.refresh();
   }
 
-  // Run after paint so mask width is real
+  // ✅ Run after paint so mask width is real (fixes "0px width" issue)
   function boot() {
     requestAnimationFrame(() => {
       requestAnimationFrame(initSplitGallery);
@@ -295,15 +284,8 @@ gsap.registerPlugin(ScrollTrigger);
     boot();
   }
 
-  // Resize: only reinit when width meaningfully changes (prevents mobile address bar chaos)
   let t;
-  let lastW = window.innerWidth;
-
   window.addEventListener("resize", () => {
-    const w = window.innerWidth;
-    if (Math.abs(w - lastW) < 10) return;
-    lastW = w;
-
     clearTimeout(t);
     t = setTimeout(boot, 200);
   });
