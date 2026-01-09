@@ -1,4 +1,4 @@
-console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
+console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -27,33 +27,39 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
-  // Video 2 + 3 reveal wrappers (clip-path)
+  // Clip reveal wrappers (must be full-bleed absolute/inset:0 in CSS)
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
   if (!headline || !h1) return;
 
-  // Helper: set/animate clip-path in a Safari-safe way
-  function setCurtainClosed(el) {
+  // Helper: Safari-safe clip-path set/tween
+  function setCurtain(el, value) {
     if (!el) return;
-    // Fully closed at centre (0 width) → opens outwards
-    var closed = "inset(0% 50% 0% 50%)";
-    gsap.set(el, { clipPath: closed, webkitClipPath: closed });
+    gsap.set(el, { clipPath: value, webkitClipPath: value });
   }
 
-  function tweenCurtainOpen(tl, el, pos) {
-    if (!el) return tl.to({}, { duration: 1.2 }, pos);
-    var open = "inset(0% 0% 0% 0%)";
-    return tl.to(el, {
-      clipPath: open,
-      webkitClipPath: open,
-      duration: 1.2,
-      ease: "power2.inOut"
-    }, pos);
+  function curtainClosed(el) {
+    // Fully closed at centre (0 width) – opens outward
+    setCurtain(el, "inset(0% 50% 0% 50%)");
   }
 
-  // ---- Headline split (your existing logic) ----
-  var originalText = h_ATTACH? h1.textContent : "";
+  function curtainOpen(tl, el, pos, dur) {
+    if (!el) return tl.to({}, { duration: dur || 1.2 }, pos);
+    return tl.to(
+      el,
+      {
+        clipPath: "inset(0% 0% 0% 0%)",
+        webkitClipPath: "inset(0% 0% 0% 0%)",
+        duration: dur || 1.2,
+        ease: "power2.inOut"
+      },
+      pos
+    );
+  }
+
+  // ---- SplitText build (your logic) ----
+  var originalText = h1.textContent;
 
   function revertSplits() {
     try {
@@ -103,9 +109,9 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
     willChange: "transform"
   });
 
-  // Initial reveal states (closed curtains)
-  setCurtainClosed(v2Reveal);
-  setCurtainClosed(v3Reveal);
+  // Initial reveal states
+  curtainClosed(v2Reveal);
+  curtainClosed(v3Reveal);
 
   function computeTargets() {
     var vw = window.innerWidth || 1200;
@@ -123,23 +129,20 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
 
   computeTargets();
 
+  // Reset on refresh
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
-
-    // Reset headline + chars
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
     gsap.set(headline, { autoAlpha: 0 });
-
-    // Reset reveals (closed)
-    setCurtainClosed(v2Reveal);
-    setCurtainClosed(v3Reveal);
+    curtainClosed(v2Reveal);
+    curtainClosed(v3Reveal);
   });
 
-  // Fade in headline BEFORE scroll takes over
+  // Fade headline in (independent of scroll)
   gsap.to(headline, {
-    delay: 1,
+    delay: 0.2,
     autoAlpha: 1,
-    duration: 1.5,
+    duration: 0.9,
     ease: "power2.out",
     onComplete: function () {
       ScrollTrigger.refresh(true);
@@ -149,33 +152,43 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
   // ---- Timeline (scrubbed) ----
   var tl = gsap.timeline();
 
-  // Hold so you see video 1 running + headline present
+  // Hold: video 1 running, headline visible
   tl.to({}, { duration: 0.8 });
 
-  // Video 2 reveal (centre -> outwards)
-  tweenCurtainOpen(tl, v2Reveal, "v2Open");
+  // Video 2 curtain open
+  curtainOpen(tl, v2Reveal, "v2Open", 1.2);
 
-  // small hold
+  // Small hold
   tl.to({}, { duration: 0.35 });
 
-  // Video 3 reveal (centre -> outwards), stacked on top
-  tweenCurtainOpen(tl, v3Reveal, "v3Open");
+  // Video 3 curtain open (on top)
+  curtainOpen(tl, v3Reveal, "v3Open", 1.2);
 
-  // small hold before burst
+  // Small hold
   tl.to({}, { duration: 0.5 });
 
-  // HEADLINE BURST (unchanged)
+  // Burst labels
   tl.addLabel("burstStart");
 
-  tl.to(chars, {
-    x: function (i, el) { return el._x; },
-    y: function (i, el) { return el._y; },
-    rotate: function (i, el) { return el._r; },
-    opacity: 1,
-    duration: 2.0,
-    ease: "power3.in",
-    stagger: { each: 0.01, from: "center" }
-  }, "burstStart");
+  tl.to(
+    chars,
+    {
+      x: function (i, el) {
+        return el._x;
+      },
+      y: function (i, el) {
+        return el._y;
+      },
+      rotate: function (i, el) {
+        return el._r;
+      },
+      opacity: 1,
+      duration: 2.0,
+      ease: "power3.in",
+      stagger: { each: 0.01, from: "center" }
+    },
+    "burstStart"
+  );
 
   tl.addLabel("burstEnd", "burstStart+=2.0");
 
@@ -216,5 +229,4 @@ console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V4)");
 
     // markers: true
   });
-
 })();
