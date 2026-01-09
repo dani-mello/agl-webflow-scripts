@@ -97,7 +97,7 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
-    if (bgMove) gsap.set(bgMove, { scale: 0.7, rotate: -20 });
+    if (bgMove) gsap.set(bgMove, { scale: 0, rotate: -20 });
   });
 
   // Fade in headline BEFORE scroll takes over
