@@ -1,5 +1,5 @@
 console.log(
-  "%cSPLIT STACK JS LOADED (V7)",
+  "%cSPLIT STACK JS LOADED (V8 - LETTER SCATTER)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -14,9 +14,14 @@ console.log(
 
   gsap.registerPlugin(ScrollTrigger);
 
-  var leftHalf  = root.querySelector(".c-hero_split-half--left");
-  var rightHalf = root.querySelector(".c-hero_split-half--right");
-  var headline  = root.querySelector(".c-hero_headline");
+  // --- Elements ---
+  var headline = root.querySelector(".c-hero_headline");
+
+  // Real, SEO-readable H1 (must exist in DOM)
+  var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
+
+  // FX overlay container (add this empty div in your HTML: <div class="c-hero_h1-fx" aria-hidden="true"></div>)
+  var fx = headline ? headline.querySelector(".c-hero_h1-fx") : null;
 
   var p1 = root.querySelector(".c-hero_panel--v1");
   var p2 = root.querySelector(".c-hero_panel--v2");
@@ -30,6 +35,7 @@ console.log(
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // --- Helpers ---
   function safePlay(el) {
     if (!el) return;
     el.muted = true;
@@ -45,68 +51,42 @@ console.log(
     try { el.pause(); } catch (e) {}
   }
 
+  function buildFxLetters() {
+    if (!h1 || !fx) return false;
+
+    var text = h1.textContent || "";
+    fx.innerHTML = "";
+
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      var span = document.createElement("span");
+      span.className = "char";
+      span.textContent = ch === " " ? "\u00A0" : ch;
+      fx.appendChild(span);
+    }
+    return true;
+  }
+
+  // --- Reduced motion fallback ---
   if (prefersReduced) {
     gsap.set([p1, p2, p3], { scale: 1, rotate: 0 });
-    gsap.set(leftHalf,  { x: "-12vw" });
-    gsap.set(rightHalf, { x: "12vw" });
-    gsap.set(headline, { autoAlpha: 0 });
+    if (headline) gsap.set(headline, { autoAlpha: 0 });
     safePlay(v3);
     return;
   }
 
-  // Initial
+  // --- Initial states ---
   gsap.set([p1, p2, p3], {
     scale: 0,
     rotate: -20,
     transformOrigin: "50% 50%"
   });
 
-  gsap.set(headline, { autoAlpha: 1 });
-  gsap.set([leftHalf, rightHalf], { x: 0 });
+  if (headline) gsap.set(headline, { autoAlpha: 1 });
 
-  var tl = gsap.timeline({ defaults: { ease: "power3.inOut" } });
-
-  tl.to({}, { duration: 0.6 });
-
-  tl.add(function () { safePlay(v1); }, "e2");
-  tl.to(leftHalf,  { x: "-12vw", duration: 0.9 }, "e2");
-  tl.to(rightHalf, { x: "12vw",  duration: 0.9 }, "e2");
-  tl.to(headline,  { autoAlpha: 0, duration: 0.35 }, "e2+=0.35");
-  tl.to(p1, { scale: 1, rotate: 0, duration: 1.1 }, "e2");
-
-  tl.to({}, { duration: 0.25 });
-  tl.add(function () { safePlay(v2); }, "e3");
-  tl.to(p2, { scale: 1, rotate: 0, duration: 1.0 }, "e3");
-
-  tl.to({}, { duration: 0.25 });
-  tl.add(function () { safePlay(v3); }, "e4");
-  tl.to(p3, { scale: 1, rotate: 0, duration: 1.0 }, "e4");
-
-  ScrollTrigger.create({
-    trigger: root,
-    start: "top top",
-    end: "+=5200",
-    pin: true,
-    scrub: 1.2,
-    anticipatePin: 1,
-    invalidateOnRefresh: true,
-    animation: tl,
-    onLeave: function () {
-      safePause(v1);
-      safePause(v2);
-    },
-    onEnterBack: function () {
-      safePlay(v1);
-      gsap.set(headline, { autoAlpha: 1 });
-    }
-  });
-
-  [v1, v2, v3].forEach(function (vid) {
-    if (!vid) return;
-    vid.addEventListener(
-      "loadedmetadata",
-      function () { ScrollTrigger.refresh(); },
-      { once: true }
-    );
-  });
-})();
+  // Make sure FX layer exists and is built
+  var hasFx = buildFxLetters();
+  if (!hasFx) {
+    console.warn(
+      "Missing .c-hero_h1 and/or .c-hero_h1-fx inside .c-hero_headline. " +
+      "Add: <h1 class='c-
