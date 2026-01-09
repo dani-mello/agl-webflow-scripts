@@ -54,7 +54,7 @@ console.log(
   /* Initial state */
   gsap.set([p1, p2, p3], {
     scale: 0,
-    rotate: -6,
+    rotate: -20,
     transformOrigin: "50% 50%"
   });
   gsap.set([leftHalf, rightHalf], { x: 0 });
