@@ -1,11 +1,12 @@
-console.log("HERO HEADLINE + VIDEO GROW (V2)");
+console.log("HERO: 3 VIDEOS (V2/V3 REVEAL) + HEADLINE BURST (V3)");
 
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
-  if (root.dataset.heroHeadlineInit === "1") return;
-  root.dataset.heroHeadlineInit = "1";
+  // Prevent double init
+  if (root.dataset.heroSplitStackInit === "1") return;
+  root.dataset.heroSplitStackInit = "1";
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("GSAP or ScrollTrigger missing");
@@ -18,17 +19,21 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
+  // Kill only our trigger if hot reloaded
+  var old = ScrollTrigger.getById("heroSplitStack");
+  if (old) old.kill();
+
+  // ---- Elements ----
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
-  // NEW: video move wrapper
-  var bgMove = root.querySelector(".c-hero_bg-move");
+  // Video 2 + 3 reveal wrappers (clip-path)
+  var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
+  var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
   if (!headline || !h1) return;
 
-  var old = ScrollTrigger.getById("heroHeadlineOnly");
-  if (old) old.kill();
-
+  // ---- Headline split (your existing logic) ----
   var originalText = h1.textContent;
 
   function revertSplits() {
@@ -67,16 +72,22 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
 
   var chars = buildChars();
 
-  // Prevent headline flash (also do opacity:0 in CSS if possible)
+  // Prevent headline flash
   gsap.set(headline, { autoAlpha: 0 });
 
   // Initial char state
-  gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1, willChange: "transform" });
+  gsap.set(chars, {
+    x: 0,
+    y: 0,
+    rotate: 0,
+    opacity: 1,
+    willChange: "transform"
+  });
 
-  // NEW: initial video state (70vw-ish + tilt)
-  if (bgMove) {
-    gsap.set(bgMove, { scale: 0.7, rotate: -20, transformOrigin: "50% 50%" });
-  }
+  // Initial reveal states (closed "curtains" -> centre slice)
+  // If you want a tiny slit visible at start, use 48% instead of 50%.
+  if (v2Reveal) gsap.set(v2Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
+  if (v3Reveal) gsap.set(v3Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
 
   function computeTargets() {
     var vw = window.innerWidth || 1200;
@@ -96,8 +107,14 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
 
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
+
+    // Reset headline + chars
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
-    if (bgMove) gsap.set(bgMove, { scale: 0, rotate: -20 });
+    gsap.set(headline, { autoAlpha: 0 });
+
+    // Reset reveals (closed)
+    if (v2Reveal) gsap.set(v2Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
+    if (v3Reveal) gsap.set(v3Reveal, { clipPath: "inset(0% 50% 0% 50%)" });
   });
 
   // Fade in headline BEFORE scroll takes over
@@ -111,21 +128,43 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
     }
   });
 
-  // Timeline (scrubbed)
+  // ---- Timeline (scrubbed) ----
   var tl = gsap.timeline();
 
-  // VIDEO grow/untwist happens early (while headline is holding)
-  // You can adjust duration to control how long it takes across scroll.
-  if (bgMove) {
-    tl.to(bgMove, { scale: 1, rotate: 0, duration: 1.2, ease: "power2.out" }, 0);
+  // (A) Small hold so you see video 1 running + headline present
+  tl.to({}, { duration: 0.8 });
+
+  // (B) Video 2 reveal (centre -> outwards)
+  if (v2Reveal) {
+    tl.to(v2Reveal, {
+      clipPath: "inset(0% 0% 0% 0%)",
+      duration: 1.2,
+      ease: "power2.inOut"
+    }, "v2Open");
+  } else {
+    tl.to({}, { duration: 1.2 });
   }
 
-  // Hold for a bit (after video settles)
-  tl.to({}, { duration: 1.0 });
+  // small hold
+  tl.to({}, { duration: 0.35 });
 
+  // (C) Video 3 reveal (centre -> outwards), stacked on top of video 2
+  if (v3Reveal) {
+    tl.to(v3Reveal, {
+      clipPath: "inset(0% 0% 0% 0%)",
+      duration: 1.2,
+      ease: "power2.inOut"
+    }, "v3Open");
+  } else {
+    tl.to({}, { duration: 1.2 });
+  }
+
+  // small hold before burst
+  tl.to({}, { duration: 0.5 });
+
+  // (D) HEADLINE BURST (your exact burst behaviour)
   tl.addLabel("burstStart");
 
-  // Letters fly out
   tl.to(chars, {
     x: function (i, el) { return el._x; },
     y: function (i, el) { return el._y; },
@@ -142,7 +181,7 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
   var burstEndTime = tl.labels.burstEnd;
 
   ScrollTrigger.create({
-    id: "heroHeadlineOnly",
+    id: "heroSplitStack",
     trigger: root,
     start: "top top",
     end: "+=5200",
@@ -178,4 +217,5 @@ console.log("HERO HEADLINE + VIDEO GROW (V2)");
 
     // markers: true
   });
+
 })();
