@@ -1,5 +1,5 @@
 console.log(
-  "%cSPLIT STACK JS LOADED (V13 - SplitText Scatter)",
+  "%cSPLIT STACK JS LOADED (V14 - WRAP + ENTRANCE + BURST)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -11,9 +11,8 @@ console.log(
     console.warn("GSAP/ScrollTrigger missing. Load them before this script.");
     return;
   }
-
   if (typeof SplitText === "undefined") {
-    console.warn("SplitText not available globally. Ensure it's loaded before this script.");
+    console.warn("SplitText not available globally.");
     return;
   }
 
@@ -54,92 +53,124 @@ console.log(
     return;
   }
 
-  if (prefersReduced) {
-    gsap.set([p1, p2, p3], { scale: 1, rotate: 0 });
-    gsap.set(headline, { autoAlpha: 0 });
-    safePlay(v3);
-    return;
-  }
-
-  // Initial video panels
+  // ---------- HARD HIDE PANELS TO PREVENT FLASH ----------
+  // Opacity:0 ensures no brief paint. scale/rotate set too.
   gsap.set([p1, p2, p3], {
+    opacity: 0,
     scale: 0,
     rotate: -20,
     transformOrigin: "50% 50%"
   });
 
+  // Ensure headline visible initially
   gsap.set(headline, { autoAlpha: 1 });
 
-  // Split the REAL H1 (still SEO/LLM readable)
-  var originalText = h1.textContent;
-  var split = new SplitText(h1, { type: "chars" });
-  var chars = split.chars;
+  if (prefersReduced) {
+    gsap.set([p1, p2, p3], { opacity: 1, scale: 1, rotate: 0 });
+    gsap.set(headline, { autoAlpha: 0 });
+    safePlay(v3);
+    return;
+  }
 
-  // Make the chars animatable
-  gsap.set(chars, {
+  // ---------- SPLIT TEXT BUT KEEP NATURAL WRAPS ----------
+  // 1) Split into words first (preserves wrapping)
+  var originalText = h1.textContent;
+
+  // Revert any previous split (in case of Webflow preview reload)
+  try { if (h1._splitWords) h1._splitWords.revert(); } catch(e){}
+  try { if (h1._splitChars) h1._splitChars.revert(); } catch(e){}
+
+  var splitWords = new SplitText(h1, { type: "words" });
+  var allChars = [];
+
+  // 2) Split each word into chars (word spans keep wrapping intact)
+  for (var i = 0; i < splitWords.words.length; i++) {
+    var w = splitWords.words[i];
+    var splitChars = new SplitText(w, { type: "chars" });
+    allChars = allChars.concat(splitChars.chars);
+
+    // store to revert later
+    w._splitChars = splitChars;
+  }
+
+  // store to revert later
+  h1._splitWords = splitWords;
+
+  gsap.set(allChars, {
     willChange: "transform,opacity",
-    opacity: 1,
+    opacity: 0,
     x: 0,
-    y: 0,
-    rotate: 0,
+    y: 20,
+    rotate: -8,
+    scale: 0.98,
     transformOrigin: "50% 50%"
   });
 
-  // Helper: outward "burst" vectors
-  function burstX() {
-    // random left/right with stronger push
+  // ---------- HELPERS FOR "FLY OFF SCREEN" ----------
+  function flyX() {
+    // ensure it goes WELL beyond viewport
+    var vw = window.innerWidth || 1200;
     var dir = Math.random() < 0.5 ? -1 : 1;
-    return dir * gsap.utils.random(180, 520);
+    return dir * gsap.utils.random(vw * 0.6, vw * 1.2);
   }
-  function burstY() {
+  function flyY() {
+    var vh = window.innerHeight || 800;
     var dir = Math.random() < 0.5 ? -1 : 1;
-    return dir * gsap.utils.random(140, 420);
+    return dir * gsap.utils.random(vh * 0.6, vh * 1.2);
   }
 
+  // ---------- TIMELINE ----------
   var tl = gsap.timeline({ defaults: { ease: "power3.inOut" } });
 
-  // Event 1: hold
-  tl.to({}, { duration: 0.6 });
+  // A) Entrance: fade/spiral-ish in
+  tl.to(allChars, {
+    opacity: 1,
+    y: 0,
+    rotate: 0,
+    scale: 1,
+    duration: 1.25,
+    stagger: { each: 0.015, from: "center" }
+  }, "in");
 
-  // Event 2: letters scatter + fade headline + video 1
-  tl.add(function () { safePlay(v1); }, "e2");
+  // B) Hold (scroll dead zone)
+  tl.to({}, { duration: 1.0 }, "hold"); // increase for longer hold
 
-  // Optional: tiny "pop" before scattering (feels premium)
-  tl.to(chars, { scale: 1.03, duration: 0.12, stagger: { each: 0.006, from: "center" } }, "e2");
+  // C) Burst out from center to random directions, fully off screen
+  tl.add(function () { safePlay(v1); }, "out");
 
-  // Scatter each character to its own direction
-  tl.to(chars, {
-    x: burstX,
-    y: burstY,
-    rotate: function () { return gsap.utils.random(-90, 90); },
+  tl.to(allChars, {
+    x: flyX,
+    y: flyY,
+    rotate: function () { return gsap.utils.random(-140, 140); },
     opacity: 0,
-    scale: function () { return gsap.utils.random(0.85, 1.2); },
-    duration: 0.95,
-    stagger: { each: 0.012, from: "random" }
-  }, "e2+=0.08");
+    duration: 1.4,
+    ease: "power3.in",
+    stagger: { each: 0.01, from: "center" }
+  }, "out");
 
-  // Fade out whole headline layer as video takes over
-  tl.to(headline, { autoAlpha: 0, duration: 0.35 }, "e2+=0.35");
+  // Fade headline layer away as it bursts
+  tl.to(headline, { autoAlpha: 0, duration: 0.4 }, "out+=0.25");
 
-  // Video 1 grow/level
-  tl.to(p1, { scale: 1, rotate: 0, duration: 1.1 }, "e2");
+  // D) Video 1 appears (also fade opacity to avoid flash)
+  tl.to(p1, { opacity: 1, scale: 1, rotate: 0, duration: 1.2 }, "out");
 
-  // Event 3: video 2
-  tl.to({}, { duration: 0.25 });
-  tl.add(function () { safePlay(v2); }, "e3");
-  tl.to(p2, { scale: 1, rotate: 0, duration: 1.0 }, "e3");
+  // E) Video 2
+  tl.to({}, { duration: 0.35 });
+  tl.add(function () { safePlay(v2); }, "v2");
+  tl.to(p2, { opacity: 1, scale: 1, rotate: 0, duration: 1.1 }, "v2");
 
-  // Event 4: video 3
-  tl.to({}, { duration: 0.25 });
-  tl.add(function () { safePlay(v3); }, "e4");
-  tl.to(p3, { scale: 1, rotate: 0, duration: 1.0 }, "e4");
+  // F) Video 3
+  tl.to({}, { duration: 0.35 });
+  tl.add(function () { safePlay(v3); }, "v3");
+  tl.to(p3, { opacity: 1, scale: 1, rotate: 0, duration: 1.1 }, "v3");
 
+  // ---------- SCROLLTRIGGER (slower = longer end + softer scrub) ----------
   ScrollTrigger.create({
     trigger: root,
     start: "top top",
-    end: "+=5200",
+    end: "+=8200",  // longer scroll = slower animation
     pin: true,
-    scrub: 1.2,
+    scrub: 1.6,     // smoother / slower response
     anticipatePin: 1,
     invalidateOnRefresh: true,
     animation: tl,
@@ -148,21 +179,45 @@ console.log(
       safePause(v2);
     },
     onEnterBack: function () {
-      safePlay(v1);
-
-      // Reset headline + chars so it replays nicely when scrubbing back
+      // When scrubbing back, restore headline + reset chars
       gsap.set(headline, { autoAlpha: 1 });
+      gsap.set([p1, p2, p3], { opacity: 0, scale: 0, rotate: -20 });
 
+      // Revert splits and re-split to avoid “broken” DOM on back scrub
       try {
-        split.revert();
-        h1.textContent = originalText;
-        split = new SplitText(h1, { type: "chars" });
-        chars = split.chars;
-        gsap.set(chars, { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, willChange: "transform,opacity" });
+        // revert per-word char splits
+        for (var i = 0; i < splitWords.words.length; i++) {
+          var w = splitWords.words[i];
+          if (w && w._splitChars) w._splitChars.revert();
+        }
+        splitWords.revert();
       } catch (e) {}
+
+      // restore text and rebuild splits
+      h1.textContent = originalText;
+
+      splitWords = new SplitText(h1, { type: "words" });
+      allChars = [];
+      for (var j = 0; j < splitWords.words.length; j++) {
+        var w2 = splitWords.words[j];
+        var sc2 = new SplitText(w2, { type: "chars" });
+        allChars = allChars.concat(sc2.chars);
+        w2._splitChars = sc2;
+      }
+
+      gsap.set(allChars, {
+        opacity: 0,
+        x: 0,
+        y: 20,
+        rotate: -8,
+        scale: 0.98
+      });
+
+      safePlay(v1);
     }
   });
 
+  // Refresh after video metadata loads (Safari sizing)
   [v1, v2, v3].forEach(function (vid) {
     if (!vid) return;
     vid.addEventListener(
