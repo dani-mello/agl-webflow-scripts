@@ -1,4 +1,4 @@
-console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
+console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V6)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -27,30 +27,46 @@ console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
-  // Clip reveal wrappers (must be full-bleed absolute/inset:0 in CSS)
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
   if (!headline || !h1) return;
 
-  // Helper: Safari-safe clip-path set/tween
-  function setCurtain(el, value) {
+  // Force reveal wrappers to be full-bleed (prevents “half on screen” behaviour)
+  function forceFullBleed(el) {
+    if (!el) return;
+    el.style.position = "absolute";
+    el.style.top = "0";
+    el.style.right = "0";
+    el.style.bottom = "0";
+    el.style.left = "0";
+    el.style.width = "100%";
+    el.style.height = "100%";
+  }
+  forceFullBleed(v2Reveal);
+  forceFullBleed(v3Reveal);
+
+  // Safari-safe clip helper
+  function setClip(el, value) {
     if (!el) return;
     gsap.set(el, { clipPath: value, webkitClipPath: value });
   }
 
+  // Curtain closed: a vertical line at 50% (zero-width shape)
   function curtainClosed(el) {
-    // Fully closed at centre (0 width) – opens outward
-    setCurtain(el, "inset(0% 50% 0% 50%)");
+    // left-top, right-top, right-bottom, left-bottom — all on x=50%
+    setClip(el, "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)");
   }
 
+  // Curtain open: full rectangle
   function curtainOpen(tl, el, pos, dur) {
     if (!el) return tl.to({}, { duration: dur || 1.2 }, pos);
+
     return tl.to(
       el,
       {
-        clipPath: "inset(0% 0% 0% 0%)",
-        webkitClipPath: "inset(0% 0% 0% 0%)",
+        clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
+        webkitClipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
         duration: dur || 1.2,
         ease: "power2.inOut"
       },
@@ -58,7 +74,7 @@ console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
     );
   }
 
-  // ---- SplitText build (your logic) ----
+  // ---- SplitText build (your existing logic) ----
   var originalText = h1.textContent;
 
   function revertSplits() {
@@ -129,7 +145,6 @@ console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
 
   computeTargets();
 
-  // Reset on refresh
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
@@ -138,7 +153,7 @@ console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
     curtainClosed(v3Reveal);
   });
 
-  // Fade headline in (independent of scroll)
+  // Fade headline in BEFORE scroll takes over
   gsap.to(headline, {
     delay: 0.2,
     autoAlpha: 1,
@@ -155,13 +170,13 @@ console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
   // Hold: video 1 running, headline visible
   tl.to({}, { duration: 0.8 });
 
-  // Video 2 curtain open
+  // Video 2 curtain open (TRUE centre -> both sides)
   curtainOpen(tl, v2Reveal, "v2Open", 1.2);
 
   // Small hold
   tl.to({}, { duration: 0.35 });
 
-  // Video 3 curtain open (on top)
+  // Video 3 curtain open (TRUE centre -> both sides), stacked on top
   curtainOpen(tl, v3Reveal, "v3Open", 1.2);
 
   // Small hold
@@ -173,15 +188,9 @@ console.log("HERO: 3 VIDEOS (V2/V3 CURTAIN) + HEADLINE BURST (V5)");
   tl.to(
     chars,
     {
-      x: function (i, el) {
-        return el._x;
-      },
-      y: function (i, el) {
-        return el._y;
-      },
-      rotate: function (i, el) {
-        return el._r;
-      },
+      x: function (i, el) { return el._x; },
+      y: function (i, el) { return el._y; },
+      rotate: function (i, el) { return el._r; },
       opacity: 1,
       duration: 2.0,
       ease: "power3.in",
