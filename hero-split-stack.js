@@ -1,3 +1,8 @@
+console.log(
+  "%cSPLIT STACK JS LOADED (V1)",
+  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
+);
+
 /* hero-split-stack.js
    Requires GSAP loaded before this script.
 */
