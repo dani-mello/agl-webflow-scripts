@@ -1,4 +1,4 @@
-console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V7 COLOR LOCK)");
+console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V8 COLOR LOCK)");
 
 (function () {
   var root = document.querySelector(".c-hero");
