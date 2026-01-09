@@ -1,5 +1,5 @@
 console.log(
-  "%cSPLIT STACK JS LOADED (V4)",
+  "%cSPLIT STACK JS LOADED (V5)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
