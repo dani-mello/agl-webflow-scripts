@@ -1,10 +1,9 @@
-console.log("HERO HEADLINE ONLY (V1)");
+console.log("HERO HEADLINE ONLY (V1.1 - reset on scrub)");
 
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
-  // Prevent double init
   if (root.dataset.heroHeadlineInit === "1") return;
   root.dataset.heroHeadlineInit = "1";
 
@@ -23,11 +22,9 @@ console.log("HERO HEADLINE ONLY (V1)");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
   if (!headline || !h1) return;
 
-  // kill only our trigger if hot reloaded
   var old = ScrollTrigger.getById("heroHeadlineOnly");
   if (old) old.kill();
 
-  // --- helpers
   var originalText = h1.textContent;
 
   function revertSplits() {
@@ -72,7 +69,7 @@ console.log("HERO HEADLINE ONLY (V1)");
   function computeTargets() {
     var vw = window.innerWidth || 1200;
     var vh = window.innerHeight || 800;
-    var radius = Math.sqrt(vw * vw + vh * vh) * 1.35; // guaranteed outside
+    var radius = Math.sqrt(vw * vw + vh * vh) * 1.35;
 
     for (var i = 0; i < chars.length; i++) {
       var a = Math.random() * Math.PI * 2;
@@ -85,15 +82,14 @@ console.log("HERO HEADLINE ONLY (V1)");
 
   computeTargets();
 
-  // recompute per refresh (orientation/resize)
   ScrollTrigger.addEventListener("refreshInit", function () {
     computeTargets();
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
   });
 
-  // --- fade in BEFORE scrolling
+  // Fade in on load (not tied to scroll)
   gsap.to(headline, {
-    delay: 0.3,          // tweak delay
+    delay: 0.3,
     autoAlpha: 1,
     duration: 0.8,
     ease: "power2.out",
@@ -102,13 +98,16 @@ console.log("HERO HEADLINE ONLY (V1)");
     }
   });
 
-  // --- scroll timeline (headline only)
-  var tl = gsap.timeline({ defaults: { ease: "none" } });
+  // Timeline
+  var tl = gsap.timeline();
 
-  // Hold for a bit
+  // Hold
   tl.to({}, { duration: 1.2 });
 
-  // Fly out (no fading during travel)
+  // Label when burst starts
+  tl.addLabel("burstStart");
+
+  // Fly out
   tl.to(chars, {
     x: function (i, el) { return el._x; },
     y: function (i, el) { return el._y; },
@@ -117,28 +116,54 @@ console.log("HERO HEADLINE ONLY (V1)");
     duration: 2.0,
     ease: "power3.in",
     stagger: { each: 0.01, from: "center" }
-  }, "out");
+  }, "burstStart");
 
-  // Hide headline only after the motion is clearly visible
-  tl.set(headline, { autoAlpha: 0 }, "out+=2.05");
+  // Label when burst ends
+  tl.addLabel("burstEnd", "burstStart+=2.0");
 
-  ScrollTrigger.create({
+  // IMPORTANT: don't permanently hide the headline in the timeline.
+  // We'll control visibility based on progress in onUpdate.
+
+  var burstStartTime = tl.labels.burstStart;
+  var burstEndTime = tl.labels.burstEnd;
+
+  var st = ScrollTrigger.create({
     id: "heroHeadlineOnly",
     trigger: root,
     start: "top top",
-    end: "+=5200",      // adjust scroll length here
+    end: "+=5200",
     pin: true,
     scrub: 1.6,
     anticipatePin: 1,
     invalidateOnRefresh: true,
     animation: tl,
+
+    onUpdate: function () {
+      var t = tl.time();
+
+      // When before burst: headline must be visible and chars must be home
+      if (t < burstStartTime) {
+        gsap.set(headline, { autoAlpha: 1 });
+        // keep chars reset while user scrubs around in the hold zone
+        gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
+      }
+
+      // During burst: headline visible so you can see letters leaving
+      if (t >= burstStartTime && t <= burstEndTime) {
+        gsap.set(headline, { autoAlpha: 1 });
+      }
+
+      // After burst: hide headline (letters are gone)
+      if (t > burstEndTime) {
+        gsap.set(headline, { autoAlpha: 0 });
+      }
+    },
+
     onEnterBack: function () {
-      // reset cleanly when scrubbing back up
+      // Coming back from below: show headline again
       gsap.set(headline, { autoAlpha: 1 });
-      chars = buildChars();
-      gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1, willChange: "transform" });
-      computeTargets();
     }
     // markers: true
   });
+
 })();
