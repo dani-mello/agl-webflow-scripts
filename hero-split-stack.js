@@ -87,4 +87,88 @@ console.log(
 
   // Helper: outward "burst" vectors
   function burstX() {
-    // random left/r
+    // random left/right with stronger push
+    var dir = Math.random() < 0.5 ? -1 : 1;
+    return dir * gsap.utils.random(180, 520);
+  }
+  function burstY() {
+    var dir = Math.random() < 0.5 ? -1 : 1;
+    return dir * gsap.utils.random(140, 420);
+  }
+
+  var tl = gsap.timeline({ defaults: { ease: "power3.inOut" } });
+
+  // Event 1: hold
+  tl.to({}, { duration: 0.6 });
+
+  // Event 2: letters scatter + fade headline + video 1
+  tl.add(function () { safePlay(v1); }, "e2");
+
+  // Optional: tiny "pop" before scattering (feels premium)
+  tl.to(chars, { scale: 1.03, duration: 0.12, stagger: { each: 0.006, from: "center" } }, "e2");
+
+  // Scatter each character to its own direction
+  tl.to(chars, {
+    x: burstX,
+    y: burstY,
+    rotate: function () { return gsap.utils.random(-90, 90); },
+    opacity: 0,
+    scale: function () { return gsap.utils.random(0.85, 1.2); },
+    duration: 0.95,
+    stagger: { each: 0.012, from: "random" }
+  }, "e2+=0.08");
+
+  // Fade out whole headline layer as video takes over
+  tl.to(headline, { autoAlpha: 0, duration: 0.35 }, "e2+=0.35");
+
+  // Video 1 grow/level
+  tl.to(p1, { scale: 1, rotate: 0, duration: 1.1 }, "e2");
+
+  // Event 3: video 2
+  tl.to({}, { duration: 0.25 });
+  tl.add(function () { safePlay(v2); }, "e3");
+  tl.to(p2, { scale: 1, rotate: 0, duration: 1.0 }, "e3");
+
+  // Event 4: video 3
+  tl.to({}, { duration: 0.25 });
+  tl.add(function () { safePlay(v3); }, "e4");
+  tl.to(p3, { scale: 1, rotate: 0, duration: 1.0 }, "e4");
+
+  ScrollTrigger.create({
+    trigger: root,
+    start: "top top",
+    end: "+=5200",
+    pin: true,
+    scrub: 1.2,
+    anticipatePin: 1,
+    invalidateOnRefresh: true,
+    animation: tl,
+    onLeave: function () {
+      safePause(v1);
+      safePause(v2);
+    },
+    onEnterBack: function () {
+      safePlay(v1);
+
+      // Reset headline + chars so it replays nicely when scrubbing back
+      gsap.set(headline, { autoAlpha: 1 });
+
+      try {
+        split.revert();
+        h1.textContent = originalText;
+        split = new SplitText(h1, { type: "chars" });
+        chars = split.chars;
+        gsap.set(chars, { opacity: 1, x: 0, y: 0, rotate: 0, scale: 1, willChange: "transform,opacity" });
+      } catch (e) {}
+    }
+  });
+
+  [v1, v2, v3].forEach(function (vid) {
+    if (!vid) return;
+    vid.addEventListener(
+      "loadedmetadata",
+      function () { ScrollTrigger.refresh(); },
+      { once: true }
+    );
+  });
+})();
