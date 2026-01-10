@@ -1,4 +1,4 @@
-console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V9 COLOR LOCK)");
+console.log("HERO: POLYGON CURTAIN (V2/V3) + GRADIENT LOCK + HEADLINE BURST (V10)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -26,6 +26,9 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V9 COLOR LOCK)");
 
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
+
+  // ✅ NEW: bottom gradient
+  var gradient = root.querySelector(".l-bottom-gradient");
 
   if (!headline || !h1) return;
 
@@ -104,10 +107,25 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V9 COLOR LOCK)");
 
   var chars = buildChars();
 
-  // ---- LOCK HEADLINE COLOUR (prevents colour shifts mid-burst) ----
+  // ---- LOCK HEADLINE COLOUR ----
   var lockedColor = window.getComputedStyle(h1).color;
   gsap.set(h1, { color: lockedColor });
   gsap.set(chars, { color: lockedColor });
+
+  // ✅ NEW: enforce correct stacking order (prevents the seam + keeps headline above gradient)
+  // videos (z 1-3) < gradient (z 10) < headline (z 20)
+  if (gradient) {
+    gsap.set(gradient, {
+      zIndex: 10,
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      pointerEvents: "none",
+      force3D: true
+    });
+  }
+  gsap.set(headline, { zIndex: 20, position: "absolute" });
 
   gsap.set(headline, { autoAlpha: 0 });
 
@@ -144,15 +162,19 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V9 COLOR LOCK)");
     gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
     gsap.set(headline, { autoAlpha: 0 });
 
-    // Re-lock colour on refresh (in case theme vars change)
     lockedColor = window.getComputedStyle(h1).color;
     gsap.set(h1, { color: lockedColor });
     gsap.set(chars, { color: lockedColor });
 
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
+
+    // keep gradient stacking stable on refresh
+    if (gradient) gsap.set(gradient, { zIndex: 10 });
+    gsap.set(headline, { zIndex: 20 });
   });
 
+  // Headline fade in (before scroll)
   gsap.to(headline, {
     delay: 3,
     autoAlpha: 1,
@@ -164,6 +186,11 @@ console.log("HERO: POLYGON CURTAIN (V2/V3) + HEADLINE BURST (V9 COLOR LOCK)");
   });
 
   var tl = gsap.timeline();
+
+  // Optional: make gradient slightly stronger as scroll begins (helps hide seams)
+  // If you want it constant, delete these two lines.
+  if (gradient) gsap.set(gradient, { autoAlpha: 1 });
+  if (gradient) tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
 
   tl.to({}, { duration: 1 });
   curtainOpen(tl, v2Reveal, "v2Open", 2);
