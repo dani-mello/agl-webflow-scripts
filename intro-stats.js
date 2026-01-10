@@ -114,7 +114,7 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
             }
           }
         },
-        { threshold: 0.6 }
+        { threshold: 0.5 }
       );
 
       io.observe(root);
