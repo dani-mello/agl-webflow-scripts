@@ -1,5 +1,3 @@
-console.log("HERO: POLYGON CURTAIN (V2/V3) + GRADIENT LOCK + HEADLINE BURST (V10)");
-
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
