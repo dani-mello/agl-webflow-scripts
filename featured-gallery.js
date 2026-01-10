@@ -1,3 +1,4 @@
+console.log("FEATURED_GALLERY v1");
 /* featured-gallery.js
    - Webflow/component safe (class-based, no IDs)
    - Supports multiple featured galleries on a page
