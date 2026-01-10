@@ -1,4 +1,4 @@
-console.log("INTRO STATS COUNTER (V4 - IN VIEW + STAGGER)");
+console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
 
 (function () {
   // Run after DOM is ready (Webflow-safe)
