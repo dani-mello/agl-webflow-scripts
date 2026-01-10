@@ -29,8 +29,8 @@ console.log("INTRO STATS COUNTER (V4 - IN VIEW + STAGGER)");
     }
 
     // === TUNING CONTROLS ===
-    var DURATION_MS = 1200; // overall speed of each count animation
-    var STAGGER_MS = 200;   // delay between each counter start
+    var DURATION_MS = 2000; // overall speed of each count animation
+    var STAGGER_MS = 400;   // delay between each counter start
     // =======================
 
     function parseCount(raw) {
