@@ -1,7 +1,6 @@
-console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
+console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER + RESET)");
 
 (function () {
-  // Run after DOM is ready (Webflow-safe)
   function ready(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn);
@@ -12,16 +11,10 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
 
   ready(function () {
     var root = document.querySelector(".c-intro_stats");
-    if (!root) {
-      console.log("Stats: .c-intro_stats not found");
-      return;
-    }
+    if (!root) return;
 
     var counters = root.querySelectorAll(".u-h1[data-count]");
-    if (!counters.length) {
-      console.log("Stats: no .u-h1[data-count] found");
-      return;
-    }
+    if (!counters.length) return;
 
     var prefersReduced = false;
     if (window.matchMedia) {
@@ -29,8 +22,8 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
     }
 
     // === TUNING CONTROLS ===
-    var DURATION_MS = 2000; // overall speed of each count animation
-    var STAGGER_MS = 400;   // delay between each counter start
+    var DURATION_MS = 1200; // speed of each count
+    var STAGGER_MS = 200;   // delay between each counter start
     // =======================
 
     function parseCount(raw) {
@@ -44,8 +37,22 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
       return (window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); })(fn);
     }
 
+    // ✅ Make sure they DON'T show final numbers before animating
+    function setAllToZero() {
+      for (var i = 0; i < counters.length; i++) {
+        var raw = counters[i].getAttribute("data-count");
+        if (!raw) continue;
+
+        var parsed = parseCount(raw);
+        if (isNaN(parsed.value)) continue;
+
+        counters[i].textContent = prefersReduced
+          ? parsed.value.toLocaleString() + parsed.suffix
+          : "0" + parsed.suffix;
+      }
+    }
+
     function animateCount(el) {
-      // prevent double-run
       if (el.getAttribute("data-count-init") === "1") return;
       el.setAttribute("data-count-init", "1");
 
@@ -56,18 +63,12 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
       var value = parsed.value;
       var suffix = parsed.suffix;
 
-      if (isNaN(value)) {
-        console.warn("Stats: invalid data-count:", raw, el);
-        return;
-      }
+      if (isNaN(value)) return;
 
       if (prefersReduced) {
         el.textContent = value.toLocaleString() + suffix;
         return;
       }
-
-      // start visually from 0 so you can see it animate
-      el.textContent = "0" + suffix;
 
       var duration = DURATION_MS;
       var startTime = new Date().getTime();
@@ -90,7 +91,6 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
       raf(tick);
     }
 
-    // Staggered start (one after another)
     function startAllStaggered() {
       for (var i = 0; i < counters.length; i++) {
         (function (el, index) {
@@ -101,25 +101,33 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER)");
       }
     }
 
-    // Trigger when the SECTION is in view
+    // ✅ Reset immediately on page load (so offscreen numbers aren’t “final”)
+    setAllToZero();
+
+    // Trigger when section is in view
     if ("IntersectionObserver" in window) {
       var io = new IntersectionObserver(
         function (entries) {
           for (var i = 0; i < entries.length; i++) {
             if (entries[i].isIntersecting) {
-              console.log("Stats: section in view → start (staggered)");
+              // ✅ Reset again at trigger moment (in case Webflow swapped text later)
+              setAllToZero();
+
               startAllStaggered();
-              io.disconnect(); // only once
+              io.disconnect();
               break;
             }
           }
         },
-        { threshold: 0.5 }
+        {
+          threshold: 0.5,                 // change this to start later/earlier
+          rootMargin: "0px 0px -20% 0px"  // tweak for “scroll a bit longer”
+        }
       );
 
       io.observe(root);
     } else {
-      // fallback
+      setAllToZero();
       startAllStaggered();
     }
   });
