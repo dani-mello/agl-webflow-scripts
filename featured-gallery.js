@@ -1,21 +1,30 @@
 console.log("FEATURED_GALLERY v1");
 /* featured-gallery.js
    - Webflow/component safe (class-based, no IDs)
-   - Supports multiple featured galleries on a page
-   - Shows 3 slides desktop, 1 slide mobile (via responsive VISIBLE)
-   - Builds & updates progress segments
-   - Adds drag/swipe via Pointer Events
+   - Targets your Featured Trips structure:
+      .c-featured
+        .c-featured_gallery
+          .c-featured_gallery-mask
+            .c-featured_gallery-track
+              .c-featured_gallery-slide (xN)
+      Controls (unchanged):
+        .inline-gallery__controls
+          .ig-btn.ig-prev
+          .ig-btn.ig-next
+          .ig-progress
+   - Shows 3 desktop / 1 mobile
+   - Progress highlights the *visible window* so all N segments participate
+   - Drag/swipe + buttons
 */
 
 (() => {
-  const MOBILE_BP = 767; // match your Webflow breakpoint
+  const MOBILE_BP = 767;
 
   function getVisible() {
     return window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches ? 1 : 3;
   }
 
   function initGallery(root) {
-    // Prevent double init
     if (root.dataset.featuredInit === "1") return;
     root.dataset.featuredInit = "1";
 
@@ -28,14 +37,13 @@ console.log("FEATURED_GALLERY v1");
     const next = root.querySelector(".ig-next");
     const progress = root.querySelector(".ig-progress");
 
-    // Require only what we need for progress + sliding
     if (!track || slides.length < 2 || !progress) return;
 
     const N = slides.length;
     let index = 0;
     let stepPx = 0;
 
-    // Build progress segments (clear first)
+    // Build progress segments (N segments)
     progress.innerHTML = "";
     for (let i = 0; i < N; i++) {
       const seg = document.createElement("div");
@@ -53,8 +61,8 @@ console.log("FEATURED_GALLERY v1");
     }
 
     function maxIndex() {
-      const VISIBLE = getVisible();
-      return Math.max(0, Math.ceil(N - VISIBLE));
+      const visible = getVisible();
+      return Math.max(0, Math.ceil(N - visible));
     }
 
     function clampIndex(i) {
@@ -65,18 +73,30 @@ console.log("FEATURED_GALLERY v1");
       track.style.transform = `translate3d(${-index * stepPx}px, 0, 0)`;
     }
 
-    function updateProgress() {
-      segs.forEach((s) => s.classList.remove("is-active"));
-      const active = Math.min(index, N - 1);
-      segs[active]?.classList.add("is-active");
-    }
-
     function updateButtons() {
       if (prev) prev.classList.toggle("is-disabled", index === 0);
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
+    // ✅ Progress: highlight the visible "window" so all segments participate
+    function updateProgress() {
+      const visible = getVisible();
+
+      segs.forEach((s) => s.classList.remove("is-active", "is-current"));
+
+      const start = index;
+      const end = Math.min(index + visible - 1, N - 1);
+
+      for (let i = start; i <= end; i++) {
+        segs[i]?.classList.add("is-active");
+      }
+
+      const current = Math.min(start + Math.floor(visible / 2), N - 1);
+      segs[current]?.classList.add("is-current");
+    }
+
     function goTo(i) {
+      computeMetrics(); // ✅ fixes buttons not moving until after drag / image load
       index = clampIndex(i);
       applyTransform();
       updateProgress();
@@ -100,7 +120,6 @@ console.log("FEATURED_GALLERY v1");
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    // Attach drag to the mask (better UX)
     const mask = root.querySelector(".c-featured_gallery-mask") || root;
     mask.style.touchAction = "pan-y";
 
@@ -158,7 +177,7 @@ console.log("FEATURED_GALLERY v1");
       true
     );
 
-    // Buttons (optional)
+    // Buttons
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
@@ -174,13 +193,26 @@ console.log("FEATURED_GALLERY v1");
       });
     }
 
+    // Recompute after images load (prevents stepPx=0 on first click)
+    root.querySelectorAll("img").forEach((img) => {
+      if (img.complete) return;
+      img.addEventListener(
+        "load",
+        () => {
+          computeMetrics();
+          goTo(index);
+        },
+        { once: true }
+      );
+    });
+
     // Resize
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
       t = setTimeout(() => {
         computeMetrics();
-        goTo(index); // re-clamp + re-apply for new visible count
+        goTo(index);
       }, 60);
     });
 
