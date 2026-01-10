@@ -103,95 +103,125 @@ console.log("FEATURED_GALLERY v2");
       updateButtons();
     }
 
-    // --- Drag / swipe (pointer events) ---
-    let isDown = false;
-    let startX = 0;
-    let startTranslate = 0;
-    let moved = false;
+    // --- Smooth Drag / swipe (pointer events + rAF + edge resistance) ---
+let isDown = false;
+let startX = 0;
+let startTranslate = 0;
+let moved = false;
 
-    function getTranslateX(el) {
-      const t = getComputedStyle(el).transform;
-      if (!t || t === "none") return 0;
-      const m = new DOMMatrixReadOnly(t);
-      return m.m41;
+let rafId = null;
+let pendingX = null;
+
+function getTranslateX(el) {
+  const t = getComputedStyle(el).transform;
+  if (!t || t === "none") return 0;
+  const m = new DOMMatrixReadOnly(t);
+  return m.m41;
+}
+
+function setTranslateX(x) {
+  track.style.transform = `translate3d(${x}px, 0, 0)`;
+}
+
+function minTranslate() {
+  // far-left position (last index)
+  return -maxIndex() * stepPx;
+}
+function maxTranslate() {
+  // far-right position (index 0)
+  return 0;
+}
+
+function withResistance(x) {
+  const minX = minTranslate();
+  const maxX = maxTranslate();
+
+  if (x > maxX) {
+    const over = x - maxX;
+    return maxX + over * 0.25; // resistance at start
+  }
+  if (x < minX) {
+    const over = x - minX;
+    return minX + over * 0.25; // resistance at end
+  }
+  return x;
+}
+
+function scheduleMove(x) {
+  pendingX = x;
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => {
+    rafId = null;
+    if (pendingX == null) return;
+    setTranslateX(withResistance(pendingX));
+  });
+}
+
+const mask = root.querySelector(".c-featured_gallery-mask") || root;
+mask.style.touchAction = "pan-y";
+
+function onDown(e) {
+  if (e.button !== undefined && e.button !== 0) return;
+
+  isDown = true;
+  moved = false;
+
+  computeMetrics(); // ensure stepPx is correct right at drag start
+  track.style.transition = "none";
+
+  startX = e.clientX;
+  startTranslate = getTranslateX(track);
+
+  mask.setPointerCapture?.(e.pointerId);
+  e.preventDefault();
+}
+
+function onMove(e) {
+  if (!isDown) return;
+
+  const dx = e.clientX - startX;
+  if (Math.abs(dx) > 3) moved = true;
+
+  scheduleMove(startTranslate + dx);
+  e.preventDefault();
+}
+
+function onUp(e) {
+  if (!isDown) return;
+  isDown = false;
+
+  // restore snapping
+  track.style.transition = "transform 300ms ease";
+
+  const dx = e.clientX - startX;
+
+  // dynamic-ish threshold: works better on 3-up + 1-up
+  const threshold = Math.min(stepPx * 0.22, 120);
+
+  if (dx < -threshold) goTo(index + 1);
+  else if (dx > threshold) goTo(index - 1);
+  else goTo(index);
+
+  e.preventDefault();
+}
+
+mask.addEventListener("pointerdown", onDown, { passive: false });
+mask.addEventListener("pointermove", onMove, { passive: false });
+mask.addEventListener("pointerup", onUp, { passive: false });
+mask.addEventListener("pointercancel", onUp, { passive: false });
+mask.addEventListener("pointerleave", onUp, { passive: false });
+
+// Prevent click-through if user dragged
+mask.addEventListener(
+  "click",
+  (e) => {
+    if (moved) {
+      e.preventDefault();
+      e.stopPropagation();
     }
-
-    function setTranslateX(x) {
-      track.style.transform = `translate3d(${x}px, 0, 0)`;
-    }
-
-    const mask = root.querySelector(".c-featured_gallery-mask") || root;
-    mask.style.touchAction = "pan-y";
-
-    function onDown(e) {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      isDown = true;
-      moved = false;
-
-      track.style.transition = "none";
-      startX = e.clientX;
-      startTranslate = getTranslateX(track);
-
-      mask.setPointerCapture?.(e.pointerId);
-    }
-
-    function onMove(e) {
-      if (!isDown) return;
-
-      const dx = e.clientX - startX;
-      if (Math.abs(dx) > 3) moved = true;
-
-      setTranslateX(startTranslate + dx);
-    }
-
-    function onUp(e) {
-      if (!isDown) return;
-      isDown = false;
-
-      track.style.transition = "transform 300ms ease";
-
-      const dx = e.clientX - startX;
-      const threshold = stepPx * 0.18;
-
-      if (dx < -threshold) goTo(index + 1);
-      else if (dx > threshold) goTo(index - 1);
-      else goTo(index);
-    }
-
-    mask.addEventListener("pointerdown", onDown);
-    mask.addEventListener("pointermove", onMove);
-    mask.addEventListener("pointerup", onUp);
-    mask.addEventListener("pointercancel", onUp);
-    mask.addEventListener("pointerleave", onUp);
-
-    // Prevent click-through if user dragged
-    mask.addEventListener(
-      "click",
-      (e) => {
-        if (moved) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      },
-      true
-    );
-
-    // Buttons
-    if (next) {
-      next.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (next.classList.contains("is-disabled")) return;
-        goTo(index + 1);
-      });
-    }
-    if (prev) {
-      prev.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (prev.classList.contains("is-disabled")) return;
-        goTo(index - 1);
-      });
-    }
+  },
+  true
+);
 
     // Recompute after images load (prevents stepPx=0 on first click)
     root.querySelectorAll("img").forEach((img) => {
