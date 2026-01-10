@@ -1,4 +1,4 @@
-console.log("INTRO STATS COUNTER (V3 - IN VIEW)");
+console.log("INTRO STATS COUNTER (V4 - IN VIEW + STAGGER)");
 
 (function () {
   // Run after DOM is ready (Webflow-safe)
@@ -27,6 +27,11 @@ console.log("INTRO STATS COUNTER (V3 - IN VIEW)");
     if (window.matchMedia) {
       prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     }
+
+    // === TUNING CONTROLS ===
+    var DURATION_MS = 1200; // overall speed of each count animation
+    var STAGGER_MS = 200;   // delay between each counter start
+    // =======================
 
     function parseCount(raw) {
       var numStr = String(raw).replace(/[^0-9]/g, "");
@@ -61,10 +66,10 @@ console.log("INTRO STATS COUNTER (V3 - IN VIEW)");
         return;
       }
 
-      // always start visually from 0 (so you can see it)
+      // start visually from 0 so you can see it animate
       el.textContent = "0" + suffix;
 
-      var duration = 1200; // ms
+      var duration = DURATION_MS;
       var startTime = new Date().getTime();
 
       function tick() {
@@ -85,19 +90,26 @@ console.log("INTRO STATS COUNTER (V3 - IN VIEW)");
       raf(tick);
     }
 
-    // Trigger when the SECTION is in view (not each number)
-    function startAll() {
-      for (var i = 0; i < counters.length; i++) animateCount(counters[i]);
+    // Staggered start (one after another)
+    function startAllStaggered() {
+      for (var i = 0; i < counters.length; i++) {
+        (function (el, index) {
+          setTimeout(function () {
+            animateCount(el);
+          }, index * STAGGER_MS);
+        })(counters[i], i);
+      }
     }
 
+    // Trigger when the SECTION is in view
     if ("IntersectionObserver" in window) {
       var io = new IntersectionObserver(
         function (entries) {
           for (var i = 0; i < entries.length; i++) {
             if (entries[i].isIntersecting) {
-              console.log("Stats: section in view → start");
-              startAll();
-              io.disconnect();
+              console.log("Stats: section in view → start (staggered)");
+              startAllStaggered();
+              io.disconnect(); // only once
               break;
             }
           }
@@ -108,7 +120,7 @@ console.log("INTRO STATS COUNTER (V3 - IN VIEW)");
       io.observe(root);
     } else {
       // fallback
-      startAll();
+      startAllStaggered();
     }
   });
 })();
