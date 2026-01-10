@@ -1,4 +1,4 @@
-console.log("FEATURED_GALLERY v1");
+console.log("FEATURED_GALLERY v2");
 /* featured-gallery.js
    - Webflow/component safe (class-based, no IDs)
    - Targets your Featured Trips structure:
