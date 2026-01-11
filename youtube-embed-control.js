@@ -1,34 +1,37 @@
-console.log("[YT] youtube-embed-control.js loaded ✅");
+console.log("[YT] control v2 loaded ✅");
 
 (function () {
   var EMBED_SELECTOR = ".js-yt-embed";
   var PLAYER_SELECTOR = ".js-yt-player";
+
+  // When should it start playing?
+  // 0.25 = earlier, 0.6 = later
   var THRESHOLD = 0.5;
+
+  // Optional: if you want it to restart when it re-enters view
+  var RESTART_ON_ENTER = false;
 
   function loadYouTubeAPI() {
     if (window.YT && window.YT.Player) return Promise.resolve();
     if (window.__ytApiPromise) return window.__ytApiPromise;
 
-    window.__ytApiPromise = new Promise(function (resolve) {
-      window.__ytApiReadyCallbacks = window.__ytApiReadyCallbacks || [];
-      window.__ytApiReadyCallbacks.push(resolve);
+    window.__ytApiPromise = new Promise(function (resolve, reject) {
+      var src = "https://www.youtube.com/iframe_api";
 
-      if (!window.__ytApiReadyHooked) {
-        window.__ytApiReadyHooked = true;
+      // Hook ready
+      var prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () {
+        try { if (typeof prev === "function") prev(); } catch (e) {}
+        resolve();
+      };
 
-        var prev = window.onYouTubeIframeAPIReady;
-        window.onYouTubeIframeAPIReady = function () {
-          try { if (typeof prev === "function") prev(); } catch (e) {}
-          var cbs = window.__ytApiReadyCallbacks || [];
-          while (cbs.length) {
-            try { cbs.shift()(); } catch (e) {}
-          }
-        };
-      }
-
-      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      // Inject script once
+      if (!document.querySelector('script[src="' + src + '"]')) {
         var tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
+        tag.src = src;
+        tag.onerror = function () {
+          reject(new Error("YouTube iframe_api failed to load (blocked?)"));
+        };
         document.head.appendChild(tag);
       }
     });
@@ -36,7 +39,7 @@ console.log("[YT] youtube-embed-control.js loaded ✅");
     return window.__ytApiPromise;
   }
 
-  function initOne(el) {
+  function initEmbed(el) {
     if (el.dataset.ytInit === "1") return;
     el.dataset.ytInit = "1";
 
@@ -45,11 +48,10 @@ console.log("[YT] youtube-embed-control.js loaded ✅");
 
     var mount = el.querySelector(PLAYER_SELECTOR);
     if (!mount) {
-      console.warn("[YT] Missing .js-yt-player inside embed", el);
+      console.warn("[YT] Missing .js-yt-player inside", el);
       return;
     }
 
-    // Ensure mount has an id
     if (!mount.id) mount.id = "yt_" + Math.random().toString(36).slice(2);
 
     var player = new window.YT.Player(mount.id, {
@@ -59,7 +61,7 @@ console.log("[YT] youtube-embed-control.js loaded ✅");
         mute: 1,
         controls: 0,
         loop: 1,
-        playlist: videoId,
+        playlist: videoId, // required for loop
         playsinline: 1,
         rel: 0,
         modestbranding: 1
@@ -71,16 +73,19 @@ console.log("[YT] youtube-embed-control.js loaded ✅");
       }
     });
 
-    // Play/pause on visibility
-    if (!("IntersectionObserver" in window)) {
-      try { player.playVideo(); } catch (e) {}
-      return;
-    }
+    // IntersectionObserver play/pause
+    if (!("IntersectionObserver" in window)) return;
 
     var io = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (entry) {
+          // Only control once player is ready-ish
+          if (!player || typeof player.playVideo !== "function") return;
+
           if (entry.isIntersecting) {
+            if (RESTART_ON_ENTER) {
+              try { player.seekTo(0, true); } catch (e) {}
+            }
             try { player.playVideo(); } catch (e) {}
           } else {
             try { player.pauseVideo(); } catch (e) {}
@@ -96,23 +101,24 @@ console.log("[YT] youtube-embed-control.js loaded ✅");
   function initAll() {
     var els = document.querySelectorAll(EMBED_SELECTOR);
     if (!els.length) {
-      console.warn("[YT] No embeds found for", EMBED_SELECTOR);
+      console.warn("[YT] No elements found for", EMBED_SELECTOR);
       return;
     }
 
-    loadYouTubeAPI().then(function () {
-      els.forEach(initOne);
-    });
+    loadYouTubeAPI()
+      .then(function () {
+        els.forEach(initEmbed);
+      })
+      .catch(function (err) {
+        console.warn("[YT] API blocked or failed:", err.message);
+      });
   }
 
-  // Webflow: run on DOM ready + also after full load (covers some edge cases)
+  // Webflow-friendly init
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initAll);
   } else {
     initAll();
   }
-  window.addEventListener("load", function () {
-    // If something rendered late (tabs/IX2), this can catch it
-    initAll();
-  });
+  window.addEventListener("load", initAll);
 })();
