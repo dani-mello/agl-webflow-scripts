@@ -1,4 +1,4 @@
-console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER + RESET)");
+console.log("INTRO STATS COUNTER (V6 - IN VIEW + STAGGER + RESET)");
 
 (function () {
   function ready(fn) {
@@ -22,8 +22,8 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER + RESET)");
     }
 
     // === TUNING CONTROLS ===
-    var DURATION_MS = 1200; // speed of each count
-    var STAGGER_MS = 200;   // delay between each counter start
+    var DURATION_MS = 2000; // speed of each count
+    var STAGGER_MS = 400;   // delay between each counter start
     // =======================
 
     function parseCount(raw) {
@@ -120,7 +120,7 @@ console.log("INTRO STATS COUNTER (V5 - IN VIEW + STAGGER + RESET)");
           }
         },
         {
-          threshold: 0.5,                 // change this to start later/earlier
+          threshold: 0.3,                 // change this to start later/earlier
           rootMargin: "0px 0px -20% 0px"  // tweak for “scroll a bit longer”
         }
       );
