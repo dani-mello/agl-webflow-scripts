@@ -22,8 +22,8 @@ console.log("INTRO STATS COUNTER (V6 - IN VIEW + STAGGER + RESET)");
     }
 
     // === TUNING CONTROLS ===
-    var DURATION_MS = 2000; // speed of each count
-    var STAGGER_MS = 400;   // delay between each counter start
+    var DURATION_MS = 1500; // speed of each count
+    var STAGGER_MS = 300;   // delay between each counter start
     // =======================
 
     function parseCount(raw) {
