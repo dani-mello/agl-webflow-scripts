@@ -1,3 +1,4 @@
+console.log("youtube v1");
 /* youtube-embed-control.js
    - Webflow-friendly YouTube background embed with play/pause on scroll
    - Supports multiple embeds via: .js-yt-embed[data-yt-id="..."]
