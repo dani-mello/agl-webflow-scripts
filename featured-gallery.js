@@ -1,4 +1,4 @@
-console.log("FEATURED_GALLERY v6");
+
 
 /* featured-gallery.js
    - Works for BOTH:
