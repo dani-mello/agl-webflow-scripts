@@ -1,28 +1,19 @@
-console.log("FEATURED_GALLERY v4");
+console.log("FEATURED_GALLERY v5");
 
 /* featured-gallery.js
-   - Webflow/component safe (class-based, no IDs)
-   - Targets your Featured Trips structure:
-      .c-featured
-        .c-featured_gallery
-          .c-featured_gallery-mask
-            .c-featured_gallery-track
-              .c-featured_gallery-slide (xN)
-      Controls (unchanged):
-        .inline-gallery__controls
-          .ig-btn.ig-prev
-          .ig-btn.ig-next
-          .ig-progress
-   - Shows 3 desktop / 1 mobile
+   - Shows 3 desktop / 2 tablet / 1 mobile
    - Progress highlights the visible window (so all N segments participate)
    - Smooth drag/swipe (rAF + resistance) + buttons
 */
 
 (() => {
-  const MOBILE_BP = 767;
+  const TABLET_BP = 991; // Webflow "Tablet" max width
+  const MOBILE_BP = 767; // Webflow "Mobile" max width
 
   function getVisible() {
-    return window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches ? 1 : 3;
+    if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
+    if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
+    return 3;
   }
 
   function initGallery(root) {
@@ -121,25 +112,15 @@ console.log("FEATURED_GALLERY v4");
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    function minTranslate() {
-      return -maxIndex() * stepPx;
-    }
-    function maxTranslate() {
-      return 0;
-    }
+    function minTranslate() { return -maxIndex() * stepPx; }
+    function maxTranslate() { return 0; }
 
     function withResistance(x) {
       const minX = minTranslate();
       const maxX = maxTranslate();
 
-      if (x > maxX) {
-        const over = x - maxX;
-        return maxX + over * 0.25;
-      }
-      if (x < minX) {
-        const over = x - minX;
-        return minX + over * 0.25;
-      }
+      if (x > maxX) return maxX + (x - maxX) * 0.25;
+      if (x < minX) return minX + (x - minX) * 0.25;
       return x;
     }
 
@@ -186,7 +167,6 @@ console.log("FEATURED_GALLERY v4");
       if (!isDown) return;
       isDown = false;
 
-      // restore snapping for the settle animation
       track.style.transition = "transform 300ms ease";
 
       const dx = e.clientX - startX;
@@ -197,8 +177,6 @@ console.log("FEATURED_GALLERY v4");
       else goTo(index);
 
       e.preventDefault();
-
-      // reset so future clicks aren't blocked
       setTimeout(() => { moved = false; }, 0);
     }
 
@@ -208,7 +186,6 @@ console.log("FEATURED_GALLERY v4");
     mask.addEventListener("pointercancel", onUp, { passive: false });
     mask.addEventListener("pointerleave", onUp, { passive: false });
 
-    // Prevent click-through ONLY when a real drag happened
     mask.addEventListener(
       "click",
       (e) => {
@@ -225,8 +202,6 @@ console.log("FEATURED_GALLERY v4");
       next.addEventListener("click", (e) => {
         e.preventDefault();
         if (next.classList.contains("is-disabled")) return;
-
-        // ensure we’re not stuck in "transition: none" from a drag
         track.style.transition = "transform 300ms ease";
         goTo(index + 1);
       });
@@ -236,13 +211,12 @@ console.log("FEATURED_GALLERY v4");
       prev.addEventListener("click", (e) => {
         e.preventDefault();
         if (prev.classList.contains("is-disabled")) return;
-
         track.style.transition = "transform 300ms ease";
         goTo(index - 1);
       });
     }
 
-    // Recompute after images load (prevents stepPx=0 on first click)
+    // Recompute after images load
     root.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
       img.addEventListener(
