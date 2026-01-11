@@ -1,6 +1,9 @@
-console.log("FEATURED_GALLERY v5");
+console.log("FEATURED_GALLERY v6");
 
 /* featured-gallery.js
+   - Works for BOTH:
+      Desktop gallery wrapper: .c-featured_gallery
+      Tablet/Mobile gallery wrapper: .c-featured_gallery-mobile
    - Shows 3 desktop / 2 tablet / 1 mobile
    - Progress highlights the visible window (so all N segments participate)
    - Smooth drag/swipe (rAF + resistance) + buttons
@@ -20,14 +23,22 @@ console.log("FEATURED_GALLERY v5");
     if (root.dataset.featuredInit === "1") return;
     root.dataset.featuredInit = "1";
 
-    const track = root.querySelector(".c-featured_gallery-track");
+    // ✅ Support either wrapper class (.c-featured_gallery OR .c-featured_gallery-mobile)
+    const gallery =
+      root.querySelector(".c-featured_gallery") ||
+      root.querySelector(".c-featured_gallery-mobile") ||
+      root;
+
+    const track = gallery.querySelector(".c-featured_gallery-track");
     const slides = track
       ? Array.from(track.querySelectorAll(".c-featured_gallery-slide"))
       : [];
 
-    const prev = root.querySelector(".ig-prev");
-    const next = root.querySelector(".ig-next");
-    const progress = root.querySelector(".ig-progress");
+    // Controls stay the same (they are inside the gallery wrapper you used)
+    const prev = gallery.querySelector(".ig-prev") || root.querySelector(".ig-prev");
+    const next = gallery.querySelector(".ig-next") || root.querySelector(".ig-next");
+    const progress =
+      gallery.querySelector(".ig-progress") || root.querySelector(".ig-progress");
 
     if (!track || slides.length < 2 || !progress) return;
 
@@ -45,7 +56,10 @@ console.log("FEATURED_GALLERY v5");
     const segs = Array.from(progress.children);
 
     function computeMetrics() {
-      if (slides.length < 2) { stepPx = 0; return; }
+      if (slides.length < 2) {
+        stepPx = 0;
+        return;
+      }
       const r0 = slides[0].getBoundingClientRect();
       const r1 = slides[1].getBoundingClientRect();
       const gapPx = Math.max(0, Math.round(r1.left - r0.right));
@@ -85,7 +99,7 @@ console.log("FEATURED_GALLERY v5");
     }
 
     function goTo(i) {
-      computeMetrics(); // ensures stepPx is correct even before images fully settle
+      computeMetrics();
       index = clampIndex(i);
       applyTransform();
       updateProgress();
@@ -112,8 +126,12 @@ console.log("FEATURED_GALLERY v5");
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    function minTranslate() { return -maxIndex() * stepPx; }
-    function maxTranslate() { return 0; }
+    function minTranslate() {
+      return -maxIndex() * stepPx;
+    }
+    function maxTranslate() {
+      return 0;
+    }
 
     function withResistance(x) {
       const minX = minTranslate();
@@ -134,7 +152,8 @@ console.log("FEATURED_GALLERY v5");
       });
     }
 
-    const mask = root.querySelector(".c-featured_gallery-mask") || root;
+    // ✅ Mask lives inside whichever wrapper is active
+    const mask = gallery.querySelector(".c-featured_gallery-mask") || gallery;
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
@@ -177,7 +196,9 @@ console.log("FEATURED_GALLERY v5");
       else goTo(index);
 
       e.preventDefault();
-      setTimeout(() => { moved = false; }, 0);
+      setTimeout(() => {
+        moved = false;
+      }, 0);
     }
 
     mask.addEventListener("pointerdown", onDown, { passive: false });
@@ -217,7 +238,7 @@ console.log("FEATURED_GALLERY v5");
     }
 
     // Recompute after images load
-    root.querySelectorAll("img").forEach((img) => {
+    gallery.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
       img.addEventListener(
         "load",
@@ -244,7 +265,10 @@ console.log("FEATURED_GALLERY v5");
   }
 
   function initAll() {
-    document.querySelectorAll(".c-featured").forEach(initGallery);
+    // ✅ Init each gallery wrapper separately (desktop + mobile versions)
+    document
+      .querySelectorAll(".c-featured_gallery, .c-featured_gallery-mobile")
+      .forEach(initGallery);
   }
 
   // Webflow + normal sites
