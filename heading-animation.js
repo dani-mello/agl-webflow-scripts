@@ -1,4 +1,4 @@
-console.log("STAGGERED HEADING ANIMATION LOADED");
+console.log("STAGGERED HEADING ANIMATION LOADED v2");
 
 (function () {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
