@@ -108,7 +108,7 @@ console.log("new hero v3");
 
     lines = splitLines.lines || [];
 
-    // ✅ Start hidden immediately (prevents flash)
+    // Start hidden immediately (prevents any flash)
     if (lines.length) {
       gsap.set(lines, {
         yPercent: 120,
@@ -122,26 +122,33 @@ console.log("new hero v3");
     return lines;
   }
 
+  function showHeadlineContainer() {
+    // Force visibility visible (works even if your CSS sets visibility:hidden)
+    gsap.set(headline, { visibility: "visible", autoAlpha: 1 });
+  }
+
   function playHeadingIntroOnce() {
     if (headingPlayed) return;
     headingPlayed = true;
 
-    // show container
-    gsap.set(headline, { autoAlpha: 1 });
+    showHeadlineContainer();
 
-    // animate lines in (your v5 motion)
-    if (lines.length) {
-      gsap.to(lines, {
-        yPercent: 0,
-        x: 0,
-        rotate: 0,
-        opacity: 1,
-        duration: 1.1,
-        ease: "power3.out",
-        stagger: 0.3,
-        overwrite: true
-      });
+    // If SplitText failed for any reason, at least show the original h1
+    if (!lines || !lines.length) {
+      gsap.set(h1, { opacity: 1 });
+      return;
     }
+
+    gsap.to(lines, {
+      yPercent: 0,
+      x: 0,
+      rotate: 0,
+      opacity: 1,
+      duration: 1.1,
+      ease: "power3.out",
+      stagger: 0.3,
+      overwrite: true
+    });
   }
 
   buildLines();
@@ -165,22 +172,22 @@ console.log("new hero v3");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // Hide headline initially to avoid any FOUC
-  gsap.set(headline, { autoAlpha: 0 });
+  // Keep hidden initially (your CSS already does this, but we mirror it)
+  gsap.set(headline, { autoAlpha: 0, visibility: "hidden" });
 
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
   ScrollTrigger.addEventListener("refreshInit", function () {
-    // Rebuild safely on refresh (prevents nested wrappers)
     buildLines();
 
     lockedColor = window.getComputedStyle(h1).color;
     gsap.set(h1, { color: lockedColor });
     if (lines.length) gsap.set(lines, { color: lockedColor });
 
-    // If we already played, keep it visible
-    gsap.set(headline, { autoAlpha: headingPlayed ? 1 : 0 });
+    // If already played, keep visible; otherwise keep hidden
+    if (headingPlayed) showHeadlineContainer();
+    else gsap.set(headline, { autoAlpha: 0, visibility: "hidden" });
 
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
@@ -216,32 +223,29 @@ console.log("new hero v3");
     animation: tl,
 
     onEnter: function () {
+      // Play as soon as hero becomes active
       playHeadingIntroOnce();
     },
 
-    // If the page loads already at the top, onEnter can fire immediately,
-    // but this makes it extra robust across browsers.
-    onRefresh: function () {
-      if (ScrollTrigger.isInViewport(root, 0.2)) playHeadingIntroOnce();
-    },
-
     onEnterBack: function () {
-      // keep visible
-      gsap.set(headline, { autoAlpha: 1 });
+      // Keep visible when scrolling back
+      showHeadlineContainer();
     },
 
     onUpdate: function () {
-      // keep visible always
-      gsap.set(headline, { autoAlpha: 1 });
+      // Keep visible always (no explosion / no hide)
+      showHeadlineContainer();
     }
 
     // markers: true
   });
 
-  // Extra safety: if hero is already in view on load, play it.
-  // (No delay — avoids “animates halfway through”)
-  if (ScrollTrigger.isInViewport(root, 0.2)) {
-    // wait one frame so SplitText wrappers are in place
-    requestAnimationFrame(playHeadingIntroOnce);
-  }
+  // ✅ Safety: play intro as soon as the browser has painted + SplitText is in place
+  // This prevents "it never shows" if the trigger timing is weird.
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      playHeadingIntroOnce();
+      ScrollTrigger.refresh(true);
+    });
+  });
 })();
