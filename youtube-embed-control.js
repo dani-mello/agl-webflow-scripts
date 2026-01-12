@@ -1,4 +1,4 @@
-console.log("[YT] control v3 loaded ✅");
+console.log("[YT] control v4 loaded ✅");
 
 (function () {
   const EMBED_SEL = ".js-yt-embed";
