@@ -1,6 +1,7 @@
-console.log("new hero v6");
+console.log("new hero v7");
 
 (function () {
+
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
@@ -34,26 +35,14 @@ console.log("new hero v6");
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
+  // ✅ bottom gradient
   var gradient = root.querySelector(".l-bottom-gradient");
 
   if (!headline || !h1) return;
 
-  // --- IMPORTANT: undo aria-hidden on hero headline ---
-  // Something is setting aria-hidden="true" which can cascade to inner wrappers/state.
+  // Stop anything forcing aria-hidden on this element
   headline.removeAttribute("aria-hidden");
-
-  // HARD show helpers (beats CSS)
-  function hardShow(el) {
-    if (!el) return;
-    el.style.setProperty("display", "block", "important");
-    el.style.setProperty("visibility", "visible", "important");
-    el.style.setProperty("opacity", "1", "important");
-  }
-  function hardShowText(el) {
-    if (!el) return;
-    el.style.setProperty("visibility", "visible", "important");
-    el.style.setProperty("opacity", "1", "important");
-  }
+  h1.removeAttribute("aria-hidden");
 
   function forceFullBleed(el) {
     if (!el) return;
@@ -93,14 +82,14 @@ console.log("new hero v6");
   }
 
   // -----------------------------
-  // TEXT: SplitText lines intro once, then stay visible
+  // TEXT: SplitText lines + intro once (your v5 motion)
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
   var lines = [];
-  var headingPlayed = false;
+  var played = false;
 
-  function revertLineSplit() {
+  function revertSplit() {
     try {
       if (splitLines) splitLines.revert();
     } catch (e) {}
@@ -108,14 +97,18 @@ console.log("new hero v6");
     lines = [];
   }
 
+  function ensureMeasurable() {
+    // Make sure SplitText can calculate line breaks (no display:none)
+    headline.style.setProperty("display", "block", "important");
+    headline.style.setProperty("visibility", "visible", "important");
+    // Keep it visually hidden until we animate
+    gsap.set(headline, { opacity: 0 });
+  }
+
   function buildLines() {
-    revertLineSplit();
+    revertSplit();
     h1.textContent = originalText;
 
-    // Ensure hero H1 is not aria-hidden either
-    h1.removeAttribute("aria-hidden");
-
-    // Optional: accessibility helper
     if (!h1.hasAttribute("aria-label")) {
       h1.setAttribute("aria-label", h1.textContent.trim());
     }
@@ -127,7 +120,7 @@ console.log("new hero v6");
 
     lines = splitLines.lines || [];
 
-    // Start hidden pose (for reveal)
+    // Put lines in start pose immediately (hidden)
     if (lines.length) {
       gsap.set(lines, {
         yPercent: 120,
@@ -137,24 +130,18 @@ console.log("new hero v6");
         willChange: "transform"
       });
     }
-
-    return lines;
   }
 
-  function playHeadingIntroOnce() {
-    if (headingPlayed) return;
-    headingPlayed = true;
+  function playIntro() {
+    if (played) return;
+    played = true;
 
-    // Force container + H1 visible
-    hardShow(headline);
-    hardShowText(h1);
+    // Reveal container
+    gsap.set(headline, { opacity: 1, visibility: "visible" });
 
-    // If lines missing, show raw text
-    if (!lines || !lines.length) {
-      hardShowText(h1);
-      return;
-    }
+    if (!lines.length) return;
 
+    // Animate lines in (from current start pose)
     gsap.to(lines, {
       yPercent: 0,
       x: 0,
@@ -167,14 +154,7 @@ console.log("new hero v6");
     });
   }
 
-  buildLines();
-
-  // ---- LOCK HEADLINE COLOUR ----
-  var lockedColor = window.getComputedStyle(h1).color;
-  gsap.set(h1, { color: lockedColor });
-  if (lines.length) gsap.set(lines, { color: lockedColor });
-
-  // stacking order (unchanged)
+  // Lock stacking order as you had
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -188,34 +168,29 @@ console.log("new hero v6");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // If your CSS hides it, keep hidden until we play intro
-  // (but do NOT rely on visibility hidden forever)
-  gsap.set(headline, { autoAlpha: 0 });
-
+  // Prep curtains (unchanged)
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
+  // ✅ Build SplitText when measurable, then animate once on next frame
+  ensureMeasurable();
+  buildLines();
+
+  requestAnimationFrame(function () {
+    // Now we’re past first paint + SplitText is in place
+    playIntro();
+  });
+
+  // If you resize, don’t kill your intro. Just rebuild lines if NOT played yet.
   ScrollTrigger.addEventListener("refreshInit", function () {
-    buildLines();
+    headline.removeAttribute("aria-hidden");
+    h1.removeAttribute("aria-hidden");
 
-    lockedColor = window.getComputedStyle(h1).color;
-    gsap.set(h1, { color: lockedColor });
-    if (lines.length) gsap.set(lines, { color: lockedColor });
+    ensureMeasurable();
 
-    // If already played, keep visible
-    if (headingPlayed) {
-      hardShow(headline);
-      hardShowText(h1);
-      if (lines.length) gsap.set(lines, { yPercent: 0, x: 0, rotate: 0, opacity: 1 });
-    } else {
-      gsap.set(headline, { autoAlpha: 0 });
+    if (!played) {
+      buildLines();
     }
-
-    curtainClosed(v2Reveal);
-    curtainClosed(v3Reveal);
-
-    if (gradient) gsap.set(gradient, { zIndex: 10 });
-    gsap.set(headline, { zIndex: 20 });
   });
 
   // -----------------------------
@@ -243,32 +218,18 @@ console.log("new hero v6");
     invalidateOnRefresh: true,
     animation: tl,
 
-    onEnter: function () {
-      // show + animate intro
-      gsap.set(headline, { autoAlpha: 1 });
-      playHeadingIntroOnce();
-    },
-
-    onEnterBack: function () {
-      hardShow(headline);
-      hardShowText(h1);
-    },
-
+    // Keep headline visible (no explosion / no hide)
     onUpdate: function () {
-      // keep visible always
-      hardShow(headline);
-      hardShowText(h1);
+      headline.style.setProperty("visibility", "visible", "important");
+      headline.style.setProperty("display", "block", "important");
+      gsap.set(headline, { opacity: 1 });
+    },
+    onEnterBack: function () {
+      headline.style.setProperty("visibility", "visible", "important");
+      headline.style.setProperty("display", "block", "important");
+      gsap.set(headline, { opacity: 1 });
     }
 
     // markers: true
-  });
-
-  // Fallback: play immediately after init
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      gsap.set(headline, { autoAlpha: 1 });
-      playHeadingIntroOnce();
-      ScrollTrigger.refresh(true);
-    });
   });
 })();
