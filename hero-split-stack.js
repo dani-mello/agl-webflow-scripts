@@ -132,15 +132,17 @@
   gsap.set(headline, { autoAlpha: 0 });
 
   // prep line state (your v5 style)
-  if (lines.length) {
-    gsap.set(lines, {
-      x: 0,
-      y: 0,
-      rotate: 0,
-      opacity: 1,
-      willChange: "transform"
-    });
-  }
+  // prep line state: start OFF-screen + hidden (so no flash)
+if (lines.length) {
+  gsap.set(lines, {
+    yPercent: 120,
+    x: -18,
+    rotate: 1,
+    opacity: 0,
+    willChange: "transform"
+  });
+}
+
 
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
