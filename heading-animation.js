@@ -31,8 +31,8 @@ console.log("STAGGERED HEADING ANIMATION LOADED");
       group,
       {
         yPercent: 120,
-        x: -18,
-        rotate: 1.2,
+        x: -50,
+        rotate: 1.5,
         opacity: 0
       },
       {
