@@ -1,3 +1,5 @@
+console.log("new hero v1");
+
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
