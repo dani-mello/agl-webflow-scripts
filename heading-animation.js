@@ -1,4 +1,4 @@
-console.log("STAGGERED HEADING ANIMATION LOADED v2");
+console.log("STAGGERED HEADING ANIMATION LOADED v3");
 
 (function () {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
@@ -41,7 +41,7 @@ console.log("STAGGERED HEADING ANIMATION LOADED v2");
         rotate: 0,
         opacity: 1,
         duration: 0.7,
-        ease: "power3.out",
+        ease: "expo.out",
         stagger: 0.2,
         scrollTrigger: {
           trigger: group[0],
