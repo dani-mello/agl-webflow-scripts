@@ -20,16 +20,16 @@ console.log("HEADING ANIMATION LOADED");
       heading,
       {
         yPercent: 120,
-        x: -18,
-        rotate: 1.2,
-        opacity: 0
+        x: -20,
+        rotate: 1.5,
+        opacity: 1
       },
       {
         yPercent: 0,
         x: 0,
         rotate: 0,
         opacity: 1,
-        duration: 1.1,
+        duration: 0.6,
         ease: "power3.out",
         scrollTrigger: {
           trigger: heading,
