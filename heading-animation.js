@@ -39,7 +39,7 @@ console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v4");
       opacity: 0,
       duration: 1.1,
       ease: "power3.out",
-      stagger: 0.12,
+      stagger: 0.3,
       scrollTrigger: {
         trigger: heading,
         start: "top 85%",
