@@ -1,4 +1,4 @@
-console.log("new hero v1");
+console.log("new hero v2");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -77,7 +77,8 @@ console.log("new hero v1");
   }
 
   // -----------------------------
-  // TEXT: replace burst with SplitText (lines) intro, then keep visible
+  // TEXT: SplitText (lines) intro, then keep visible (no “explosion”)
+  // Also prevents FOUC by setting hidden start state immediately.
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
@@ -95,7 +96,7 @@ console.log("new hero v1");
     revertLineSplit();
     h1.textContent = originalText;
 
-    // optional but helpful for SR if SplitText wrappers get weird
+    // Optional: accessibility helper
     if (!h1.hasAttribute("aria-label")) {
       h1.setAttribute("aria-label", h1.textContent.trim());
     }
@@ -106,6 +107,18 @@ console.log("new hero v1");
     });
 
     lines = splitLines.lines || [];
+
+    // ✅ Put lines into their “start hidden” pose immediately (prevents flash)
+    if (lines.length) {
+      gsap.set(lines, {
+        yPercent: 120,
+        x: -18,
+        rotate: 1,
+        opacity: 0,
+        willChange: "transform"
+      });
+    }
+
     return lines;
   }
 
@@ -117,6 +130,7 @@ console.log("new hero v1");
   if (lines.length) gsap.set(lines, { color: lockedColor });
 
   // ✅ enforce correct stacking order
+  // videos (z 1-3) < gradient (z 10) < headline (z 20)
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -130,33 +144,20 @@ console.log("new hero v1");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // Start hidden; we’ll reveal via line animation + headline alpha
+  // ✅ Hide headline immediately so it never flashes on load
   gsap.set(headline, { autoAlpha: 0 });
-
-  // prep line state (your v5 style)
-  // prep line state: start OFF-screen + hidden (so no flash)
-if (lines.length) {
-  gsap.set(lines, {
-    yPercent: 120,
-    x: -18,
-    rotate: 1,
-    opacity: 0,
-    willChange: "transform"
-  });
-}
-
 
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
   ScrollTrigger.addEventListener("refreshInit", function () {
-    // rebuild split safely on refresh (prevents nested wrappers)
     buildLines();
 
     lockedColor = window.getComputedStyle(h1).color;
     gsap.set(h1, { color: lockedColor });
     if (lines.length) gsap.set(lines, { color: lockedColor });
 
+    // Keep hero headline hidden until our reveal runs again
     gsap.set(headline, { autoAlpha: 0 });
 
     curtainClosed(v2Reveal);
@@ -166,7 +167,7 @@ if (lines.length) {
     gsap.set(headline, { zIndex: 20 });
   });
 
-  // Headline reveal (before scroll) — now using your line intro
+  // Headline reveal (before scroll) — v5 motion, but as a "to" animation (no flash)
   gsap.to(headline, {
     delay: 3,
     autoAlpha: 1,
@@ -174,11 +175,11 @@ if (lines.length) {
     ease: "none",
     onComplete: function () {
       if (lines.length) {
-        gsap.from(lines, {
-          yPercent: 120,
-          x: -18,
-          rotate: 1,
-          opacity: 0,
+        gsap.to(lines, {
+          yPercent: 0,
+          x: 0,
+          rotate: 0,
+          opacity: 1,
           duration: 1.1,
           ease: "power3.out",
           stagger: 0.3
@@ -194,15 +195,14 @@ if (lines.length) {
   var tl = gsap.timeline();
 
   if (gradient) gsap.set(gradient, { autoAlpha: 1 });
-  if (gradient) tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
+  if (gradient)
+    tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
 
   tl.to({}, { duration: 1 });
   curtainOpen(tl, v2Reveal, "v2Open", 2);
   tl.to({}, { duration: 0.35 });
   curtainOpen(tl, v3Reveal, "v3Open", 2);
   tl.to({}, { duration: 1 });
-
-  // ❌ removed: burstStart / burst tween / burstEnd
 
   ScrollTrigger.create({
     id: "heroSplitStack",
@@ -215,7 +215,7 @@ if (lines.length) {
     invalidateOnRefresh: true,
     animation: tl,
 
-    // ✅ Keep headline visible always (no explosion / no hide)
+    // ✅ Keep headline visible always (no hide)
     onUpdate: function () {
       gsap.set(headline, { autoAlpha: 1 });
     },
