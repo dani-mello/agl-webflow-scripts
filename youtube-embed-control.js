@@ -1,10 +1,11 @@
 console.log("[YT] control v5 loaded ✅");
 
 /* youtube-embed-control.js
-   YouTube iframe API embed with click-to-toggle + sound support.
    HTML:
    <div class="video-embed js-yt-embed" data-yt-id="r0MGm-MgHkE" data-yt-muted="false">
      <div class="js-yt-player"></div>
+     <button class="yt-sound-btn js-yt-sound" type="button">Sound off</button>
+     <button class="yt-unmute-overlay js-yt-unmute" type="button">Tap for sound</button>
    </div>
 */
 
@@ -13,6 +14,8 @@ console.log("[YT] control v5 loaded ✅");
 
   var EMBED_SEL = ".js-yt-embed";
   var PLAYER_SEL = ".js-yt-player";
+  var BTN_SOUND_SEL = ".js-yt-sound";
+  var BTN_UNMUTE_SEL = ".js-yt-unmute";
 
   function loadYouTubeAPI() {
     return new Promise(function (resolve) {
@@ -42,9 +45,7 @@ console.log("[YT] control v5 loaded ✅");
   }
 
   function getState(root) {
-    if (!root.__ytState) {
-      root.__ytState = { player: null, ready: false, queue: [] };
-    }
+    if (!root.__ytState) root.__ytState = { player: null, ready: false, queue: [] };
     return root.__ytState;
   }
 
@@ -58,10 +59,35 @@ console.log("[YT] control v5 loaded ✅");
     var s = getState(root);
     while (s.queue.length) {
       var fn = s.queue.shift();
-      try {
-        fn(s.player);
-      } catch (e) {}
+      try { fn(s.player); } catch (e) {}
     }
+  }
+
+  function updateUI(root, muted) {
+    var soundBtn = root.querySelector(BTN_SOUND_SEL);
+    if (soundBtn) {
+      soundBtn.setAttribute("aria-pressed", String(!muted));
+      soundBtn.textContent = muted ? "Sound off" : "Sound on";
+    }
+
+    // overlay is visible when muted; hidden when audible
+    if (muted) {
+      root.classList.remove("is-audible");
+      root.classList.add("is-muted");
+    } else {
+      root.classList.add("is-audible");
+      root.classList.remove("is-muted");
+    }
+  }
+
+  function setMuted(root, player, muted) {
+    if (!player) return;
+    if (muted) player.mute();
+    else {
+      player.unMute();
+      try { player.setVolume(80); } catch (e) {}
+    }
+    updateUI(root, muted);
   }
 
   function initOne(root) {
@@ -75,16 +101,46 @@ console.log("[YT] control v5 loaded ✅");
     var startMuted = (root.getAttribute("data-yt-muted") || "false") === "true";
     var s = getState(root);
 
-    // Click to toggle play/pause
+    // Click video area toggles play/pause.
+    // BUT ignore clicks on the sound buttons.
     root.style.cursor = "pointer";
-    root.addEventListener("click", function () {
+    root.addEventListener("click", function (e) {
+      if (e.target && e.target.closest && e.target.closest(BTN_SOUND_SEL + "," + BTN_UNMUTE_SEL)) {
+        return;
+      }
       runOrQueue(root, function (p) {
-        var state = p.getPlayerState(); // 1 playing, 2 paused
-        if (state === 1) p.pauseVideo();
+        var st = p.getPlayerState(); // 1 playing, 2 paused
+        if (st === 1) p.pauseVideo();
         else p.playVideo();
       });
     });
 
+    // Sound toggle button
+    var soundBtn = root.querySelector(BTN_SOUND_SEL);
+    if (soundBtn) {
+      soundBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        runOrQueue(root, function (p) {
+          setMuted(root, p, !p.isMuted());
+        });
+      });
+    }
+
+    // Big “Tap for sound” overlay: unmute + play (user gesture)
+    var unmuteBtn = root.querySelector(BTN_UNMUTE_SEL);
+    if (unmuteBtn) {
+      unmuteBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        runOrQueue(root, function (p) {
+          setMuted(root, p, false);
+          p.playVideo();
+        });
+      });
+    }
+
+    // Create player
     s.player = new YT.Player(holder, {
       videoId: videoId,
       playerVars: {
@@ -97,8 +153,7 @@ console.log("[YT] control v5 loaded ✅");
       events: {
         onReady: function () {
           s.ready = true;
-          if (startMuted) s.player.mute();
-          else s.player.unMute();
+          setMuted(root, s.player, startMuted);
           flushQueue(root);
         }
       }
@@ -114,13 +169,13 @@ console.log("[YT] control v5 loaded ✅");
     });
   }
 
-  // Webflow-safe run timing
+  // Webflow-safe timing
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initAll);
   } else {
     initAll();
   }
 
-  // Optional manual re-init hook
+  // Optional: manual re-init (for CMS loads, tabs, etc.)
   window.YTEmbedInit = initAll;
 })();
