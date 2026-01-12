@@ -2,101 +2,100 @@ console.log("[YT] control v3 loaded ✅");
 
 (function () {
   const EMBED_SEL = ".js-yt-embed";
-  const BTN_SOUND_SEL = ".js-yt-sound";
-  const BTN_UNMUTE_SEL = ".js-yt-unmute";
+  const PLAYER_SEL = ".js-yt-player";
 
-  // Load YT API once
+  // ---------- Load API once ----------
   function loadYouTubeAPI() {
     return new Promise((resolve) => {
       if (window.YT && window.YT.Player) return resolve();
-      const existing = document.querySelector('script[src*="youtube.com/iframe_api"]');
-      if (existing) return (window.onYouTubeIframeAPIReady = resolve);
+
+      // if script already injected, just hook ready
+      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+      if (existing) {
+        const prev = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = function () {
+          if (typeof prev === "function") prev();
+          resolve();
+        };
+        return;
+      }
 
       const tag = document.createElement("script");
       tag.src = "https://www.youtube.com/iframe_api";
-      window.onYouTubeIframeAPIReady = resolve;
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () {
+        if (typeof prev === "function") prev();
+        resolve();
+      };
       document.head.appendChild(tag);
     });
   }
 
-  const players = new Map(); // rootEl -> YT.Player
-
-  function setMuted(root, player, muted) {
-    if (!player) return;
-    if (muted) {
-      player.mute();
-      root.classList.remove("is-audible");
-      root.classList.add("is-muted");
-    } else {
-      player.unMute();
-      // set a sensible default volume (optional)
-      try { player.setVolume(80); } catch (e) {}
-      root.classList.add("is-audible");
-      root.classList.remove("is-muted");
+  // ---------- Helpers ----------
+  function getState(root) {
+    if (!root.__ytState) {
+      root.__ytState = {
+        player: null,
+        ready: false,
+        queue: []
+      };
     }
+    return root.__ytState;
+  }
 
-    const btn = root.querySelector(BTN_SOUND_SEL);
-    if (btn) {
-      btn.setAttribute("aria-pressed", String(!muted));
-      btn.textContent = muted ? "Sound off" : "Sound on";
+  function runOrQueue(root, fn) {
+    const s = getState(root);
+    if (s.ready && s.player) fn(s.player);
+    else s.queue.push(fn);
+  }
+
+  function flushQueue(root) {
+    const s = getState(root);
+    while (s.queue.length) {
+      const fn = s.queue.shift();
+      try { fn(s.player); } catch (e) {}
     }
   }
 
+  // ---------- Init one embed ----------
   function initOne(root) {
-    const id = root.getAttribute("data-yt-id");
-    if (!id) return;
-
-    // prevent double init
-    if (root.dataset.ytInit === "1") return;
+    if (!root || root.dataset.ytInit === "1") return;
     root.dataset.ytInit = "1";
 
-    const holder = root.querySelector(".js-yt-player");
+    const videoId = root.getAttribute("data-yt-id");
+    if (!videoId) return;
+
+    const holder = root.querySelector(PLAYER_SEL);
     if (!holder) return;
 
     const startMuted = (root.getAttribute("data-yt-muted") || "true") === "true";
 
-    const player = new YT.Player(holder, {
-      videoId: id,
+    const s = getState(root);
+
+    s.player = new YT.Player(holder, {
+      videoId,
       playerVars: {
-        autoplay: 0,          // you control when to play
         controls: 0,
         playsinline: 1,
         rel: 0,
         modestbranding: 1,
         iv_load_policy: 3
-        // NOTE: mute is handled via API calls below
       },
       events: {
         onReady: () => {
-          players.set(root, player);
-          setMuted(root, player, startMuted);
+          s.ready = true;
 
-          // If you want it to start immediately (muted), uncomment:
-          // player.playVideo();
+          // apply mute state
+          if (startMuted) s.player.mute();
+          else s.player.unMute();
+
+          flushQueue(root);
         }
       }
     });
-
-    // Toggle sound button
-    const soundBtn = root.querySelector(BTN_SOUND_SEL);
-    if (soundBtn) {
-      soundBtn.addEventListener("click", () => {
-        const isMuted = player.isMuted();
-        setMuted(root, player, !isMuted);
-      });
-    }
-
-    // Big “Tap for sound” overlay
-    const unmuteBtn = root.querySelector(BTN_UNMUTE_SEL);
-    if (unmuteBtn) {
-      unmuteBtn.addEventListener("click", () => {
-        // user gesture: safe to unmute + play
-        setMuted(root, player, false);
-        player.playVideo();
-      });
-    }
   }
 
+  // ---------- Init all ----------
   async function initAll() {
     const roots = Array.from(document.querySelectorAll(EMBED_SEL));
     if (!roots.length) return;
@@ -107,23 +106,48 @@ console.log("[YT] control v3 loaded ✅");
 
   initAll();
 
-  // OPTIONAL: expose helpers if you’re triggering via ScrollTrigger
+  // ---------- Public API ----------
   window.YTEmbed = {
-    play(rootEl) {
-      const p = players.get(rootEl);
-      if (p) p.playVideo();
+    get(elOrSelector) {
+      const root =
+        typeof elOrSelector === "string"
+          ? document.querySelector(elOrSelector)
+          : elOrSelector;
+      if (!root) return null;
+      return getState(root).player || null;
     },
-    pause(rootEl) {
-      const p = players.get(rootEl);
-      if (p) p.pauseVideo();
+
+    play(elOrSelector) {
+      const root =
+        typeof elOrSelector === "string"
+          ? document.querySelector(elOrSelector)
+          : elOrSelector;
+      if (!root) return;
+      runOrQueue(root, (p) => p.playVideo());
     },
-    mute(rootEl) {
-      const p = players.get(rootEl);
-      if (p) setMuted(rootEl, p, true);
+
+    pause(elOrSelector) {
+      const root =
+        typeof elOrSelector === "string"
+          ? document.querySelector(elOrSelector)
+          : elOrSelector;
+      if (!root) return;
+      runOrQueue(root, (p) => p.pauseVideo());
     },
-    unmute(rootEl) {
-      const p = players.get(rootEl);
-      if (p) setMuted(rootEl, p, false);
+
+    toggle(elOrSelector) {
+      const root =
+        typeof elOrSelector === "string"
+          ? document.querySelector(elOrSelector)
+          : elOrSelector;
+      if (!root) return;
+      runOrQueue(root, (p) => {
+        const state = p.getPlayerState();
+        // 1 = playing, 2 = paused
+        if (state === 1) p.pauseVideo();
+        else p.playVideo();
+      });
     }
   };
 })();
+
