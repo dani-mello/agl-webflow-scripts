@@ -1,8 +1,6 @@
-console.log("new hero v5");
+console.log("new hero v6");
 
 (function () {
-  console.log("HERO v6 (TEXT FIX) LOADED");
-
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
@@ -36,29 +34,26 @@ console.log("new hero v5");
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
-  // ✅ bottom gradient
   var gradient = root.querySelector(".l-bottom-gradient");
 
   if (!headline || !h1) return;
 
-  // -----------------------------
-  // HARD OVERRIDES (beats CSS !important)
-  // -----------------------------
+  // --- IMPORTANT: undo aria-hidden on hero headline ---
+  // Something is setting aria-hidden="true" which can cascade to inner wrappers/state.
+  headline.removeAttribute("aria-hidden");
+
+  // HARD show helpers (beats CSS)
   function hardShow(el) {
+    if (!el) return;
+    el.style.setProperty("display", "block", "important");
+    el.style.setProperty("visibility", "visible", "important");
+    el.style.setProperty("opacity", "1", "important");
+  }
+  function hardShowText(el) {
     if (!el) return;
     el.style.setProperty("visibility", "visible", "important");
     el.style.setProperty("opacity", "1", "important");
-    el.style.setProperty("display", "block", "important");
   }
-  function hardHide(el) {
-    if (!el) return;
-    el.style.setProperty("visibility", "hidden", "important");
-    el.style.setProperty("opacity", "0", "important");
-  }
-
-  // We want container visible (so it can participate in layout/stacking),
-  // but text lines hidden until animation.
-  hardShow(headline);
 
   function forceFullBleed(el) {
     if (!el) return;
@@ -98,7 +93,7 @@ console.log("new hero v5");
   }
 
   // -----------------------------
-  // TEXT: SplitText lines (your v5 motion), no outro
+  // TEXT: SplitText lines intro once, then stay visible
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
@@ -117,6 +112,9 @@ console.log("new hero v5");
     revertLineSplit();
     h1.textContent = originalText;
 
+    // Ensure hero H1 is not aria-hidden either
+    h1.removeAttribute("aria-hidden");
+
     // Optional: accessibility helper
     if (!h1.hasAttribute("aria-label")) {
       h1.setAttribute("aria-label", h1.textContent.trim());
@@ -129,7 +127,7 @@ console.log("new hero v5");
 
     lines = splitLines.lines || [];
 
-    // Put lines into “hidden start pose” immediately
+    // Start hidden pose (for reveal)
     if (lines.length) {
       gsap.set(lines, {
         yPercent: 120,
@@ -147,14 +145,13 @@ console.log("new hero v5");
     if (headingPlayed) return;
     headingPlayed = true;
 
-    // Force the container visible (even if CSS fights us)
+    // Force container + H1 visible
     hardShow(headline);
+    hardShowText(h1);
 
-    // If we failed to split, at least show the H1
+    // If lines missing, show raw text
     if (!lines || !lines.length) {
-      console.warn("No SplitText lines found — showing raw H1");
-      h1.style.setProperty("visibility", "visible", "important");
-      h1.style.setProperty("opacity", "1", "important");
+      hardShowText(h1);
       return;
     }
 
@@ -177,7 +174,7 @@ console.log("new hero v5");
   gsap.set(h1, { color: lockedColor });
   if (lines.length) gsap.set(lines, { color: lockedColor });
 
-  // ✅ stacking order (as you had)
+  // stacking order (unchanged)
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -191,7 +188,10 @@ console.log("new hero v5");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // Keep curtains closed initially (unchanged)
+  // If your CSS hides it, keep hidden until we play intro
+  // (but do NOT rely on visibility hidden forever)
+  gsap.set(headline, { autoAlpha: 0 });
+
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
@@ -202,8 +202,14 @@ console.log("new hero v5");
     gsap.set(h1, { color: lockedColor });
     if (lines.length) gsap.set(lines, { color: lockedColor });
 
-    // If already played, keep visible; otherwise keep container visible + lines hidden
-    hardShow(headline);
+    // If already played, keep visible
+    if (headingPlayed) {
+      hardShow(headline);
+      hardShowText(h1);
+      if (lines.length) gsap.set(lines, { yPercent: 0, x: 0, rotate: 0, opacity: 1 });
+    } else {
+      gsap.set(headline, { autoAlpha: 0 });
+    }
 
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
@@ -218,8 +224,7 @@ console.log("new hero v5");
   var tl = gsap.timeline();
 
   if (gradient) gsap.set(gradient, { autoAlpha: 1 });
-  if (gradient)
-    tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
+  if (gradient) tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
 
   tl.to({}, { duration: 1 });
   curtainOpen(tl, v2Reveal, "v2Open", 2);
@@ -238,26 +243,30 @@ console.log("new hero v5");
     invalidateOnRefresh: true,
     animation: tl,
 
-    // Fire the intro as soon as the pinned hero is active
     onEnter: function () {
+      // show + animate intro
+      gsap.set(headline, { autoAlpha: 1 });
       playHeadingIntroOnce();
     },
 
     onEnterBack: function () {
       hardShow(headline);
+      hardShowText(h1);
     },
 
     onUpdate: function () {
       // keep visible always
       hardShow(headline);
+      hardShowText(h1);
     }
 
     // markers: true
   });
 
-  // ✅ Fallback: run intro right after init (prevents “never shows” cases)
+  // Fallback: play immediately after init
   requestAnimationFrame(function () {
     requestAnimationFrame(function () {
+      gsap.set(headline, { autoAlpha: 1 });
       playHeadingIntroOnce();
       ScrollTrigger.refresh(true);
     });
