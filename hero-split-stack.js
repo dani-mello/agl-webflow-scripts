@@ -1,4 +1,4 @@
-console.log("new hero v2");
+console.log("new hero v3");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -77,12 +77,12 @@ console.log("new hero v2");
   }
 
   // -----------------------------
-  // TEXT: SplitText (lines) intro, then keep visible (no “explosion”)
-  // Also prevents FOUC by setting hidden start state immediately.
+  // TEXT: SplitText (lines) intro once, then stay visible
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
   var lines = [];
+  var headingPlayed = false;
 
   function revertLineSplit() {
     try {
@@ -108,7 +108,7 @@ console.log("new hero v2");
 
     lines = splitLines.lines || [];
 
-    // ✅ Put lines into their “start hidden” pose immediately (prevents flash)
+    // ✅ Start hidden immediately (prevents flash)
     if (lines.length) {
       gsap.set(lines, {
         yPercent: 120,
@@ -122,6 +122,28 @@ console.log("new hero v2");
     return lines;
   }
 
+  function playHeadingIntroOnce() {
+    if (headingPlayed) return;
+    headingPlayed = true;
+
+    // show container
+    gsap.set(headline, { autoAlpha: 1 });
+
+    // animate lines in (your v5 motion)
+    if (lines.length) {
+      gsap.to(lines, {
+        yPercent: 0,
+        x: 0,
+        rotate: 0,
+        opacity: 1,
+        duration: 1.1,
+        ease: "power3.out",
+        stagger: 0.3,
+        overwrite: true
+      });
+    }
+  }
+
   buildLines();
 
   // ---- LOCK HEADLINE COLOUR ----
@@ -129,8 +151,7 @@ console.log("new hero v2");
   gsap.set(h1, { color: lockedColor });
   if (lines.length) gsap.set(lines, { color: lockedColor });
 
-  // ✅ enforce correct stacking order
-  // videos (z 1-3) < gradient (z 10) < headline (z 20)
+  // ✅ stacking order
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -144,49 +165,28 @@ console.log("new hero v2");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // ✅ Hide headline immediately so it never flashes on load
+  // Hide headline initially to avoid any FOUC
   gsap.set(headline, { autoAlpha: 0 });
 
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
   ScrollTrigger.addEventListener("refreshInit", function () {
+    // Rebuild safely on refresh (prevents nested wrappers)
     buildLines();
 
     lockedColor = window.getComputedStyle(h1).color;
     gsap.set(h1, { color: lockedColor });
     if (lines.length) gsap.set(lines, { color: lockedColor });
 
-    // Keep hero headline hidden until our reveal runs again
-    gsap.set(headline, { autoAlpha: 0 });
+    // If we already played, keep it visible
+    gsap.set(headline, { autoAlpha: headingPlayed ? 1 : 0 });
 
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
 
     if (gradient) gsap.set(gradient, { zIndex: 10 });
     gsap.set(headline, { zIndex: 20 });
-  });
-
-  // Headline reveal (before scroll) — v5 motion, but as a "to" animation (no flash)
-  gsap.to(headline, {
-    delay: 3,
-    autoAlpha: 1,
-    duration: 0.2,
-    ease: "none",
-    onComplete: function () {
-      if (lines.length) {
-        gsap.to(lines, {
-          yPercent: 0,
-          x: 0,
-          rotate: 0,
-          opacity: 1,
-          duration: 1.1,
-          ease: "power3.out",
-          stagger: 0.3
-        });
-      }
-      ScrollTrigger.refresh(true);
-    }
   });
 
   // -----------------------------
@@ -215,15 +215,33 @@ console.log("new hero v2");
     invalidateOnRefresh: true,
     animation: tl,
 
-    // ✅ Keep headline visible always (no hide)
-    onUpdate: function () {
-      gsap.set(headline, { autoAlpha: 1 });
+    onEnter: function () {
+      playHeadingIntroOnce();
+    },
+
+    // If the page loads already at the top, onEnter can fire immediately,
+    // but this makes it extra robust across browsers.
+    onRefresh: function () {
+      if (ScrollTrigger.isInViewport(root, 0.2)) playHeadingIntroOnce();
     },
 
     onEnterBack: function () {
+      // keep visible
+      gsap.set(headline, { autoAlpha: 1 });
+    },
+
+    onUpdate: function () {
+      // keep visible always
       gsap.set(headline, { autoAlpha: 1 });
     }
 
     // markers: true
   });
+
+  // Extra safety: if hero is already in view on load, play it.
+  // (No delay — avoids “animates halfway through”)
+  if (ScrollTrigger.isInViewport(root, 0.2)) {
+    // wait one frame so SplitText wrappers are in place
+    requestAnimationFrame(playHeadingIntroOnce);
+  }
 })();
