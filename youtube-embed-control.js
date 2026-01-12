@@ -1,15 +1,13 @@
-console.log("[YT] control v4 loaded ✅");
+console.log("[YT] control v5 loaded ✅");
 
 (function () {
   const EMBED_SEL = ".js-yt-embed";
   const PLAYER_SEL = ".js-yt-player";
 
-  // ---------- Load API once ----------
   function loadYouTubeAPI() {
     return new Promise((resolve) => {
       if (window.YT && window.YT.Player) return resolve();
 
-      // if script already injected, just hook ready
       const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
       if (existing) {
         const prev = window.onYouTubeIframeAPIReady;
@@ -31,15 +29,8 @@ console.log("[YT] control v4 loaded ✅");
     });
   }
 
-  // ---------- Helpers ----------
   function getState(root) {
-    if (!root.__ytState) {
-      root.__ytState = {
-        player: null,
-        ready: false,
-        queue: []
-      };
-    }
+    if (!root.__ytState) root.__ytState = { player: null, ready: false, queue: [] };
     return root.__ytState;
   }
 
@@ -57,20 +48,29 @@ console.log("[YT] control v4 loaded ✅");
     }
   }
 
-  // ---------- Init one embed ----------
   function initOne(root) {
     if (!root || root.dataset.ytInit === "1") return;
     root.dataset.ytInit = "1";
 
     const videoId = root.getAttribute("data-yt-id");
-    if (!videoId) return;
-
     const holder = root.querySelector(PLAYER_SEL);
-    if (!holder) return;
+    if (!videoId || !holder) return;
 
-    const startMuted = (root.getAttribute("data-yt-muted") || "true") === "true";
-
+    const startMuted = (root.getAttribute("data-yt-muted") || "false") === "true";
     const s = getState(root);
+
+    // Click to toggle play/pause (bind once, guaranteed)
+    root.style.cursor = "pointer";
+    root.addEventListener("click", function (e) {
+      // if you later add buttons/links inside, you can ignore them here
+      // if (e.target.closest("button,a")) return;
+
+      runOrQueue(root, (p) => {
+        const state = p.getPlayerState(); // 1 playing, 2 paused
+        if (state === 1) p.pauseVideo();
+        else p.playVideo();
+      });
+    });
 
     s.player = new YT.Player(holder, {
       videoId,
@@ -84,70 +84,13 @@ console.log("[YT] control v4 loaded ✅");
       events: {
         onReady: () => {
           s.ready = true;
-
-          // apply mute state
           if (startMuted) s.player.mute();
           else s.player.unMute();
-
           flushQueue(root);
         }
       }
     });
   }
 
-  // ---------- Init all ----------
   async function initAll() {
-    const roots = Array.from(document.querySelectorAll(EMBED_SEL));
-    if (!roots.length) return;
-
-    await loadYouTubeAPI();
-    roots.forEach(initOne);
-  }
-
-  initAll();
-
-  // ---------- Public API ----------
-  window.YTEmbed = {
-    get(elOrSelector) {
-      const root =
-        typeof elOrSelector === "string"
-          ? document.querySelector(elOrSelector)
-          : elOrSelector;
-      if (!root) return null;
-      return getState(root).player || null;
-    },
-
-    play(elOrSelector) {
-      const root =
-        typeof elOrSelector === "string"
-          ? document.querySelector(elOrSelector)
-          : elOrSelector;
-      if (!root) return;
-      runOrQueue(root, (p) => p.playVideo());
-    },
-
-    pause(elOrSelector) {
-      const root =
-        typeof elOrSelector === "string"
-          ? document.querySelector(elOrSelector)
-          : elOrSelector;
-      if (!root) return;
-      runOrQueue(root, (p) => p.pauseVideo());
-    },
-
-    toggle(elOrSelector) {
-      const root =
-        typeof elOrSelector === "string"
-          ? document.querySelector(elOrSelector)
-          : elOrSelector;
-      if (!root) return;
-      runOrQueue(root, (p) => {
-        const state = p.getPlayerState();
-        // 1 = playing, 2 = paused
-        if (state === 1) p.pauseVideo();
-        else p.playVideo();
-      });
-    }
-  };
-})();
-
+    const roots = Array.from(
