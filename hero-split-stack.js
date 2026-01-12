@@ -1,4 +1,4 @@
-console.log("new hero v3");
+console.log("new hero v4");
 
 (function () {
   var root = document.querySelector(".c-hero");
