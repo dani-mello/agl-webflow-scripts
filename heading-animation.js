@@ -1,4 +1,4 @@
-console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v4");
+console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v5");
 
 (function () {
   // ✅ Reduced motion support
