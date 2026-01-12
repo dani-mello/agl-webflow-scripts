@@ -5,6 +5,13 @@
   if (root.dataset.heroSplitStackInit === "1") return;
   root.dataset.heroSplitStackInit = "1";
 
+  // ✅ Reduced motion support
+  var prefersReduced =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (prefersReduced) return;
+
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("GSAP or ScrollTrigger missing");
     return;
@@ -25,7 +32,7 @@
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
-  // ✅ NEW: bottom gradient
+  // ✅ bottom gradient
   var gradient = root.querySelector(".l-bottom-gradient");
 
   if (!headline || !h1) return;
@@ -67,51 +74,47 @@
     );
   }
 
+  // -----------------------------
+  // TEXT: replace burst with SplitText (lines) intro, then keep visible
+  // -----------------------------
   var originalText = h1.textContent;
+  var splitLines = null;
+  var lines = [];
 
-  function revertSplits() {
+  function revertLineSplit() {
     try {
-      if (h1._splitWordCharSplits) {
-        for (var r = 0; r < h1._splitWordCharSplits.length; r++) {
-          h1._splitWordCharSplits[r].revert();
-        }
-      }
-      if (h1._splitWords) h1._splitWords.revert();
+      if (splitLines) splitLines.revert();
     } catch (e) {}
-    h1._splitWords = null;
-    h1._splitWordCharSplits = null;
+    splitLines = null;
+    lines = [];
   }
 
-  function buildChars() {
-    revertSplits();
+  function buildLines() {
+    revertLineSplit();
     h1.textContent = originalText;
 
-    var splitWords = new SplitText(h1, { type: "words" });
-    var wordCharSplits = [];
-    var chars = [];
-
-    for (var i = 0; i < splitWords.words.length; i++) {
-      var word = splitWords.words[i];
-      var charsSplit = new SplitText(word, { type: "chars" });
-      wordCharSplits.push(charsSplit);
-      chars = chars.concat(charsSplit.chars);
+    // optional but helpful for SR if SplitText wrappers get weird
+    if (!h1.hasAttribute("aria-label")) {
+      h1.setAttribute("aria-label", h1.textContent.trim());
     }
 
-    h1._splitWords = splitWords;
-    h1._splitWordCharSplits = wordCharSplits;
+    splitLines = new SplitText(h1, {
+      type: "lines",
+      linesClass: "u-split-line"
+    });
 
-    return chars;
+    lines = splitLines.lines || [];
+    return lines;
   }
 
-  var chars = buildChars();
+  buildLines();
 
   // ---- LOCK HEADLINE COLOUR ----
   var lockedColor = window.getComputedStyle(h1).color;
   gsap.set(h1, { color: lockedColor });
-  gsap.set(chars, { color: lockedColor });
+  if (lines.length) gsap.set(lines, { color: lockedColor });
 
-  // ✅ NEW: enforce correct stacking order (prevents the seam + keeps headline above gradient)
-  // videos (z 1-3) < gradient (z 10) < headline (z 20)
+  // ✅ enforce correct stacking order
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -125,68 +128,67 @@
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
+  // Start hidden; we’ll reveal via line animation + headline alpha
   gsap.set(headline, { autoAlpha: 0 });
 
-  gsap.set(chars, {
-    x: 0,
-    y: 0,
-    rotate: 0,
-    opacity: 1,
-    willChange: "transform"
-  });
+  // prep line state (your v5 style)
+  if (lines.length) {
+    gsap.set(lines, {
+      x: 0,
+      y: 0,
+      rotate: 0,
+      opacity: 1,
+      willChange: "transform"
+    });
+  }
 
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
-  function computeTargets() {
-    var vw = window.innerWidth || 1200;
-    var vh = window.innerHeight || 800;
-    var radius = Math.sqrt(vw * vw + vh * vh) * 1.35;
-
-    for (var i = 0; i < chars.length; i++) {
-      var a = Math.random() * Math.PI * 2;
-      var r = radius * gsap.utils.random(0.9, 1.15);
-      chars[i]._x = Math.cos(a) * r;
-      chars[i]._y = Math.sin(a) * r;
-      chars[i]._r = gsap.utils.random(-140, 140);
-    }
-  }
-
-  computeTargets();
-
   ScrollTrigger.addEventListener("refreshInit", function () {
-    computeTargets();
-
-    gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
-    gsap.set(headline, { autoAlpha: 0 });
+    // rebuild split safely on refresh (prevents nested wrappers)
+    buildLines();
 
     lockedColor = window.getComputedStyle(h1).color;
     gsap.set(h1, { color: lockedColor });
-    gsap.set(chars, { color: lockedColor });
+    if (lines.length) gsap.set(lines, { color: lockedColor });
+
+    gsap.set(headline, { autoAlpha: 0 });
 
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
 
-    // keep gradient stacking stable on refresh
     if (gradient) gsap.set(gradient, { zIndex: 10 });
     gsap.set(headline, { zIndex: 20 });
   });
 
-  // Headline fade in (before scroll)
+  // Headline reveal (before scroll) — now using your line intro
   gsap.to(headline, {
     delay: 3,
     autoAlpha: 1,
-    duration: 2,
-    ease: "power2.out",
+    duration: 0.2,
+    ease: "none",
     onComplete: function () {
+      if (lines.length) {
+        gsap.from(lines, {
+          yPercent: 120,
+          x: -18,
+          rotate: 1,
+          opacity: 0,
+          duration: 1.1,
+          ease: "power3.out",
+          stagger: 0.3
+        });
+      }
       ScrollTrigger.refresh(true);
     }
   });
 
+  // -----------------------------
+  // TIMELINE: keep VIDEO animation exactly as-is
+  // -----------------------------
   var tl = gsap.timeline();
 
-  // Optional: make gradient slightly stronger as scroll begins (helps hide seams)
-  // If you want it constant, delete these two lines.
   if (gradient) gsap.set(gradient, { autoAlpha: 1 });
   if (gradient) tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
 
@@ -196,26 +198,7 @@
   curtainOpen(tl, v3Reveal, "v3Open", 2);
   tl.to({}, { duration: 1 });
 
-  tl.addLabel("burstStart");
-
-  tl.to(
-    chars,
-    {
-      x: function (i, el) { return el._x; },
-      y: function (i, el) { return el._y; },
-      rotate: function (i, el) { return el._r; },
-      opacity: 1,
-      duration: 2.0,
-      ease: "power3.in",
-      stagger: { each: 0.01, from: "center" }
-    },
-    "burstStart"
-  );
-
-  tl.addLabel("burstEnd", "burstStart+=2.0");
-
-  var burstStartTime = tl.labels.burstStart;
-  var burstEndTime = tl.labels.burstEnd;
+  // ❌ removed: burstStart / burst tween / burstEnd
 
   ScrollTrigger.create({
     id: "heroSplitStack",
@@ -228,21 +211,9 @@
     invalidateOnRefresh: true,
     animation: tl,
 
+    // ✅ Keep headline visible always (no explosion / no hide)
     onUpdate: function () {
-      var t = tl.time();
-
-      if (t < burstStartTime) {
-        gsap.set(headline, { autoAlpha: 1 });
-        gsap.set(chars, { x: 0, y: 0, rotate: 0, opacity: 1 });
-      }
-
-      if (t >= burstStartTime && t <= burstEndTime) {
-        gsap.set(headline, { autoAlpha: 1 });
-      }
-
-      if (t > burstEndTime) {
-        gsap.set(headline, { autoAlpha: 0 });
-      }
+      gsap.set(headline, { autoAlpha: 1 });
     },
 
     onEnterBack: function () {
