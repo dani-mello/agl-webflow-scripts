@@ -1,6 +1,8 @@
-console.log("new hero v4");
+console.log("new hero v5");
 
 (function () {
+  console.log("HERO v6 (TEXT FIX) LOADED");
+
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
@@ -38,6 +40,25 @@ console.log("new hero v4");
   var gradient = root.querySelector(".l-bottom-gradient");
 
   if (!headline || !h1) return;
+
+  // -----------------------------
+  // HARD OVERRIDES (beats CSS !important)
+  // -----------------------------
+  function hardShow(el) {
+    if (!el) return;
+    el.style.setProperty("visibility", "visible", "important");
+    el.style.setProperty("opacity", "1", "important");
+    el.style.setProperty("display", "block", "important");
+  }
+  function hardHide(el) {
+    if (!el) return;
+    el.style.setProperty("visibility", "hidden", "important");
+    el.style.setProperty("opacity", "0", "important");
+  }
+
+  // We want container visible (so it can participate in layout/stacking),
+  // but text lines hidden until animation.
+  hardShow(headline);
 
   function forceFullBleed(el) {
     if (!el) return;
@@ -77,7 +98,7 @@ console.log("new hero v4");
   }
 
   // -----------------------------
-  // TEXT: SplitText (lines) intro once, then stay visible
+  // TEXT: SplitText lines (your v5 motion), no outro
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
@@ -108,7 +129,7 @@ console.log("new hero v4");
 
     lines = splitLines.lines || [];
 
-    // Start hidden immediately (prevents any flash)
+    // Put lines into “hidden start pose” immediately
     if (lines.length) {
       gsap.set(lines, {
         yPercent: 120,
@@ -122,20 +143,18 @@ console.log("new hero v4");
     return lines;
   }
 
-  function showHeadlineContainer() {
-    // Force visibility visible (works even if your CSS sets visibility:hidden)
-    gsap.set(headline, { visibility: "visible", autoAlpha: 1 });
-  }
-
   function playHeadingIntroOnce() {
     if (headingPlayed) return;
     headingPlayed = true;
 
-    showHeadlineContainer();
+    // Force the container visible (even if CSS fights us)
+    hardShow(headline);
 
-    // If SplitText failed for any reason, at least show the original h1
+    // If we failed to split, at least show the H1
     if (!lines || !lines.length) {
-      gsap.set(h1, { opacity: 1 });
+      console.warn("No SplitText lines found — showing raw H1");
+      h1.style.setProperty("visibility", "visible", "important");
+      h1.style.setProperty("opacity", "1", "important");
       return;
     }
 
@@ -158,7 +177,7 @@ console.log("new hero v4");
   gsap.set(h1, { color: lockedColor });
   if (lines.length) gsap.set(lines, { color: lockedColor });
 
-  // ✅ stacking order
+  // ✅ stacking order (as you had)
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -172,9 +191,7 @@ console.log("new hero v4");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // Keep hidden initially (your CSS already does this, but we mirror it)
-  gsap.set(headline, { autoAlpha: 0, visibility: "hidden" });
-
+  // Keep curtains closed initially (unchanged)
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
@@ -185,9 +202,8 @@ console.log("new hero v4");
     gsap.set(h1, { color: lockedColor });
     if (lines.length) gsap.set(lines, { color: lockedColor });
 
-    // If already played, keep visible; otherwise keep hidden
-    if (headingPlayed) showHeadlineContainer();
-    else gsap.set(headline, { autoAlpha: 0, visibility: "hidden" });
+    // If already played, keep visible; otherwise keep container visible + lines hidden
+    hardShow(headline);
 
     curtainClosed(v2Reveal);
     curtainClosed(v3Reveal);
@@ -222,26 +238,24 @@ console.log("new hero v4");
     invalidateOnRefresh: true,
     animation: tl,
 
+    // Fire the intro as soon as the pinned hero is active
     onEnter: function () {
-      // Play as soon as hero becomes active
       playHeadingIntroOnce();
     },
 
     onEnterBack: function () {
-      // Keep visible when scrolling back
-      showHeadlineContainer();
+      hardShow(headline);
     },
 
     onUpdate: function () {
-      // Keep visible always (no explosion / no hide)
-      showHeadlineContainer();
+      // keep visible always
+      hardShow(headline);
     }
 
     // markers: true
   });
 
-  // ✅ Safety: play intro as soon as the browser has painted + SplitText is in place
-  // This prevents "it never shows" if the trigger timing is weird.
+  // ✅ Fallback: run intro right after init (prevents “never shows” cases)
   requestAnimationFrame(function () {
     requestAnimationFrame(function () {
       playHeadingIntroOnce();
