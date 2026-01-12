@@ -1,124 +1,129 @@
-console.log("[YT] control v2 loaded ✅");
+console.log("[YT] control v3 loaded ✅");
 
 (function () {
-  var EMBED_SELECTOR = ".js-yt-embed";
-  var PLAYER_SELECTOR = ".js-yt-player";
+  const EMBED_SEL = ".js-yt-embed";
+  const BTN_SOUND_SEL = ".js-yt-sound";
+  const BTN_UNMUTE_SEL = ".js-yt-unmute";
 
-  // When should it start playing?
-  // 0.25 = earlier, 0.6 = later
-  var THRESHOLD = 0.5;
-
-  // Optional: if you want it to restart when it re-enters view
-  var RESTART_ON_ENTER = false;
-
+  // Load YT API once
   function loadYouTubeAPI() {
-    if (window.YT && window.YT.Player) return Promise.resolve();
-    if (window.__ytApiPromise) return window.__ytApiPromise;
+    return new Promise((resolve) => {
+      if (window.YT && window.YT.Player) return resolve();
+      const existing = document.querySelector('script[src*="youtube.com/iframe_api"]');
+      if (existing) return (window.onYouTubeIframeAPIReady = resolve);
 
-    window.__ytApiPromise = new Promise(function (resolve, reject) {
-      var src = "https://www.youtube.com/iframe_api";
-
-      // Hook ready
-      var prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = function () {
-        try { if (typeof prev === "function") prev(); } catch (e) {}
-        resolve();
-      };
-
-      // Inject script once
-      if (!document.querySelector('script[src="' + src + '"]')) {
-        var tag = document.createElement("script");
-        tag.src = src;
-        tag.onerror = function () {
-          reject(new Error("YouTube iframe_api failed to load (blocked?)"));
-        };
-        document.head.appendChild(tag);
-      }
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      window.onYouTubeIframeAPIReady = resolve;
+      document.head.appendChild(tag);
     });
-
-    return window.__ytApiPromise;
   }
 
-  function initEmbed(el) {
-    if (el.dataset.ytInit === "1") return;
-    el.dataset.ytInit = "1";
+  const players = new Map(); // rootEl -> YT.Player
 
-    var videoId = el.getAttribute("data-yt-id");
-    if (!videoId) return;
-
-    var mount = el.querySelector(PLAYER_SELECTOR);
-    if (!mount) {
-      console.warn("[YT] Missing .js-yt-player inside", el);
-      return;
+  function setMuted(root, player, muted) {
+    if (!player) return;
+    if (muted) {
+      player.mute();
+      root.classList.remove("is-audible");
+      root.classList.add("is-muted");
+    } else {
+      player.unMute();
+      // set a sensible default volume (optional)
+      try { player.setVolume(80); } catch (e) {}
+      root.classList.add("is-audible");
+      root.classList.remove("is-muted");
     }
 
-    if (!mount.id) mount.id = "yt_" + Math.random().toString(36).slice(2);
+    const btn = root.querySelector(BTN_SOUND_SEL);
+    if (btn) {
+      btn.setAttribute("aria-pressed", String(!muted));
+      btn.textContent = muted ? "Sound off" : "Sound on";
+    }
+  }
 
-    var player = new window.YT.Player(mount.id, {
-      videoId: videoId,
+  function initOne(root) {
+    const id = root.getAttribute("data-yt-id");
+    if (!id) return;
+
+    // prevent double init
+    if (root.dataset.ytInit === "1") return;
+    root.dataset.ytInit = "1";
+
+    const holder = root.querySelector(".js-yt-player");
+    if (!holder) return;
+
+    const startMuted = (root.getAttribute("data-yt-muted") || "true") === "true";
+
+    const player = new YT.Player(holder, {
+      videoId: id,
       playerVars: {
-        autoplay: 0,
-        mute: 1,
+        autoplay: 0,          // you control when to play
         controls: 0,
-        loop: 1,
-        playlist: videoId, // required for loop
         playsinline: 1,
         rel: 0,
-        modestbranding: 1
+        modestbranding: 1,
+        iv_load_policy: 3
+        // NOTE: mute is handled via API calls below
       },
       events: {
-        onReady: function (e) {
-          try { e.target.mute(); } catch (err) {}
+        onReady: () => {
+          players.set(root, player);
+          setMuted(root, player, startMuted);
+
+          // If you want it to start immediately (muted), uncomment:
+          // player.playVideo();
         }
       }
     });
 
-    // IntersectionObserver play/pause
-    if (!("IntersectionObserver" in window)) return;
-
-    var io = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          // Only control once player is ready-ish
-          if (!player || typeof player.playVideo !== "function") return;
-
-          if (entry.isIntersecting) {
-            if (RESTART_ON_ENTER) {
-              try { player.seekTo(0, true); } catch (e) {}
-            }
-            try { player.playVideo(); } catch (e) {}
-          } else {
-            try { player.pauseVideo(); } catch (e) {}
-          }
-        });
-      },
-      { threshold: THRESHOLD }
-    );
-
-    io.observe(el);
-  }
-
-  function initAll() {
-    var els = document.querySelectorAll(EMBED_SELECTOR);
-    if (!els.length) {
-      console.warn("[YT] No elements found for", EMBED_SELECTOR);
-      return;
+    // Toggle sound button
+    const soundBtn = root.querySelector(BTN_SOUND_SEL);
+    if (soundBtn) {
+      soundBtn.addEventListener("click", () => {
+        const isMuted = player.isMuted();
+        setMuted(root, player, !isMuted);
+      });
     }
 
-    loadYouTubeAPI()
-      .then(function () {
-        els.forEach(initEmbed);
-      })
-      .catch(function (err) {
-        console.warn("[YT] API blocked or failed:", err.message);
+    // Big “Tap for sound” overlay
+    const unmuteBtn = root.querySelector(BTN_UNMUTE_SEL);
+    if (unmuteBtn) {
+      unmuteBtn.addEventListener("click", () => {
+        // user gesture: safe to unmute + play
+        setMuted(root, player, false);
+        player.playVideo();
       });
+    }
   }
 
-  // Webflow-friendly init
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initAll);
-  } else {
-    initAll();
+  async function initAll() {
+    const roots = Array.from(document.querySelectorAll(EMBED_SEL));
+    if (!roots.length) return;
+
+    await loadYouTubeAPI();
+    roots.forEach(initOne);
   }
-  window.addEventListener("load", initAll);
+
+  initAll();
+
+  // OPTIONAL: expose helpers if you’re triggering via ScrollTrigger
+  window.YTEmbed = {
+    play(rootEl) {
+      const p = players.get(rootEl);
+      if (p) p.playVideo();
+    },
+    pause(rootEl) {
+      const p = players.get(rootEl);
+      if (p) p.pauseVideo();
+    },
+    mute(rootEl) {
+      const p = players.get(rootEl);
+      if (p) setMuted(rootEl, p, true);
+    },
+    unmute(rootEl) {
+      const p = players.get(rootEl);
+      if (p) setMuted(rootEl, p, false);
+    }
+  };
 })();
