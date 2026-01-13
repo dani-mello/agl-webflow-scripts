@@ -1,11 +1,10 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V3",
+  "%cHPIN-horizontalscroll V4",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
 (function () {
-  // Safety checks
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("HPIN: GSAP or ScrollTrigger missing");
     return;
@@ -15,7 +14,6 @@ console.log(
   const SECTIONS = document.querySelectorAll(".c-hpin");
   if (!SECTIONS.length) return;
 
-  // Wait for images so widths/heights are correct
   function imagesReady(container) {
     const imgs = Array.from(container.querySelectorAll("img"));
     if (!imgs.length) return Promise.resolve();
@@ -31,38 +29,40 @@ console.log(
     );
   }
 
-  function killById(id) {
-    const st = ScrollTrigger.getById(id);
-    if (st) st.kill(true);
-  }
-
   function initOne(section, index) {
     const inner = section.querySelector(".c-hpin_inner");
     const view = section.querySelector(".c-hpin_view");
     const track = section.querySelector(".c-hpin_track");
-
     if (!inner || !view || !track) return;
 
-    const id = "hpin_" + index;
-    killById(id);
+    // FORCE critical styles (prevents breakpoint overrides breaking scrollWidth)
+    track.style.display = "flex";
+    track.style.flexWrap = "nowrap";
+    track.style.width = "max-content";
 
-    // Compute how far we need to move (track width - viewport width)
+    // Also ensure children don't shrink
+    Array.from(track.children).forEach((child) => {
+      child.style.flex = "0 0 auto";
+    });
+
+    const id = "hpin_" + index;
+    const old = ScrollTrigger.getById(id);
+    if (old) old.kill(true);
+
     const getMaxX = () => {
       const max = track.scrollWidth - view.clientWidth;
       return Math.max(0, Math.round(max));
     };
 
-    // Debug (remove later if you want)
-    // console.log("HPIN widths", {
-    //   view: view.clientWidth,
-    //   track: track.scrollWidth,
-    //   maxX: getMaxX(),
-    // });
+    // DEBUG: check these numbers
+    console.log("HPIN widths", {
+      view: view.clientWidth,
+      track: track.scrollWidth,
+      maxX: getMaxX(),
+    });
 
-    // If there's nothing to scroll horizontally, don't pin
     if (getMaxX() < 2) return;
 
-    // Reset x before creating (important on refresh)
     gsap.set(track, { x: 0 });
 
     const tween = gsap.to(track, {
@@ -75,12 +75,13 @@ console.log(
       id,
       trigger: section,
       start: "top top",
-      end: () => "+=" + getMaxX(), // scroll distance equals horizontal distance
+      end: () => "+=" + getMaxX(),
       pin: inner,
       scrub: 1,
       anticipatePin: 1,
       animation: tween,
       invalidateOnRefresh: true,
+      markers: true, // ✅ TEMP: remove when working
     });
   }
 
@@ -89,19 +90,15 @@ console.log(
     ScrollTrigger.refresh();
   }
 
-  // Init after images + layout settle (Webflow can shift on load)
   Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        initAll();
-      });
+      requestAnimationFrame(() => initAll());
     });
   });
 
-  // Recalc on resize/orientation changes
-  let resizeTimer = null;
+  let t = null;
   window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
+    clearTimeout(t);
+    t = setTimeout(() => ScrollTrigger.refresh(), 150);
   });
 })();
