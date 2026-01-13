@@ -1,7 +1,17 @@
 console.log(
-  "HPIN-horizontalscroll V1",
+  "%cHPIN-horizontalscroll V2",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
+
+Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
+  // wait 2 frames so layout is truly final
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      initAll();
+    });
+  });
+});
+
 
 
 (function () {
