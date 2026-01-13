@@ -1,6 +1,6 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V9 (stable)",
+  "%cHPIN-horizontalscroll V10 (fonts-ready + stable pin)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -19,18 +19,7 @@ console.log(
 
   const ids = [];
 
-  function getViewW(view) {
-    return Math.round(view.getBoundingClientRect().width);
-  }
-
-  function getMaxX(view, track) {
-    const viewW = getViewW(view);
-    const trackW = Math.round(track.scrollWidth);
-    return Math.max(0, trackW - viewW);
-  }
-
   function anyActive() {
-    // If any of our ScrollTriggers are active, avoid rebuilding/refreshing aggressively
     return ids.some((id) => {
       const st = ScrollTrigger.getById(id);
       return st && st.isActive;
@@ -45,8 +34,17 @@ console.log(
     ids.length = 0;
   }
 
+  function getViewW(view) {
+    return Math.round(view.getBoundingClientRect().width);
+  }
+
+  function getMaxX(view, track) {
+    const viewW = getViewW(view);
+    const trackW = Math.round(track.scrollWidth);
+    return Math.max(0, trackW - viewW);
+  }
+
   function build() {
-    // Don’t rebuild while user is inside the pinned section
     if (anyActive()) return false;
 
     killAll();
@@ -68,22 +66,19 @@ console.log(
           index,
           viewW: getViewW(view),
           trackW: Math.round(track.scrollWidth),
-          maxX
+          maxX,
         });
       }
 
       if (maxX < 2) return;
-
       builtAny = true;
 
-      // IMPORTANT: only set x to 0 when building fresh,
-      // not during active scroll (guard above handles that)
       gsap.set(track, { x: 0 });
 
       const tween = gsap.to(track, {
         x: () => -getMaxX(view, track),
         ease: "none",
-        overwrite: true
+        overwrite: true,
       });
 
       ScrollTrigger.create({
@@ -94,9 +89,10 @@ console.log(
         pin: inner,
         pinSpacing: true,
         scrub: 1,
-        anticipatePin: 2, // helps reduce the “first pin frame” jerk
+        anticipatePin: 3,        // helps “first frame” bump
+        invalidateOnRefresh: true,
         animation: tween,
-        invalidateOnRefresh: true
+        // markers: DEBUG,
       });
     });
 
@@ -104,58 +100,56 @@ console.log(
     return builtAny;
   }
 
-  // Build once after layout settles
-  requestAnimationFrame(() => requestAnimationFrame(build));
+  // Wait for fonts if possible (prevents first-scroll clip from font swap)
+  function whenFontsReady() {
+    if (document.fonts && document.fonts.ready) return document.fonts.ready.catch(() => {});
+    return Promise.resolve();
+  }
 
-  // Retry a few times UNTIL it successfully builds, then stop
-  let tries = 0;
-  const retry = setInterval(() => {
-    tries += 1;
-    const ok = build();
-    if (ok || tries >= 8) clearInterval(retry);
-  }, 250);
+  function start() {
+    // Build after layout is settled
+    requestAnimationFrame(() => requestAnimationFrame(build));
 
-  // Lazy images: refresh only (don’t rebuild)
-  SECTIONS.forEach((section) => {
-    section.querySelectorAll("img").forEach((img) => {
-      img.addEventListener(
-        "load",
-        () => {
-          if (!anyActive()) ScrollTrigger.refresh();
-        },
-        { once: true }
-      );
-      img.addEventListener(
-        "error",
-        () => {
-          if (!anyActive()) ScrollTrigger.refresh();
-        },
-        { once: true }
-      );
-    });
-  });
+    // A couple gentle retries, stop as soon as it builds successfully
+    let tries = 0;
+    const retry = setInterval(() => {
+      tries += 1;
+      const ok = build();
+      if (ok || tries >= 6) clearInterval(retry);
+    }, 250);
 
-  // ResizeObserver: refresh only (debounced) and only when not active
-  if ("ResizeObserver" in window) {
-    let roT = null;
-    const ro = new ResizeObserver(() => {
-      if (anyActive()) return;
-      clearTimeout(roT);
-      roT = setTimeout(() => ScrollTrigger.refresh(), 100);
-    });
-
+    // Lazy images: refresh only (and only when not active)
     SECTIONS.forEach((section) => {
-      const view = section.querySelector(".c-hpin_view");
-      const track = section.querySelector(".c-hpin_track");
-      if (view) ro.observe(view);
-      if (track) ro.observe(track);
+      section.querySelectorAll("img").forEach((img) => {
+        img.addEventListener(
+          "load",
+          () => {
+            if (!anyActive()) ScrollTrigger.refresh();
+          },
+          { once: true }
+        );
+        img.addEventListener(
+          "error",
+          () => {
+            if (!anyActive()) ScrollTrigger.refresh();
+          },
+          { once: true }
+        );
+      });
+    });
+
+    // Resize: rebuild (debounced), but don’t rebuild mid-scroll
+    let t = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(t);
+      t = setTimeout(() => build(), 200);
     });
   }
 
-  // Debounced window resize: rebuild (not just refresh) because widths change a lot
-  let t = null;
-  window.addEventListener("resize", () => {
-    clearTimeout(t);
-    t = setTimeout(() => build(), 200);
+  // Start after full load + fonts (prevents first-interaction bump)
+  window.addEventListener("load", () => {
+    whenFontsReady().then(() => {
+      start();
+    });
   });
 })();
