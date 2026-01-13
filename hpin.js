@@ -1,3 +1,8 @@
+console.log(
+  "HPIN-horizontalscroll V1",
+  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
+);
+
 
 (function () {
   // Safety checks
