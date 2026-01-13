@@ -3,11 +3,6 @@
 // Works when sections have id="{slug}" and menu links have data-scroll-to="{slug}"
 // Includes GSAP stagger entrance for links + responsive scroll offset
 
-console.log(
-  "%cBOTTOM NAV JS LOADED (V4)",
-  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
-);
-
 (function () {
   if (window.__bottomNavInit) return;
   window.__bottomNavInit = true;
