@@ -1,5 +1,5 @@
 console.log(
-  "%cHPIN-horizontalscroll V6",
+  "%cHPIN-horizontalscroll V7 (no image blocking)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -14,24 +14,19 @@ console.log(
   console.log("HPIN: sections found =", SECTIONS.length);
   if (!SECTIONS.length) return;
 
-  function imagesReady(container) {
-    const imgs = Array.from(container.querySelectorAll("img"));
-    if (!imgs.length) return Promise.resolve();
-
-    return Promise.all(
-      imgs.map((img) => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((res) => {
-          img.addEventListener("load", res, { once: true });
-          img.addEventListener("error", res, { once: true });
-        });
-      })
-    );
-  }
-
   function killById(id) {
     const st = ScrollTrigger.getById(id);
     if (st) st.kill(true);
+  }
+
+  function getViewW(view) {
+    return Math.round(view.getBoundingClientRect().width);
+  }
+
+  function getMaxX(view, track) {
+    const viewW = getViewW(view);
+    const trackW = Math.round(track.scrollWidth);
+    return Math.max(0, trackW - viewW);
   }
 
   function initOne(section, index) {
@@ -39,43 +34,32 @@ console.log(
     const view = section.querySelector(".c-hpin_view");
     const track = section.querySelector(".c-hpin_track");
     if (!inner || !view || !track) {
-      console.warn("HPIN: missing inner/view/track in section", section);
+      console.warn("HPIN: missing inner/view/track", { inner, view, track });
       return;
     }
 
+    // Kill previous trigger
     const id = "hpin_" + index;
     killById(id);
 
-    // Safer measurement than clientWidth in flex layouts
-    const getViewW = () => Math.round(view.getBoundingClientRect().width);
+    // Measure
+    const maxX = getMaxX(view, track);
 
-    const getMaxX = () => {
-      const viewW = getViewW();
-      const trackW = Math.round(track.scrollWidth);
-      const max = trackW - viewW;
-      return Math.max(0, max);
-    };
-
-    const maxX = getMaxX();
     console.log("HPIN dims", {
       index,
-      viewW: getViewW(),
+      viewW: getViewW(view),
       trackW: Math.round(track.scrollWidth),
       maxX
     });
 
-    if (maxX < 2) {
-      console.warn(
-        "HPIN: maxX < 2. Track is not wider than view. Fix flex sizing: .c-hpin_view {flex:1; min-width:0} and .c-hpin_inner {width:100%}."
-      );
-      return;
-    }
+    // If not scrollable yet, skip (we’ll retry)
+    if (maxX < 2) return;
 
-    // Reset position before creating trigger
+    // Reset transform before building
     gsap.set(track, { x: 0 });
 
     const tween = gsap.to(track, {
-      x: () => -getMaxX(),
+      x: () => -getMaxX(view, track),
       ease: "none",
       overwrite: true
     });
@@ -84,14 +68,14 @@ console.log(
       id,
       trigger: section,
       start: "top top",
-      end: () => "+=" + getMaxX(),
+      end: () => "+=" + getMaxX(view, track),
       pin: inner,
       pinSpacing: true,
       scrub: 1,
       anticipatePin: 1,
       animation: tween,
-      invalidateOnRefresh: true
-      // markers: true, // uncomment for visual debugging
+      invalidateOnRefresh: true,
+      // markers: true, // uncomment to debug visually
     });
   }
 
@@ -100,17 +84,56 @@ console.log(
     ScrollTrigger.refresh();
   }
 
-  Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
+  // 1) Init ASAP (don’t wait for images)
+  requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        initAll();
-      });
+      initAll();
     });
   });
 
+  // 2) Retry a few times (Webflow layout can settle late)
+  let tries = 0;
+  const retry = setInterval(() => {
+    tries += 1;
+    initAll();
+    if (tries >= 10) clearInterval(retry);
+  }, 250);
+
+  // 3) Refresh when any image in the section loads (lazy-load friendly)
+  SECTIONS.forEach((section) => {
+    section.querySelectorAll("img").forEach((img) => {
+      img.addEventListener(
+        "load",
+        () => {
+          initAll();
+        },
+        { once: true }
+      );
+      img.addEventListener(
+        "error",
+        () => {
+          initAll();
+        },
+        { once: true }
+      );
+    });
+  });
+
+  // 4) Observe size changes (CMS edits, font swaps, responsive changes)
+  if ("ResizeObserver" in window) {
+    const ro = new ResizeObserver(() => initAll());
+    SECTIONS.forEach((section) => {
+      const view = section.querySelector(".c-hpin_view");
+      const track = section.querySelector(".c-hpin_track");
+      if (view) ro.observe(view);
+      if (track) ro.observe(track);
+    });
+  }
+
+  // 5) Debounced resize refresh
   let t = null;
   window.addEventListener("resize", () => {
     clearTimeout(t);
-    t = setTimeout(() => ScrollTrigger.refresh(), 150);
+    t = setTimeout(() => initAll(), 150);
   });
 })();
