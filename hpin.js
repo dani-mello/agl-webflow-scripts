@@ -1,11 +1,11 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V8",
+  "%cHPIN-horizontalscroll V9 (stable)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
 (function () {
-  const DEBUG = false; // set true if you want console logs
+  const DEBUG = false;
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("HPIN: GSAP or ScrollTrigger missing");
@@ -19,13 +19,6 @@ console.log(
 
   const ids = [];
 
-  function killAll() {
-    ids.forEach((id) => {
-      const st = ScrollTrigger.getById(id);
-      if (st) st.kill(true);
-    });
-  }
-
   function getViewW(view) {
     return Math.round(view.getBoundingClientRect().width);
   }
@@ -36,10 +29,28 @@ console.log(
     return Math.max(0, trackW - viewW);
   }
 
-  function build() {
-    // kill old triggers we created
-    killAll();
+  function anyActive() {
+    // If any of our ScrollTriggers are active, avoid rebuilding/refreshing aggressively
+    return ids.some((id) => {
+      const st = ScrollTrigger.getById(id);
+      return st && st.isActive;
+    });
+  }
+
+  function killAll() {
+    ids.forEach((id) => {
+      const st = ScrollTrigger.getById(id);
+      if (st) st.kill(true);
+    });
     ids.length = 0;
+  }
+
+  function build() {
+    // Don’t rebuild while user is inside the pinned section
+    if (anyActive()) return false;
+
+    killAll();
+    let builtAny = false;
 
     SECTIONS.forEach((section, index) => {
       const inner = section.querySelector(".c-hpin_inner");
@@ -51,23 +62,28 @@ console.log(
       ids.push(id);
 
       const maxX = getMaxX(view, track);
+
       if (DEBUG) {
         console.log("HPIN dims", {
           index,
           viewW: getViewW(view),
           trackW: Math.round(track.scrollWidth),
-          maxX,
+          maxX
         });
       }
 
       if (maxX < 2) return;
 
+      builtAny = true;
+
+      // IMPORTANT: only set x to 0 when building fresh,
+      // not during active scroll (guard above handles that)
       gsap.set(track, { x: 0 });
 
       const tween = gsap.to(track, {
         x: () => -getMaxX(view, track),
         ease: "none",
-        overwrite: true,
+        overwrite: true
       });
 
       ScrollTrigger.create({
@@ -78,38 +94,56 @@ console.log(
         pin: inner,
         pinSpacing: true,
         scrub: 1,
-        anticipatePin: 1,
+        anticipatePin: 2, // helps reduce the “first pin frame” jerk
         animation: tween,
-        invalidateOnRefresh: true,
-        // markers: DEBUG,
+        invalidateOnRefresh: true
       });
     });
 
     ScrollTrigger.refresh();
+    return builtAny;
   }
 
-  // Build ASAP (don’t wait for images)
+  // Build once after layout settles
   requestAnimationFrame(() => requestAnimationFrame(build));
 
-  // Retry a few times for Webflow layout settling (then stop)
+  // Retry a few times UNTIL it successfully builds, then stop
   let tries = 0;
   const retry = setInterval(() => {
     tries += 1;
-    build();
-    if (tries >= 6) clearInterval(retry);
+    const ok = build();
+    if (ok || tries >= 8) clearInterval(retry);
   }, 250);
 
-  // Rebuild when images load (lazy-load friendly)
+  // Lazy images: refresh only (don’t rebuild)
   SECTIONS.forEach((section) => {
     section.querySelectorAll("img").forEach((img) => {
-      img.addEventListener("load", build, { once: true });
-      img.addEventListener("error", build, { once: true });
+      img.addEventListener(
+        "load",
+        () => {
+          if (!anyActive()) ScrollTrigger.refresh();
+        },
+        { once: true }
+      );
+      img.addEventListener(
+        "error",
+        () => {
+          if (!anyActive()) ScrollTrigger.refresh();
+        },
+        { once: true }
+      );
     });
   });
 
-  // Observe size changes
+  // ResizeObserver: refresh only (debounced) and only when not active
   if ("ResizeObserver" in window) {
-    const ro = new ResizeObserver(() => build());
+    let roT = null;
+    const ro = new ResizeObserver(() => {
+      if (anyActive()) return;
+      clearTimeout(roT);
+      roT = setTimeout(() => ScrollTrigger.refresh(), 100);
+    });
+
     SECTIONS.forEach((section) => {
       const view = section.querySelector(".c-hpin_view");
       const track = section.querySelector(".c-hpin_track");
@@ -118,10 +152,10 @@ console.log(
     });
   }
 
-  // Debounced resize
+  // Debounced window resize: rebuild (not just refresh) because widths change a lot
   let t = null;
   window.addEventListener("resize", () => {
     clearTimeout(t);
-    t = setTimeout(build, 150);
+    t = setTimeout(() => build(), 200);
   });
 })();
