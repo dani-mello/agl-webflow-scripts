@@ -1,23 +1,13 @@
+// hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V2",
+  "%cHPIN-horizontalscroll V3",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
-
-Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
-  // wait 2 frames so layout is truly final
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      initAll();
-    });
-  });
-});
-
-
 
 (function () {
   // Safety checks
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
-    console.warn("GSAP or ScrollTrigger missing");
+    console.warn("HPIN: GSAP or ScrollTrigger missing");
     return;
   }
   gsap.registerPlugin(ScrollTrigger);
@@ -25,34 +15,60 @@ Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
   const SECTIONS = document.querySelectorAll(".c-hpin");
   if (!SECTIONS.length) return;
 
+  // Wait for images so widths/heights are correct
+  function imagesReady(container) {
+    const imgs = Array.from(container.querySelectorAll("img"));
+    if (!imgs.length) return Promise.resolve();
+
+    return Promise.all(
+      imgs.map((img) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((res) => {
+          img.addEventListener("load", res, { once: true });
+          img.addEventListener("error", res, { once: true });
+        });
+      })
+    );
+  }
+
+  function killById(id) {
+    const st = ScrollTrigger.getById(id);
+    if (st) st.kill(true);
+  }
+
   function initOne(section, index) {
     const inner = section.querySelector(".c-hpin_inner");
-    const view  = section.querySelector(".c-hpin_view");
+    const view = section.querySelector(".c-hpin_view");
     const track = section.querySelector(".c-hpin_track");
 
     if (!inner || !view || !track) return;
 
-    // Kill previous instance if re-init (Webflow designer / interactions reload)
     const id = "hpin_" + index;
-    ScrollTrigger.getAll().forEach(st => {
-      if (st.vars && st.vars.id === id) st.kill();
-    });
+    killById(id);
 
-    // Function to compute how far we need to move
+    // Compute how far we need to move (track width - viewport width)
     const getMaxX = () => {
-      // total track width - visible viewport width
       const max = track.scrollWidth - view.clientWidth;
-      return Math.max(0, max);
+      return Math.max(0, Math.round(max));
     };
+
+    // Debug (remove later if you want)
+    // console.log("HPIN widths", {
+    //   view: view.clientWidth,
+    //   track: track.scrollWidth,
+    //   maxX: getMaxX(),
+    // });
 
     // If there's nothing to scroll horizontally, don't pin
     if (getMaxX() < 2) return;
 
-    // The animation: move track left as we scroll down
+    // Reset x before creating (important on refresh)
+    gsap.set(track, { x: 0 });
+
     const tween = gsap.to(track, {
       x: () => -getMaxX(),
       ease: "none",
-      overwrite: true
+      overwrite: true,
     });
 
     ScrollTrigger.create({
@@ -64,7 +80,7 @@ Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
       scrub: 1,
       anticipatePin: 1,
       animation: tween,
-      invalidateOnRefresh: true
+      invalidateOnRefresh: true,
     });
   }
 
@@ -73,26 +89,19 @@ Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
     ScrollTrigger.refresh();
   }
 
-  // Wait for images so widths/heights are correct
-  function imagesReady(container) {
-    const imgs = Array.from(container.querySelectorAll("img"));
-    if (!imgs.length) return Promise.resolve();
-
-    return Promise.all(imgs.map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise(res => {
-        img.addEventListener("load", res, { once: true });
-        img.addEventListener("error", res, { once: true });
-      });
-    }));
-  }
-
+  // Init after images + layout settle (Webflow can shift on load)
   Promise.all(Array.from(SECTIONS).map(imagesReady)).then(() => {
-    initAll();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        initAll();
+      });
+    });
   });
 
-  // Recalc on resize (and when Webflow changes layout)
-  window.addEventListener("resize", () => ScrollTrigger.refresh());
-
+  // Recalc on resize/orientation changes
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
+  });
 })();
-
