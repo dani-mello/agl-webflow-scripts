@@ -1,17 +1,19 @@
-
-
 /* featured-gallery.js
-   - Works for BOTH:
-      Desktop gallery wrapper: .c-featured_gallery
-      Tablet/Mobile gallery wrapper: .c-featured_gallery-mobile
-   - Shows 3 desktop / 2 tablet / 1 mobile
-   - Progress highlights the visible window (so all N segments participate)
-   - Smooth drag/swipe (rAF + resistance) + buttons
+   - Supports multiple gallery wrappers on the same page:
+      .c-featured_gallery
+      .c-featured_gallery-mobile
+      .c-about_partners   ✅ NEW
+   - Assumes each wrapper contains:
+      .c-featured_gallery-mask (optional)
+      .c-featured_gallery-track
+      .c-featured_gallery-slide
+      .ig-prev / .ig-next / .ig-progress
+   - Shows 3 desktop / 2 tablet / 1 mobile (JS logic)
 */
 
 (() => {
-  const TABLET_BP = 991; // Webflow "Tablet" max width
-  const MOBILE_BP = 767; // Webflow "Mobile" max width
+  const TABLET_BP = 991;
+  const MOBILE_BP = 767;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
@@ -19,26 +21,19 @@
     return 3;
   }
 
-  function initGallery(root) {
-    if (root.dataset.featuredInit === "1") return;
-    root.dataset.featuredInit = "1";
+  function initGallery(wrapper) {
+    // Prevent double init per wrapper
+    if (wrapper.dataset.galleryInit === "1") return;
+    wrapper.dataset.galleryInit = "1";
 
-    // ✅ Support either wrapper class (.c-featured_gallery OR .c-featured_gallery-mobile)
-    const gallery =
-      root.querySelector(".c-featured_gallery") ||
-      root.querySelector(".c-featured_gallery-mobile") ||
-      root;
-
-    const track = gallery.querySelector(".c-featured_gallery-track");
+    const track = wrapper.querySelector(".c-featured_gallery-track");
     const slides = track
       ? Array.from(track.querySelectorAll(".c-featured_gallery-slide"))
       : [];
 
-    // Controls stay the same (they are inside the gallery wrapper you used)
-    const prev = gallery.querySelector(".ig-prev") || root.querySelector(".ig-prev");
-    const next = gallery.querySelector(".ig-next") || root.querySelector(".ig-next");
-    const progress =
-      gallery.querySelector(".ig-progress") || root.querySelector(".ig-progress");
+    const prev = wrapper.querySelector(".ig-prev");
+    const next = wrapper.querySelector(".ig-next");
+    const progress = wrapper.querySelector(".ig-progress");
 
     if (!track || slides.length < 2 || !progress) return;
 
@@ -56,10 +51,7 @@
     const segs = Array.from(progress.children);
 
     function computeMetrics() {
-      if (slides.length < 2) {
-        stepPx = 0;
-        return;
-      }
+      if (slides.length < 2) { stepPx = 0; return; }
       const r0 = slides[0].getBoundingClientRect();
       const r1 = slides[1].getBoundingClientRect();
       const gapPx = Math.max(0, Math.round(r1.left - r0.right));
@@ -84,10 +76,8 @@
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
-    // Progress: highlight visible window (+ a slightly emphasized "current")
     function updateProgress() {
       const visible = getVisible();
-
       segs.forEach((s) => s.classList.remove("is-active", "is-current"));
 
       const start = index;
@@ -126,17 +116,12 @@
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    function minTranslate() {
-      return -maxIndex() * stepPx;
-    }
-    function maxTranslate() {
-      return 0;
-    }
+    function minTranslate() { return -maxIndex() * stepPx; }
+    function maxTranslate() { return 0; }
 
     function withResistance(x) {
       const minX = minTranslate();
       const maxX = maxTranslate();
-
       if (x > maxX) return maxX + (x - maxX) * 0.25;
       if (x < minX) return minX + (x - minX) * 0.25;
       return x;
@@ -152,8 +137,7 @@
       });
     }
 
-    // ✅ Mask lives inside whichever wrapper is active
-    const mask = gallery.querySelector(".c-featured_gallery-mask") || gallery;
+    const mask = wrapper.querySelector(".c-featured_gallery-mask") || wrapper;
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
@@ -196,9 +180,7 @@
       else goTo(index);
 
       e.preventDefault();
-      setTimeout(() => {
-        moved = false;
-      }, 0);
+      setTimeout(() => { moved = false; }, 0);
     }
 
     mask.addEventListener("pointerdown", onDown, { passive: false });
@@ -218,7 +200,7 @@
       true
     );
 
-    // --- Buttons ---
+    // Buttons
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
@@ -237,8 +219,8 @@
       });
     }
 
-    // Recompute after images load
-    gallery.querySelectorAll("img").forEach((img) => {
+    // Images load
+    wrapper.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
       img.addEventListener(
         "load",
@@ -265,13 +247,12 @@
   }
 
   function initAll() {
-    // ✅ Init each gallery wrapper separately (desktop + mobile versions)
     document
-      .querySelectorAll(".c-featured_gallery, .c-featured_gallery-mobile")
+      .querySelectorAll(".c-featured_gallery, .c-featured_gallery-mobile, .c-about_partners")
       .forEach(initGallery);
   }
 
-  // Webflow + normal sites
+  // Webflow + normal init
   const run = () => initAll();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run, { once: true });
