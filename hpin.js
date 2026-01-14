@@ -1,6 +1,6 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V10 (fonts-ready + stable pin)",
+  "%cHPIN-horizontalscroll V11 (mobile wake + eager images)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -16,6 +16,31 @@ console.log(
   const SECTIONS = document.querySelectorAll(".c-hpin");
   if (DEBUG) console.log("HPIN: sections found =", SECTIONS.length);
   if (!SECTIONS.length) return;
+
+  // --- Mobile helper: make HPIN swipe reliable on first load (iOS) ---
+  (function mobileSwipeInsurance() {
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    if (!isMobile) return;
+
+    // Force eager loading inside HPIN only (prevents "first swipe does nothing")
+    document.querySelectorAll(".c-hpin img").forEach((img) => {
+      img.loading = "eager";
+      img.decoding = "async";
+      // Optional: helps some browsers prioritize decode
+      img.fetchPriority = "high";
+    });
+
+    // Nudge scrollers once after load + a short delay so iOS commits it as scrollable
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.querySelectorAll(".c-hpin_view").forEach((view) => {
+          const x = view.scrollLeft;
+          view.scrollLeft = x + 1;
+          view.scrollLeft = x;
+        });
+      }, 350);
+    });
+  })();
 
   const ids = [];
 
@@ -66,7 +91,7 @@ console.log(
           index,
           viewW: getViewW(view),
           trackW: Math.round(track.scrollWidth),
-          maxX,
+          maxX
         });
       }
 
@@ -78,7 +103,7 @@ console.log(
       const tween = gsap.to(track, {
         x: () => -getMaxX(view, track),
         ease: "none",
-        overwrite: true,
+        overwrite: true
       });
 
       ScrollTrigger.create({
@@ -89,9 +114,9 @@ console.log(
         pin: inner,
         pinSpacing: true,
         scrub: 1,
-        anticipatePin: 3,        // helps “first frame” bump
+        anticipatePin: 3, // helps “first frame” bump
         invalidateOnRefresh: true,
-        animation: tween,
+        animation: tween
         // markers: DEBUG,
       });
     });
@@ -102,7 +127,9 @@ console.log(
 
   // Wait for fonts if possible (prevents first-scroll clip from font swap)
   function whenFontsReady() {
-    if (document.fonts && document.fonts.ready) return document.fonts.ready.catch(() => {});
+    if (document.fonts && document.fonts.ready) {
+      return document.fonts.ready.catch(() => {});
+    }
     return Promise.resolve();
   }
 
@@ -118,7 +145,7 @@ console.log(
       if (ok || tries >= 6) clearInterval(retry);
     }, 250);
 
-    // Lazy images: refresh only (and only when not active)
+    // Images: refresh only (and only when not active)
     SECTIONS.forEach((section) => {
       section.querySelectorAll("img").forEach((img) => {
         img.addEventListener(
@@ -146,7 +173,7 @@ console.log(
     });
   }
 
-  // Start after full load + fonts (prevents first-interaction bump)
+  // Start after full load + fonts
   window.addEventListener("load", () => {
     whenFontsReady().then(() => {
       start();
