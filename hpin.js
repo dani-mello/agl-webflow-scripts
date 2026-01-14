@@ -1,11 +1,12 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V11 (mobile wake + eager images)",
+  "%cHPIN-horizontalscroll V12 (mobile swipe mapping)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
 (function () {
   const DEBUG = false;
+  const MOBILE_MQ = "(max-width: 900px)";
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("HPIN: GSAP or ScrollTrigger missing");
@@ -17,20 +18,22 @@ console.log(
   if (DEBUG) console.log("HPIN: sections found =", SECTIONS.length);
   if (!SECTIONS.length) return;
 
-  // --- Mobile helper: make HPIN swipe reliable on first load (iOS) ---
-  (function mobileSwipeInsurance() {
-    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+  // ------------------------------------------------------------
+  // Mobile helper:
+  // 1) Force eager load for HPIN images (helps iOS first interaction)
+  // 2) Map vertical swipe to horizontal scroll inside .c-hpin_view
+  // ------------------------------------------------------------
+  (function mobileHelpers() {
+    const isMobile = window.matchMedia(MOBILE_MQ).matches;
     if (!isMobile) return;
 
-    // Force eager loading inside HPIN only (prevents "first swipe does nothing")
+    // Eager-load inside HPIN only
     document.querySelectorAll(".c-hpin img").forEach((img) => {
       img.loading = "eager";
       img.decoding = "async";
-      // Optional: helps some browsers prioritize decode
-      img.fetchPriority = "high";
     });
 
-    // Nudge scrollers once after load + a short delay so iOS commits it as scrollable
+    // "Wake" the scroller once after load (tiny nudge)
     window.addEventListener("load", () => {
       setTimeout(() => {
         document.querySelectorAll(".c-hpin_view").forEach((view) => {
@@ -38,10 +41,77 @@ console.log(
           view.scrollLeft = x + 1;
           view.scrollLeft = x;
         });
-      }, 350);
+      }, 300);
+    });
+
+    // Vertical swipe → horizontal scroll mapping
+    document.querySelectorAll(".c-hpin_view").forEach((view) => {
+      let startX = 0;
+      let startY = 0;
+      let lastX = 0;
+      let lastY = 0;
+      let locked = false; // gesture lock
+
+      function canScrollHorizontally() {
+        return view.scrollWidth > view.clientWidth + 2;
+      }
+
+      view.addEventListener(
+        "touchstart",
+        (e) => {
+          const t = e.touches && e.touches[0];
+          if (!t) return;
+          startX = lastX = t.clientX;
+          startY = lastY = t.clientY;
+          locked = false;
+        },
+        { passive: true }
+      );
+
+      view.addEventListener(
+        "touchmove",
+        (e) => {
+          const t = e.touches && e.touches[0];
+          if (!t) return;
+
+          const dx = t.clientX - lastX;
+          const dy = t.clientY - lastY;
+
+          const totalDx = t.clientX - startX;
+          const totalDy = t.clientY - startY;
+
+          lastX = t.clientX;
+          lastY = t.clientY;
+
+          // If it's not scrollable horizontally, do nothing.
+          if (!canScrollHorizontally()) return;
+
+          // Decide gesture intent once (after a small movement threshold)
+          if (!locked) {
+            const threshold = 6;
+            if (Math.abs(totalDx) + Math.abs(totalDy) < threshold) return;
+
+            // Lock to horizontal mapping if gesture is mostly vertical
+            // (this is what you want: normal up/down swipes drive the timeline)
+            locked = true;
+          }
+
+          // Convert vertical movement into horizontal scroll.
+          // dy positive means finger moved down → we scroll timeline left
+          view.scrollLeft -= dy * 1.15;
+
+          // Prevent page from scrolling vertically while interacting with the timeline
+          e.preventDefault();
+        },
+        { passive: false }
+      );
     });
   })();
 
+  // ------------------------------------------------------------
+  // Desktop / large screens: ScrollTrigger pin + translate track
+  // (still ok on mobile too, but your CSS uses native scroll there)
+  // ------------------------------------------------------------
   const ids = [];
 
   function anyActive() {
@@ -70,6 +140,7 @@ console.log(
   }
 
   function build() {
+    // avoid rebuild mid-scroll
     if (anyActive()) return false;
 
     killAll();
@@ -85,15 +156,7 @@ console.log(
       ids.push(id);
 
       const maxX = getMaxX(view, track);
-
-      if (DEBUG) {
-        console.log("HPIN dims", {
-          index,
-          viewW: getViewW(view),
-          trackW: Math.round(track.scrollWidth),
-          maxX
-        });
-      }
+      if (DEBUG) console.log("HPIN dims", { index, viewW: getViewW(view), trackW: track.scrollWidth, maxX });
 
       if (maxX < 2) return;
       builtAny = true;
@@ -114,10 +177,9 @@ console.log(
         pin: inner,
         pinSpacing: true,
         scrub: 1,
-        anticipatePin: 3, // helps “first frame” bump
+        anticipatePin: 3,
         invalidateOnRefresh: true,
         animation: tween
-        // markers: DEBUG,
       });
     });
 
@@ -125,19 +187,15 @@ console.log(
     return builtAny;
   }
 
-  // Wait for fonts if possible (prevents first-scroll clip from font swap)
   function whenFontsReady() {
-    if (document.fonts && document.fonts.ready) {
-      return document.fonts.ready.catch(() => {});
-    }
+    if (document.fonts && document.fonts.ready) return document.fonts.ready.catch(() => {});
     return Promise.resolve();
   }
 
   function start() {
-    // Build after layout is settled
     requestAnimationFrame(() => requestAnimationFrame(build));
 
-    // A couple gentle retries, stop as soon as it builds successfully
+    // gentle retries
     let tries = 0;
     const retry = setInterval(() => {
       tries += 1;
@@ -145,7 +203,7 @@ console.log(
       if (ok || tries >= 6) clearInterval(retry);
     }, 250);
 
-    // Images: refresh only (and only when not active)
+    // refresh on image load (not active)
     SECTIONS.forEach((section) => {
       section.querySelectorAll("img").forEach((img) => {
         img.addEventListener(
@@ -165,7 +223,6 @@ console.log(
       });
     });
 
-    // Resize: rebuild (debounced), but don’t rebuild mid-scroll
     let t = null;
     window.addEventListener("resize", () => {
       clearTimeout(t);
@@ -173,7 +230,6 @@ console.log(
     });
   }
 
-  // Start after full load + fonts
   window.addEventListener("load", () => {
     whenFontsReady().then(() => {
       start();
