@@ -1,15 +1,4 @@
-/* featured-gallery.js
-   - Supports multiple gallery wrappers on the same page:
-      .c-featured_gallery
-      .c-featured_gallery-mobile
-      .c-about_partners   ✅ NEW
-   - Assumes each wrapper contains:
-      .c-featured_gallery-mask (optional)
-      .c-featured_gallery-track
-      .c-featured_gallery-slide
-      .ig-prev / .ig-next / .ig-progress
-   - Shows 3 desktop / 2 tablet / 1 mobile (JS logic)
-*/
+console.log("GALLERY (featured/partners) v7");
 
 (() => {
   const TABLET_BP = 991;
@@ -21,8 +10,37 @@
     return 3;
   }
 
+  function findControls(wrapper) {
+    // 1) inside wrapper
+    let controls = wrapper.querySelector(".inline-gallery__controls");
+    if (controls) return controls;
+
+    // 2) parent
+    if (wrapper.parentElement) {
+      controls = wrapper.parentElement.querySelector(":scope > .inline-gallery__controls");
+      if (controls) return controls;
+
+      controls = wrapper.parentElement.querySelector(".inline-gallery__controls");
+      if (controls) return controls;
+    }
+
+    // 3) next sibling
+    const next = wrapper.nextElementSibling;
+    if (next && next.classList && next.classList.contains("inline-gallery__controls")) {
+      return next;
+    }
+
+    // 4) closest section
+    const section = wrapper.closest("section, .w-section, .w-container, .w-layout-blockcontainer");
+    if (section) {
+      controls = section.querySelector(".inline-gallery__controls");
+      if (controls) return controls;
+    }
+
+    return null;
+  }
+
   function initGallery(wrapper) {
-    // Prevent double init per wrapper
     if (wrapper.dataset.galleryInit === "1") return;
     wrapper.dataset.galleryInit = "1";
 
@@ -31,17 +49,31 @@
       ? Array.from(track.querySelectorAll(".c-featured_gallery-slide"))
       : [];
 
-    const prev = wrapper.querySelector(".ig-prev");
-    const next = wrapper.querySelector(".ig-next");
-    const progress = wrapper.querySelector(".ig-progress");
+    const controls = findControls(wrapper);
+    const prev = controls ? controls.querySelector(".ig-prev") : wrapper.querySelector(".ig-prev");
+    const next = controls ? controls.querySelector(".ig-next") : wrapper.querySelector(".ig-next");
+    const progress = controls ? controls.querySelector(".ig-progress") : wrapper.querySelector(".ig-progress");
 
-    if (!track || slides.length < 2 || !progress) return;
+    console.log("[GALLERY] init", {
+      wrapper: wrapper.className,
+      hasTrack: !!track,
+      slides: slides.length,
+      hasControls: !!controls,
+      hasProgress: !!progress,
+      hasPrev: !!prev,
+      hasNext: !!next
+    });
+
+    if (!track || slides.length < 2 || !progress) {
+      console.warn("[GALLERY] Skipped (missing track/slides/progress).", wrapper);
+      return;
+    }
 
     const N = slides.length;
     let index = 0;
     let stepPx = 0;
 
-    // Build progress segments (N segments)
+    // Build progress segments
     progress.innerHTML = "";
     for (let i = 0; i < N; i++) {
       const seg = document.createElement("div");
@@ -96,12 +128,11 @@
       updateButtons();
     }
 
-    // --- Smooth Drag / swipe (pointer events + rAF + edge resistance) ---
+    // Drag/swipe (same as your smooth version)
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
     let moved = false;
-
     let rafId = null;
     let pendingX = null;
 
@@ -142,13 +173,11 @@
 
     function onDown(e) {
       if (e.button !== undefined && e.button !== 0) return;
-
       isDown = true;
       moved = false;
 
       computeMetrics();
       track.style.transition = "none";
-
       startX = e.clientX;
       startTranslate = getTranslateX(track);
 
@@ -158,10 +187,8 @@
 
     function onMove(e) {
       if (!isDown) return;
-
       const dx = e.clientX - startX;
       if (Math.abs(dx) > 3) moved = true;
-
       scheduleMove(startTranslate + dx);
       e.preventDefault();
     }
@@ -171,7 +198,6 @@
       isDown = false;
 
       track.style.transition = "transform 300ms ease";
-
       const dx = e.clientX - startX;
       const threshold = Math.min(stepPx * 0.22, 120);
 
@@ -189,16 +215,12 @@
     mask.addEventListener("pointercancel", onUp, { passive: false });
     mask.addEventListener("pointerleave", onUp, { passive: false });
 
-    mask.addEventListener(
-      "click",
-      (e) => {
-        if (moved) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      },
-      true
-    );
+    mask.addEventListener("click", (e) => {
+      if (moved) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
 
     // Buttons
     if (next) {
@@ -209,7 +231,6 @@
         goTo(index + 1);
       });
     }
-
     if (prev) {
       prev.addEventListener("click", (e) => {
         e.preventDefault();
@@ -222,24 +243,14 @@
     // Images load
     wrapper.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
-      img.addEventListener(
-        "load",
-        () => {
-          computeMetrics();
-          goTo(index);
-        },
-        { once: true }
-      );
+      img.addEventListener("load", () => { computeMetrics(); goTo(index); }, { once: true });
     });
 
     // Resize
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
-      t = setTimeout(() => {
-        computeMetrics();
-        goTo(index);
-      }, 60);
+      t = setTimeout(() => { computeMetrics(); goTo(index); }, 60);
     });
 
     computeMetrics();
@@ -252,7 +263,6 @@
       .forEach(initGallery);
   }
 
-  // Webflow + normal init
   const run = () => initAll();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run, { once: true });
