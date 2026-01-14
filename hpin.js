@@ -1,11 +1,13 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V14 (mobile uses ScrollTrigger pin)",
+  "%cHPIN-horizontalscroll V15 (smooth mobile pin)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
 (function () {
   const DEBUG = false;
+  const MOBILE_MQ = "(max-width: 900px)";
+  const isMobile = window.matchMedia && window.matchMedia(MOBILE_MQ).matches;
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("HPIN: GSAP or ScrollTrigger missing");
@@ -13,16 +15,14 @@ console.log(
   }
   gsap.registerPlugin(ScrollTrigger);
 
-  // Optional (helps on iOS sometimes). Safe-guarded.
-  if (typeof ScrollTrigger.normalizeScroll === "function") {
-    ScrollTrigger.normalizeScroll(true);
-  }
+  // ✅ Big one: stops iOS address-bar resize jitter from constantly refreshing triggers
+  ScrollTrigger.config({ ignoreMobileResize: true });
 
   const SECTIONS = document.querySelectorAll(".c-hpin");
   if (DEBUG) console.log("HPIN: sections found =", SECTIONS.length);
   if (!SECTIONS.length) return;
 
-  // Eager-load images inside HPIN only (prevents first-load bumps)
+  // Eager-load images inside HPIN only (prevents first-load bumps + late width changes)
   document.querySelectorAll(".c-hpin img").forEach((img) => {
     img.loading = "eager";
     img.decoding = "async";
@@ -56,6 +56,7 @@ console.log(
   }
 
   function build() {
+    // Don’t rebuild mid-pin
     if (anyActive()) return false;
 
     killAll();
@@ -63,7 +64,7 @@ console.log(
 
     SECTIONS.forEach((section, index) => {
       const inner = section.querySelector(".c-hpin_inner");
-      const view  = section.querySelector(".c-hpin_view");
+      const view = section.querySelector(".c-hpin_view");
       const track = section.querySelector(".c-hpin_track");
       if (!inner || !view || !track) return;
 
@@ -86,6 +87,14 @@ console.log(
 
       gsap.set(track, { x: 0 });
 
+      // ✅ Mobile: make the vertical scroll distance longer so it feels smoother/slower
+      // We move the same horizontal distance, but give more vertical space to do it.
+      const scrollDistance = () => {
+        const base = getMaxX(view, track);
+        const factor = isMobile ? 1.8 : 1; // tweak: 1.5–2.5 depending on feel
+        return Math.round(base * factor);
+      };
+
       const tween = gsap.to(track, {
         x: () => -getMaxX(view, track),
         ease: "none",
@@ -96,13 +105,14 @@ console.log(
         id,
         trigger: section,
         start: "top top",
-        end: () => "+=" + getMaxX(view, track),
+        end: () => "+=" + scrollDistance(),
         pin: inner,
         pinSpacing: true,
-        scrub: 1,
-        anticipatePin: 2,
+        scrub: isMobile ? 1.2 : 1, // ✅ a touch more smoothing on mobile
+        anticipatePin: isMobile ? 1 : 2,
         invalidateOnRefresh: true,
         animation: tween,
+        fastScrollEnd: true
         // markers: DEBUG,
       });
     });
@@ -111,7 +121,6 @@ console.log(
     return builtAny;
   }
 
-  // Fonts ready helps avoid first-time text reflow inside pinned sections
   function whenFontsReady() {
     if (document.fonts && document.fonts.ready) return document.fonts.ready.catch(() => {});
     return Promise.resolve();
@@ -120,7 +129,7 @@ console.log(
   function start() {
     requestAnimationFrame(() => requestAnimationFrame(build));
 
-    // A few retries while Webflow finishes layout/images
+    // gentle retries while Webflow settles
     let tries = 0;
     const retry = setInterval(() => {
       tries += 1;
@@ -128,7 +137,7 @@ console.log(
       if (ok || tries >= 6) clearInterval(retry);
     }, 250);
 
-    // If images load later, refresh (but don't do it mid-pin)
+    // If images load later, refresh (but not mid-pin)
     SECTIONS.forEach((section) => {
       section.querySelectorAll("img").forEach((img) => {
         img.addEventListener(
@@ -148,12 +157,19 @@ console.log(
       });
     });
 
-    // Resize rebuild (debounced)
-    let t = null;
-    window.addEventListener("resize", () => {
-      clearTimeout(t);
-      t = setTimeout(() => build(), 200);
-    });
+    // ✅ Desktop can rebuild on resize; mobile should NOT rebuild on scroll UI changes.
+    if (!isMobile) {
+      let t = null;
+      window.addEventListener("resize", () => {
+        clearTimeout(t);
+        t = setTimeout(() => build(), 200);
+      });
+    } else {
+      // Mobile: rebuild only on true layout shifts like rotation
+      window.addEventListener("orientationchange", () => {
+        setTimeout(() => build(), 350);
+      });
+    }
   }
 
   window.addEventListener("load", () => {
