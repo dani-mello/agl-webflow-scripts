@@ -1,6 +1,6 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V16 (first-load reliable)",
+  "%cHPIN-horizontalscroll V17 (first-load + bfcache reliable)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -14,15 +14,17 @@ console.log(
     return;
   }
   gsap.registerPlugin(ScrollTrigger);
-
-  // Big one for iOS jitter
   ScrollTrigger.config({ ignoreMobileResize: true });
 
-  const SECTIONS = document.querySelectorAll(".c-hpin");
+  // Prevent double init (Webflow designer / embeds can run twice)
+  if (window.__HPIN_INIT__ === true) return;
+  window.__HPIN_INIT__ = true;
+
+  const SECTIONS = Array.from(document.querySelectorAll(".c-hpin"));
   if (DEBUG) console.log("HPIN: sections found =", SECTIONS.length);
   if (!SECTIONS.length) return;
 
-  // Prefer eager decode for HPIN media only
+  // Eager load HPIN images only
   document.querySelectorAll(".c-hpin img").forEach((img) => {
     img.loading = "eager";
     img.decoding = "async";
@@ -41,6 +43,7 @@ console.log(
   function viewW(view) {
     return Math.round(view.getBoundingClientRect().width);
   }
+
   function maxX(view, track) {
     return Math.max(0, Math.round(track.scrollWidth) - viewW(view));
   }
@@ -55,14 +58,14 @@ console.log(
       const track = section.querySelector(".c-hpin_track");
       if (!inner || !view || !track) return;
 
-      const id = "hpin_" + index;
-      ids.push(id);
-
       const mx = maxX(view, track);
       if (DEBUG) console.log("HPIN dims", { index, viewW: viewW(view), trackW: track.scrollWidth, maxX: mx });
 
       if (mx < 2) return;
       builtAny = true;
+
+      const id = "hpin_" + index;
+      ids.push(id);
 
       gsap.set(track, { x: 0 });
 
@@ -74,7 +77,7 @@ console.log(
 
       const scrollDistance = () => {
         const base = maxX(view, track);
-        const factor = isMobile ? 1.8 : 1;
+        const factor = isMobile ? 1.8 : 1; // smoother on mobile
         return Math.round(base * factor);
       };
 
@@ -98,11 +101,13 @@ console.log(
   }
 
   function fontsReady() {
-    if (document.fonts && document.fonts.ready) return document.fonts.ready.catch(() => {});
+    if (document.fonts && document.fonts.ready) {
+      return document.fonts.ready.catch(() => {});
+    }
     return Promise.resolve();
   }
 
-  // Wait for images AND decode (decode is the missing piece on first load)
+  // Wait for images AND decode (decode stabilizes layout on first load)
   function imagesDecoded(container) {
     const imgs = Array.from(container.querySelectorAll("img"));
     if (!imgs.length) return Promise.resolve();
@@ -116,21 +121,25 @@ console.log(
               img.addEventListener("error", res, { once: true });
             });
 
-        // decode() makes layout stable earlier on Safari/Chrome
         return loaded.then(() => (img.decode ? img.decode().catch(() => {}) : undefined));
       })
     );
   }
 
+  // Webflow can finish layout after load (components, IX, etc.)
+  // Do a few scheduled rebuilds in the "settle window"
+  function settleRebuilds() {
+    [150, 350, 700, 1200].forEach((ms) => setTimeout(build, ms));
+  }
+
   function start() {
-    // Build once immediately after 2 RAFs
+    // initial build
     requestAnimationFrame(() => requestAnimationFrame(build));
 
-    // Then do a few *scheduled* rebuilds while the page settles (first-load fix)
-    const schedule = [150, 350, 700, 1200];
-    schedule.forEach((ms) => setTimeout(build, ms));
+    // settle window rebuilds
+    settleRebuilds();
 
-    // Desktop: rebuild on resize
+    // Desktop: rebuild on resize (debounced)
     if (!isMobile) {
       let t = null;
       window.addEventListener("resize", () => {
@@ -138,14 +147,22 @@ console.log(
         t = setTimeout(build, 200);
       });
     } else {
-      // Mobile: rebuild only on rotation
+      // Mobile: rebuild on orientation change only
       window.addEventListener("orientationchange", () => setTimeout(build, 450));
     }
   }
 
+  // 1) Normal first load path
   window.addEventListener("load", () => {
-    Promise.all([fontsReady(), ...Array.from(SECTIONS).map(imagesDecoded)]).then(() => {
+    Promise.all([fontsReady(), ...SECTIONS.map(imagesDecoded)]).then(() => {
       start();
     });
+  });
+
+  // 2) bfcache path (Safari/Chrome often restore page w/out full reload)
+  window.addEventListener("pageshow", (e) => {
+    // Always rebuild once on pageshow; if it was restored from cache, do a settle window too.
+    requestAnimationFrame(() => requestAnimationFrame(build));
+    if (e.persisted) settleRebuilds();
   });
 })();
