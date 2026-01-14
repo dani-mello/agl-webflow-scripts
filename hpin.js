@@ -1,6 +1,6 @@
 // hpin.js
 console.log(
-  "%cHPIN-horizontalscroll V12 (mobile swipe mapping)",
+  "%cHPIN-horizontalscroll V13 (mobile edge-release)",
   "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
 );
 
@@ -19,21 +19,22 @@ console.log(
   if (!SECTIONS.length) return;
 
   // ------------------------------------------------------------
-  // Mobile helper:
-  // 1) Force eager load for HPIN images (helps iOS first interaction)
-  // 2) Map vertical swipe to horizontal scroll inside .c-hpin_view
+  // Mobile helpers:
+  // - Eager-load HPIN images (helps iOS first interaction)
+  // - "Wake" the scroller (tiny nudge)
+  // - Gesture mapping that RELEASES at edges (so page can continue)
   // ------------------------------------------------------------
   (function mobileHelpers() {
     const isMobile = window.matchMedia(MOBILE_MQ).matches;
     if (!isMobile) return;
 
-    // Eager-load inside HPIN only
+    // Eager-load only within HPIN (prevents first-swipe weirdness)
     document.querySelectorAll(".c-hpin img").forEach((img) => {
       img.loading = "eager";
       img.decoding = "async";
     });
 
-    // "Wake" the scroller once after load (tiny nudge)
+    // Nudge scrollers after load so iOS commits scrollability
     window.addEventListener("load", () => {
       setTimeout(() => {
         document.querySelectorAll(".c-hpin_view").forEach((view) => {
@@ -41,19 +42,27 @@ console.log(
           view.scrollLeft = x + 1;
           view.scrollLeft = x;
         });
-      }, 300);
+      }, 250);
     });
 
-    // Vertical swipe → horizontal scroll mapping
+    // Smarter swipe handler
     document.querySelectorAll(".c-hpin_view").forEach((view) => {
-      let startX = 0;
-      let startY = 0;
-      let lastX = 0;
-      let lastY = 0;
-      let locked = false; // gesture lock
+      let startX = 0, startY = 0;
+      let lastX = 0, lastY = 0;
+      let mode = null; // null | "map" | "native"
+      const THRESH = 8; // px
 
-      function canScrollHorizontally() {
-        return view.scrollWidth > view.clientWidth + 2;
+      function maxScrollLeft() {
+        return Math.max(0, view.scrollWidth - view.clientWidth);
+      }
+      function atLeftEdge() {
+        return view.scrollLeft <= 0;
+      }
+      function atRightEdge() {
+        return view.scrollLeft >= maxScrollLeft() - 1;
+      }
+      function canScrollX() {
+        return maxScrollLeft() > 2;
       }
 
       view.addEventListener(
@@ -63,7 +72,7 @@ console.log(
           if (!t) return;
           startX = lastX = t.clientX;
           startY = lastY = t.clientY;
-          locked = false;
+          mode = null;
         },
         { passive: true }
       );
@@ -74,33 +83,54 @@ console.log(
           const t = e.touches && e.touches[0];
           if (!t) return;
 
-          const dx = t.clientX - lastX;
-          const dy = t.clientY - lastY;
+          const dxStep = t.clientX - lastX;
+          const dyStep = t.clientY - lastY;
 
-          const totalDx = t.clientX - startX;
-          const totalDy = t.clientY - startY;
+          const dxTotal = t.clientX - startX;
+          const dyTotal = t.clientY - startY;
 
           lastX = t.clientX;
           lastY = t.clientY;
 
-          // If it's not scrollable horizontally, do nothing.
-          if (!canScrollHorizontally()) return;
+          // If it can't scroll horizontally, let the page handle everything
+          if (!canScrollX()) return;
 
-          // Decide gesture intent once (after a small movement threshold)
-          if (!locked) {
-            const threshold = 6;
-            if (Math.abs(totalDx) + Math.abs(totalDy) < threshold) return;
+          // Decide mode after a small movement
+          if (!mode) {
+            if (Math.abs(dxTotal) + Math.abs(dyTotal) < THRESH) return;
 
-            // Lock to horizontal mapping if gesture is mostly vertical
-            // (this is what you want: normal up/down swipes drive the timeline)
-            locked = true;
+            // If user is clearly swiping horizontally, let native horizontal scroll do it.
+            if (Math.abs(dxTotal) > Math.abs(dyTotal)) {
+              mode = "native";
+              return;
+            }
+
+            // Otherwise use vertical->horizontal mapping
+            mode = "map";
           }
 
-          // Convert vertical movement into horizontal scroll.
-          // dy positive means finger moved down → we scroll timeline left
-          view.scrollLeft -= dy * 1.15;
+          if (mode === "native") {
+            // Native horizontal scrolling; don't block page unless it's clearly horizontal already.
+            return;
+          }
 
-          // Prevent page from scrolling vertically while interacting with the timeline
+          // mode === "map"
+          // Convert vertical finger movement into horizontal scroll.
+          // Finger moves up (dy negative) -> move timeline right (increase scrollLeft)
+          const desired = view.scrollLeft - dyStep * 1.15;
+
+          // Edge release:
+          // If user is trying to scroll "past" an edge, let the page scroll vertically.
+          const goingLeft = desired < view.scrollLeft;   // scrollLeft decreases
+          const goingRight = desired > view.scrollLeft;  // scrollLeft increases
+
+          if ((atLeftEdge() && goingLeft) || (atRightEdge() && goingRight)) {
+            // release: don't preventDefault, allow page to continue
+            return;
+          }
+
+          // Consume gesture: prevent vertical page scroll while we move the strip
+          view.scrollLeft = Math.max(0, Math.min(maxScrollLeft(), desired));
           e.preventDefault();
         },
         { passive: false }
@@ -110,7 +140,6 @@ console.log(
 
   // ------------------------------------------------------------
   // Desktop / large screens: ScrollTrigger pin + translate track
-  // (still ok on mobile too, but your CSS uses native scroll there)
   // ------------------------------------------------------------
   const ids = [];
 
@@ -140,7 +169,6 @@ console.log(
   }
 
   function build() {
-    // avoid rebuild mid-scroll
     if (anyActive()) return false;
 
     killAll();
@@ -195,7 +223,6 @@ console.log(
   function start() {
     requestAnimationFrame(() => requestAnimationFrame(build));
 
-    // gentle retries
     let tries = 0;
     const retry = setInterval(() => {
       tries += 1;
@@ -203,7 +230,6 @@ console.log(
       if (ok || tries >= 6) clearInterval(retry);
     }, 250);
 
-    // refresh on image load (not active)
     SECTIONS.forEach((section) => {
       section.querySelectorAll("img").forEach((img) => {
         img.addEventListener(
