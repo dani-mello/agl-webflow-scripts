@@ -1,14 +1,14 @@
-console.log("new hero v7");
+console.log("new hero v1 NEW");
+
+console.log("new hero v1 (safari/firefox patch)");
 
 (function () {
-
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
   if (root.dataset.heroSplitStackInit === "1") return;
   root.dataset.heroSplitStackInit = "1";
 
-  // ✅ Reduced motion support
   var prefersReduced =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -32,15 +32,15 @@ console.log("new hero v7");
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
+  // ✅ include v1 too (Firefox “half screen” is often the base layer not being full-bleed)
+  var v1Reveal = root.querySelector(".c-hero_reveal.is-v1");
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
 
-  // ✅ bottom gradient
   var gradient = root.querySelector(".l-bottom-gradient");
 
   if (!headline || !h1) return;
 
-  // Stop anything forcing aria-hidden on this element
   headline.removeAttribute("aria-hidden");
   h1.removeAttribute("aria-hidden");
 
@@ -53,21 +53,57 @@ console.log("new hero v7");
     el.style.left = "0";
     el.style.width = "100%";
     el.style.height = "100%";
+    el.style.overflow = "hidden"; // ✅ helps clip/mask in Safari/Firefox
   }
+  forceFullBleed(v1Reveal);
   forceFullBleed(v2Reveal);
   forceFullBleed(v3Reveal);
 
+  // -----------------------------
+  // SAFARI fallback detection
+  // -----------------------------
+  var ua = navigator.userAgent;
+  var isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  // (desktop Safari & iOS Safari both match this)
+
+  // Curtain methods:
+  // - Default: clip-path (your current)
+  // - Safari fallback: scaleX curtain (much more reliable for video)
   function setClip(el, value) {
     if (!el) return;
     gsap.set(el, { clipPath: value, webkitClipPath: value });
   }
 
   function curtainClosed(el) {
-    setClip(el, "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)");
+    if (!el) return;
+
+    if (isSafari) {
+      // ✅ Transform curtain from center
+      gsap.set(el, {
+        transformOrigin: "50% 50%",
+        scaleX: 0,
+        force3D: true
+      });
+    } else {
+      setClip(el, "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)");
+    }
   }
 
   function curtainOpen(tl, el, pos, dur) {
     if (!el) return tl.to({}, { duration: dur || 1.2 }, pos);
+
+    if (isSafari) {
+      return tl.to(
+        el,
+        {
+          scaleX: 1,
+          duration: dur || 1.2,
+          ease: "power2.inOut",
+          force3D: true
+        },
+        pos
+      );
+    }
 
     return tl.to(
       el,
@@ -82,7 +118,7 @@ console.log("new hero v7");
   }
 
   // -----------------------------
-  // TEXT: SplitText lines + intro once (your v5 motion)
+  // TEXT: your SplitText block unchanged
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
@@ -98,10 +134,8 @@ console.log("new hero v7");
   }
 
   function ensureMeasurable() {
-    // Make sure SplitText can calculate line breaks (no display:none)
     headline.style.setProperty("display", "block", "important");
     headline.style.setProperty("visibility", "visible", "important");
-    // Keep it visually hidden until we animate
     gsap.set(headline, { opacity: 0 });
   }
 
@@ -120,7 +154,6 @@ console.log("new hero v7");
 
     lines = splitLines.lines || [];
 
-    // Put lines in start pose immediately (hidden)
     if (lines.length) {
       gsap.set(lines, {
         yPercent: 120,
@@ -136,12 +169,10 @@ console.log("new hero v7");
     if (played) return;
     played = true;
 
-    // Reveal container
     gsap.set(headline, { opacity: 1, visibility: "visible" });
 
     if (!lines.length) return;
 
-    // Animate lines in (from current start pose)
     gsap.to(lines, {
       yPercent: 0,
       x: 0,
@@ -154,7 +185,6 @@ console.log("new hero v7");
     });
   }
 
-  // Lock stacking order as you had
   if (gradient) {
     gsap.set(gradient, {
       zIndex: 10,
@@ -168,33 +198,26 @@ console.log("new hero v7");
   }
   gsap.set(headline, { zIndex: 20, position: "absolute" });
 
-  // Prep curtains (unchanged)
+  // Prep curtains
   curtainClosed(v2Reveal);
   curtainClosed(v3Reveal);
 
-  // ✅ Build SplitText when measurable, then animate once on next frame
   ensureMeasurable();
   buildLines();
 
   requestAnimationFrame(function () {
-    // Now we’re past first paint + SplitText is in place
     playIntro();
   });
 
-  // If you resize, don’t kill your intro. Just rebuild lines if NOT played yet.
   ScrollTrigger.addEventListener("refreshInit", function () {
     headline.removeAttribute("aria-hidden");
     h1.removeAttribute("aria-hidden");
-
     ensureMeasurable();
-
-    if (!played) {
-      buildLines();
-    }
+    if (!played) buildLines();
   });
 
   // -----------------------------
-  // TIMELINE: keep VIDEO animation exactly as-is
+  // TIMELINE: unchanged timing/labels
   // -----------------------------
   var tl = gsap.timeline();
 
@@ -218,7 +241,6 @@ console.log("new hero v7");
     invalidateOnRefresh: true,
     animation: tl,
 
-    // Keep headline visible (no explosion / no hide)
     onUpdate: function () {
       headline.style.setProperty("visibility", "visible", "important");
       headline.style.setProperty("display", "block", "important");
@@ -229,7 +251,5 @@ console.log("new hero v7");
       headline.style.setProperty("display", "block", "important");
       gsap.set(headline, { opacity: 1 });
     }
-
-    // markers: true
   });
 })();
