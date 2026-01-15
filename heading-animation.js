@@ -1,4 +1,4 @@
-console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v1 - NEW");
+console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v2 - NEW");
 
 // animate-heading.js
 // Requires GSAP + ScrollTrigger + SplitText
