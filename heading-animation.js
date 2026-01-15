@@ -1,4 +1,4 @@
-console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v2 - NEW");
+console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v3 - NEW");
 
 // animate-heading.js
 // Requires GSAP + ScrollTrigger + SplitText
@@ -12,47 +12,65 @@ console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v2 - NEW");
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
-  const headings = document.querySelectorAll(".u-animate-heading");
-  if (!headings.length) return;
+  function initAnimateHeadings() {
+    const headings = document.querySelectorAll(".u-animate-heading");
+    if (!headings.length) return;
 
-  headings.forEach((heading, index) => {
-    // prevent double init
-    if (heading.dataset.ahInit === "1") return;
-    heading.dataset.ahInit = "1";
+    headings.forEach((heading, index) => {
+      if (heading.dataset.ahInit === "1") return;
+      heading.dataset.ahInit = "1";
 
-    const split = new SplitText(heading, {
-      type: "lines",
-      linesClass: "ah-line"
+      const split = new SplitText(heading, { type: "lines", linesClass: "ah-line" });
+
+      // Wrap each line in a mask (inline styles only)
+      split.lines.forEach((line) => {
+        const mask = document.createElement("div");
+        mask.style.overflow = "hidden";
+        mask.style.display = "block";
+
+        line.style.display = "block";
+        line.style.willChange = "transform";
+
+        line.parentNode.insertBefore(mask, line);
+        mask.appendChild(line);
+      });
+
+      gsap.set(split.lines, { x: -15, y: 100 });
+
+      gsap.to(split.lines, {
+        x: 0,
+        y: 0,
+        duration: 0.8,
+        ease: "power3.out",
+        stagger: 0.3,
+        scrollTrigger: {
+          id: `animateHeading-${index}`,
+          trigger: heading,
+          start: "top 85%",
+          once: true,
+          invalidateOnRefresh: true,
+          refreshPriority: -10 // ✅ refresh later (after pins)
+        }
+      });
     });
+  }
 
-    // Wrap each line in a mask (INLINE styles only)
-    split.lines.forEach((line) => {
-      const mask = document.createElement("div");
-      mask.style.overflow = "hidden";
-      mask.style.display = "block";
+  // ✅ Delay init so pinned sections + images settle first
+  function boot() {
+    initAnimateHeadings();
 
-      line.style.display = "block";
-      line.style.transform = "translate(-15px, 100px)";
-      line.style.willChange = "transform";
+    // ✅ Force refresh passes (pins often need this)
+    requestAnimationFrame(() => ScrollTrigger.refresh());
+    setTimeout(() => ScrollTrigger.refresh(), 150);
+    setTimeout(() => ScrollTrigger.refresh(), 400);
+  }
 
-      line.parentNode.insertBefore(mask, line);
-      mask.appendChild(line);
-    });
+  if (document.readyState === "complete") {
+    boot();
+  } else {
+    window.addEventListener("load", boot);
+  }
 
-    gsap.set(split.lines, { x: -15, y: 100 });
-
-    gsap.to(split.lines, {
-      x: 0,
-      y: 0,
-      duration: 0.8,
-      ease: "power3.out",
-      stagger: 0.3,
-      scrollTrigger: {
-        id: `animateHeading-${index}`,
-        trigger: heading,
-        start: "top 85%",
-        once: true
-      }
-    });
-  });
+  // Optional hook for Barba / Webflow re-render flows
+  window.initAnimateHeadings = boot;
 })();
