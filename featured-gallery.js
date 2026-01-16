@@ -1,5 +1,3 @@
-
-
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
@@ -10,31 +8,25 @@
     return 3;
   }
 
-  // ✅ NEW: pick a "gallery root" so each instance stays scoped
   function getGalleryRoot(wrapper) {
-    // If you have a consistent component wrapper, put it first here.
     return (
-      wrapper.closest(".c-featured_gallery-wrap") ||     // (recommended wrapper if you add it)
-      wrapper.closest(".w-dyn-item") ||                  // if inside a CMS item
-      wrapper.closest("section") ||                      // fallback
+      wrapper.closest(".c-featured_gallery-wrap") ||
+      wrapper.closest(".w-dyn-item") ||
+      wrapper.closest("section") ||
       wrapper.parentElement ||
       wrapper
     );
   }
 
-  // ✅ UPDATED: only find controls inside the SAME root
   function findControls(wrapper) {
     const root = getGalleryRoot(wrapper);
 
-    // 1) inside wrapper
     let controls = wrapper.querySelector(".inline-gallery__controls");
     if (controls) return controls;
 
-    // 2) inside root (this is the big fix)
     controls = root.querySelector(".inline-gallery__controls");
     if (controls) return controls;
 
-    // 3) immediate next sibling
     const next = wrapper.nextElementSibling;
     if (next?.classList?.contains("inline-gallery__controls")) return next;
 
@@ -54,76 +46,55 @@
 
     const controls = findControls(wrapper);
 
-const prev = controls?.querySelector(".ig-prev") || wrapper.querySelector(".ig-prev");
-const next = controls?.querySelector(".ig-next") || wrapper.querySelector(".ig-next");
+    const prev =
+      controls?.querySelector(".ig-prev") ||
+      wrapper.querySelector(".ig-prev");
 
-// Try to find progress in the same instance
-let progress =
-  controls?.querySelector(".ig-progress") ||
-  wrapper.querySelector(".ig-progress");
+    const next =
+      controls?.querySelector(".ig-next") ||
+      wrapper.querySelector(".ig-next");
 
-// ✅ If it doesn't exist, create it so it works anywhere
-if (!progress) {
-  progress = document.createElement("div");
-  progress.className = "ig-progress";
-  if (controls) controls.appendChild(progress);
-  else wrapper.appendChild(progress);
-  console.warn("[GALLERY] Progress not found — created.", wrapper);
-}
+    let progress =
+      controls?.querySelector(".ig-progress") ||
+      wrapper.querySelector(".ig-progress");
 
-console.log("[GALLERY] progress resolved:", progress, "parent:", progress.parentElement);
-
-
-    console.log("[GALLERY] init", {
-      wrapper: wrapper.className,
-      hasTrack: !!track,
-      slides: slides.length,
-      root: root.className || root.tagName,
-      hasControls: !!controls,
-      hasProgress: !!progress,
-      hasPrev: !!prev,
-      hasNext: !!next
-    });
-
-    if (!track || slides.length < 2 || !progress) {
-      console.warn("[GALLERY] Skipped (missing track/slides/progress).", wrapper);
-      return;
+    if (!progress) {
+      progress = document.createElement("div");
+      progress.className = "ig-progress";
+      if (controls) controls.appendChild(progress);
+      else wrapper.appendChild(progress);
     }
+
+    if (!track || slides.length < 2 || !progress) return;
 
     const N = slides.length;
     let index = 0;
     let stepPx = 0;
 
-    // Build progress segments
-    // Build progress segments (with failsafe styles so it shows on ANY page)
-progress.innerHTML = "";
+    progress.innerHTML = "";
+    progress.style.display = "flex";
+    progress.style.width = "100%";
+    progress.style.alignItems = "center";
+    progress.style.minHeight = "1px";
 
-// ✅ Failsafe layout so it can’t be “invisible” due to missing CSS
-progress.style.display = "flex";
-progress.style.width = "100%";
-progress.style.alignItems = "center";
+    for (let i = 0; i < N; i++) {
+      const seg = document.createElement("div");
+      seg.className = "ig-progress__seg";
+      seg.style.flex = "1 1 0";
+      seg.style.height = "1px";
+      seg.style.borderRadius = "999px";
+      seg.style.background = "#888";
+      seg.style.opacity = "0.25";
+      progress.appendChild(seg);
+    }
 
-// If the parent has weird collapsing, this helps too:
-progress.style.minHeight = "1px";
-
-for (let i = 0; i < N; i++) {
-  const seg = document.createElement("div");
-  seg.className = "ig-progress__seg";
-
-  // ✅ Failsafe segment visuals (uses your AGL gold + opacity changes)
-  seg.style.flex = "1 1 0";
-  seg.style.height = "1px";
-  seg.style.borderRadius = "999px";
-  seg.style.background = "#888";   
-  seg.style.opacity = "0.25";
-
-  progress.appendChild(seg);
-}
-const segs = Array.from(progress.children);
-
+    const segs = Array.from(progress.children);
 
     function computeMetrics() {
-      if (slides.length < 2) { stepPx = 0; return; }
+      if (slides.length < 2) {
+        stepPx = 0;
+        return;
+      }
       const r0 = slides[0].getBoundingClientRect();
       const r1 = slides[1].getBoundingClientRect();
       const gapPx = Math.max(0, Math.round(r1.left - r0.right));
@@ -132,7 +103,7 @@ const segs = Array.from(progress.children);
 
     function maxIndex() {
       const visible = getVisible();
-      return Math.max(0, N - visible); // (slightly cleaner than ceil)
+      return Math.max(0, N - visible);
     }
 
     function clampIndex(i) {
@@ -149,30 +120,33 @@ const segs = Array.from(progress.children);
     }
 
     function updateProgress() {
-  const visible = getVisible();
+      const visible = getVisible();
 
-  // reset
-  segs.forEach((s) => {
-    s.classList.remove("is-active", "is-current");
-    s.style.opacity = "0.25";
-  });
+      segs.forEach((s) => {
+        s.classList.remove("is-active", "is-current");
+        s.style.opacity = "0.25";
+      });
 
-  const start = index;
-  const end = Math.min(index + visible - 1, N - 1);
-  for (let i = start; i <= end; i++) {
-    if (segs[i]) {
-      segs[i].classList.add("is-active");
-      segs[i].style.opacity = "0.55";
+      const start = index;
+      const end = Math.min(index + visible - 1, N - 1);
+
+      for (let i = start; i <= end; i++) {
+        if (segs[i]) {
+          segs[i].classList.add("is-active");
+          segs[i].style.opacity = "0.55";
+        }
+      }
+
+      const current = Math.min(
+        start + Math.floor(visible / 2),
+        N - 1
+      );
+
+      if (segs[current]) {
+        segs[current].classList.add("is-current");
+        segs[current].style.opacity = "1";
+      }
     }
-  }
-
-  const current = Math.min(start + Math.floor(visible / 2), N - 1);
-  if (segs[current]) {
-    segs[current].classList.add("is-current");
-    segs[current].style.opacity = "1";
-  }
-}
-
 
     function goTo(i) {
       computeMetrics();
@@ -182,7 +156,6 @@ const segs = Array.from(progress.children);
       updateButtons();
     }
 
-    // Drag/swipe
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
@@ -201,8 +174,13 @@ const segs = Array.from(progress.children);
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    function minTranslate() { return -maxIndex() * stepPx; }
-    function maxTranslate() { return 0; }
+    function minTranslate() {
+      return -maxIndex() * stepPx;
+    }
+
+    function maxTranslate() {
+      return 0;
+    }
 
     function withResistance(x) {
       const minX = minTranslate();
@@ -222,7 +200,8 @@ const segs = Array.from(progress.children);
       });
     }
 
-    const mask = wrapper.querySelector(".c-featured_gallery-mask") || wrapper;
+    const mask =
+      wrapper.querySelector(".c-featured_gallery-mask") || wrapper;
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
@@ -260,7 +239,9 @@ const segs = Array.from(progress.children);
       else goTo(index);
 
       e.preventDefault();
-      setTimeout(() => { moved = false; }, 0);
+      setTimeout(() => {
+        moved = false;
+      }, 0);
     }
 
     mask.addEventListener("pointerdown", onDown, { passive: false });
@@ -269,12 +250,16 @@ const segs = Array.from(progress.children);
     mask.addEventListener("pointercancel", onUp, { passive: false });
     mask.addEventListener("pointerleave", onUp, { passive: false });
 
-    mask.addEventListener("click", (e) => {
-      if (moved) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
+    mask.addEventListener(
+      "click",
+      (e) => {
+        if (moved) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      true
+    );
 
     if (next) {
       next.addEventListener("click", (e) => {
@@ -284,6 +269,7 @@ const segs = Array.from(progress.children);
         goTo(index + 1);
       });
     }
+
     if (prev) {
       prev.addEventListener("click", (e) => {
         e.preventDefault();
@@ -295,13 +281,23 @@ const segs = Array.from(progress.children);
 
     wrapper.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
-      img.addEventListener("load", () => { computeMetrics(); goTo(index); }, { once: true });
+      img.addEventListener(
+        "load",
+        () => {
+          computeMetrics();
+          goTo(index);
+        },
+        { once: true }
+      );
     });
 
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
-      t = setTimeout(() => { computeMetrics(); goTo(index); }, 60);
+      t = setTimeout(() => {
+        computeMetrics();
+        goTo(index);
+      }, 60);
     });
 
     computeMetrics();
@@ -310,19 +306,24 @@ const segs = Array.from(progress.children);
 
   function initAll() {
     document
-      .querySelectorAll(".c-featured_gallery, .c-featured_gallery-mobile, .c-about_partners")
+      .querySelectorAll(
+        ".c-featured_gallery, .c-featured_gallery-mobile, .c-about_partners"
+      )
       .forEach(initGallery);
   }
 
   const run = () => initAll();
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run, { once: true });
   } else {
     run();
   }
+
   window.addEventListener("load", run, { once: true });
   setTimeout(run, 0);
   setTimeout(run, 300);
+
   if (window.Webflow && typeof window.Webflow.push === "function") {
     window.Webflow.push(run);
   }
