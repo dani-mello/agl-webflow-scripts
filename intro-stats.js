@@ -1,4 +1,4 @@
-console.log("INTRO STATS COUNTER (V6 - IN VIEW + STAGGER + RESET)");
+
 
 (function () {
   function ready(fn) {
