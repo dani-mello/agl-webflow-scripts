@@ -54,10 +54,25 @@ console.log("featured v1");
 
     const controls = findControls(wrapper);
 
-    // ✅ UPDATED: query from controls first, otherwise from *root* (not wrapper)
-    const prev = controls?.querySelector(".ig-prev") || root.querySelector(".ig-prev");
-    const next = controls?.querySelector(".ig-next") || root.querySelector(".ig-next");
-    const progress = controls?.querySelector(".ig-progress") || root.querySelector(".ig-progress");
+const prev = controls?.querySelector(".ig-prev") || wrapper.querySelector(".ig-prev");
+const next = controls?.querySelector(".ig-next") || wrapper.querySelector(".ig-next");
+
+// Try to find progress in the same instance
+let progress =
+  controls?.querySelector(".ig-progress") ||
+  wrapper.querySelector(".ig-progress");
+
+// ✅ If it doesn't exist, create it so it works anywhere
+if (!progress) {
+  progress = document.createElement("div");
+  progress.className = "ig-progress";
+  if (controls) controls.appendChild(progress);
+  else wrapper.appendChild(progress);
+  console.warn("[GALLERY] Progress not found — created.", wrapper);
+}
+
+console.log("[GALLERY] progress resolved:", progress, "parent:", progress.parentElement);
+
 
     console.log("[GALLERY] init", {
       wrapper: wrapper.className,
