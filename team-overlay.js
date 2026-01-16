@@ -1,3 +1,5 @@
+console.log("team-overlay v1");
+
 
 (function () {
   if (window.__teamOverlayInit) return;
