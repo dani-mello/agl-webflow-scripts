@@ -1,8 +1,4 @@
-// hpin.js
-console.log(
-  "%cHPIN-horizontalscroll V20 (desktop locked + mobile restored)",
-  "background:#0a1925;color:#fcb124;padding:4px 8px;border-radius:4px;font-weight:bold;"
-);
+
 
 (function () {
   const DEBUG = false;
