@@ -1,26 +1,23 @@
-console.log("STAGGER v2");
+console.log("STAGGER v3");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  // Prevent double init
-  if (window.__staggerInitV2) return;
-  window.__staggerInitV2 = true;
+  if (window.__staggerInitV3) return;
+  window.__staggerInitV3 = true;
 
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function initStagger(parent) {
-    // ✅ DOM order: first to last
     const items = Array.from(parent.querySelectorAll(".js-stagger-item"));
     if (!items.length) return;
 
-    // Controls (optional)
-    const start = parent.getAttribute("data-stagger-start") || "top 85%"; // when wrapper enters view
-    const amount = parseFloat(parent.getAttribute("data-stagger-amount") || "0.12");
-    const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "18");
-    const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.98");
+    const start = parent.getAttribute("data-stagger-start") || "top 90%"; // ✅ per-item start
+    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.08");
+    const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "20");
+    const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.8");
     const duration = parseFloat(parent.getAttribute("data-stagger-duration") || "0.7");
     const ease = parent.getAttribute("data-stagger-ease") || "power3.out";
 
@@ -29,30 +26,34 @@ console.log("STAGGER v2");
       return;
     }
 
-    // Initial state (hidden + slight offset)
+    // initial state
     gsap.set(items, { opacity: 0, scale: scaleFrom });
 
-    // Optional: add a tiny “non-linear” feel but keep ORDER linear
+    // slight variance but NOT random order
     items.forEach((el, i) => {
       const signX = i % 2 === 0 ? -1 : 1;
       const signY = i % 3 === 0 ? -1 : 1;
       gsap.set(el, { x: signX * dist, y: signY * dist });
     });
 
-    // ✅ Only animate when in view (and only once)
-    ScrollTrigger.create({
-      trigger: parent,
+    // ✅ Animate ONLY the items that enter the viewport (batched)
+    ScrollTrigger.batch(items, {
       start,
       once: true,
-      onEnter: () => {
-        gsap.to(items, {
+      interval: 0.12, // groups items that enter close together
+      batchMax: 12,   // max items per batch
+      onEnter: (batch) => {
+        // keep DOM order within the batch
+        batch.sort((a, b) => items.indexOf(a) - items.indexOf(b));
+
+        gsap.to(batch, {
           opacity: 1,
           x: 0,
           y: 0,
           scale: 1,
           duration,
           ease,
-          stagger: { each: amount }, // first → last
+          stagger: { each },
           overwrite: true,
           clearProps: "transform"
         });
