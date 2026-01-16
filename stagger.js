@@ -1,4 +1,4 @@
-console.log("STAGGER v1");
+console.log("STAGGER v2");
 
 <script>
 (() => {
