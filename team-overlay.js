@@ -1,4 +1,5 @@
-console.log("team-overlay v3");
+console.log("team-overlay v4");
+
 
 
 (function () {
@@ -40,15 +41,15 @@ console.log("team-overlay v3");
     unlockScroll();
   }
 
-  function openOverlayFromCard(cardEl) {
-    // find the CMS item container for THIS card
+  function openFromCard(cardEl) {
+    // ✅ Works across ALL collection lists because it finds the nearest CMS item
     var item = cardEl.closest(".c-team-collection_item");
     if (!item) return;
 
     var overlay = item.querySelector(".c-team-overlay");
     if (!overlay) return;
 
-    // Close any others without unlocking first (prevents jump)
+    // Close others (keep scroll locked)
     document.querySelectorAll(".c-team-overlay.is-open").forEach(function (ov) {
       ov.classList.remove("is-open");
     });
@@ -57,39 +58,23 @@ console.log("team-overlay v3");
 
     overlay.classList.add("is-open");
 
-    // ensure overlay isn't accidentally scroll container
+    // ensure only the content scrolls
     overlay.scrollTop = 0;
-
-    // reset the inner content scroll to top (optional)
     var content = overlay.querySelector(".c-team-overlay_content");
     if (content) content.scrollTop = 0;
   }
 
-  // ✅ Event delegation: works for all three repeated sections + CMS
+  // ✅ ONE listener for the whole page
   document.addEventListener("click", function (e) {
-    // Open: click on card or any child inside it
     var card = e.target.closest(".c-team_wrap");
-    if (card) {
-      openOverlayFromCard(card);
-      return;
-    }
+    if (card) { openFromCard(card); return; }
 
-    // Close: click background
-    if (e.target.closest(".c-team-overlay_bg")) {
-      closeAll();
-      return;
-    }
-
-    // Close: click close button
-    if (e.target.closest(".c-team-overlay_close")) {
-      closeAll();
-      return;
-    }
+    if (e.target.closest(".c-team-overlay_bg")) { closeAll(); return; }
+    if (e.target.closest(".c-team-overlay_close")) { closeAll(); return; }
   });
 
-  // ESC closes
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closeAll();
   });
-
 })();
+
