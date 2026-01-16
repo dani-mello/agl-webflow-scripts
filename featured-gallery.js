@@ -1,3 +1,5 @@
+console.log("featured v1");
+
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
