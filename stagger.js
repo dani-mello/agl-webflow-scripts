@@ -1,3 +1,4 @@
+console.log("STAGGER v1");
 
 (() => {
   // Requires GSAP + ScrollTrigger
