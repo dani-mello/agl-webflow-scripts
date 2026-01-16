@@ -1,6 +1,5 @@
 console.log("STAGGER v2");
 
-<script>
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
@@ -71,4 +70,3 @@ console.log("STAGGER v2");
 
   initAll();
 })();
-</script>
