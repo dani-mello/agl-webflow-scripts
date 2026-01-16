@@ -1,19 +1,15 @@
-console.log("team-overlay v2");
+console.log("team-overlay v3");
 
 
 (function () {
   if (window.__teamOverlayInit) return;
   window.__teamOverlayInit = true;
 
-  var items = document.querySelectorAll(".c-team-collection_item");
-  if (!items.length) return;
-
   var savedScrollY = 0;
 
   function lockScroll() {
     savedScrollY = window.scrollY || window.pageYOffset || 0;
 
-    // Freeze the page at current position
     document.body.style.position = "fixed";
     document.body.style.top = (-savedScrollY) + "px";
     document.body.style.left = "0";
@@ -28,14 +24,12 @@ console.log("team-overlay v2");
     document.documentElement.classList.remove("is-team-overlay-open");
     document.body.classList.remove("is-team-overlay-open");
 
-    // Unfreeze
     document.body.style.position = "";
     document.body.style.top = "";
     document.body.style.left = "";
     document.body.style.right = "";
     document.body.style.width = "";
 
-    // Restore scroll position
     window.scrollTo(0, savedScrollY);
   }
 
@@ -46,51 +40,56 @@ console.log("team-overlay v2");
     unlockScroll();
   }
 
-  function openForItem(item) {
+  function openOverlayFromCard(cardEl) {
+    // find the CMS item container for THIS card
+    var item = cardEl.closest(".c-team-collection_item");
+    if (!item) return;
+
     var overlay = item.querySelector(".c-team-overlay");
     if (!overlay) return;
 
-    // close others without unlocking (prevents jump)
+    // Close any others without unlocking first (prevents jump)
     document.querySelectorAll(".c-team-overlay.is-open").forEach(function (ov) {
       ov.classList.remove("is-open");
     });
 
     lockScroll();
+
     overlay.classList.add("is-open");
-    overlay.scrollTop = 0; // ensure overlay itself never becomes the scroll container
 
+    // ensure overlay isn't accidentally scroll container
+    overlay.scrollTop = 0;
 
-    // optional: reset overlay scroll to top each time
+    // reset the inner content scroll to top (optional)
     var content = overlay.querySelector(".c-team-overlay_content");
     if (content) content.scrollTop = 0;
   }
 
-  items.forEach(function (item) {
-    var card = item.querySelector(".c-team_wrap");
-    var overlay = item.querySelector(".c-team-overlay");
-    if (!card || !overlay) return;
+  // ✅ Event delegation: works for all three repeated sections + CMS
+  document.addEventListener("click", function (e) {
+    // Open: click on card or any child inside it
+    var card = e.target.closest(".c-team_wrap");
+    if (card) {
+      openOverlayFromCard(card);
+      return;
+    }
 
-    card.addEventListener("click", function () {
-      openForItem(item);
-    });
+    // Close: click background
+    if (e.target.closest(".c-team-overlay_bg")) {
+      closeAll();
+      return;
+    }
 
-    var bg = overlay.querySelector(".c-team-overlay_bg");
-    if (bg) bg.addEventListener("click", closeAll);
-
-    var closeBtn = overlay.querySelector(".c-team-overlay_close");
-    if (closeBtn) closeBtn.addEventListener("click", closeAll);
-
-    // Bonus: allow Enter key if you add tabindex="0" to .c-team_wrap
-    card.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        openForItem(item);
-      }
-    });
+    // Close: click close button
+    if (e.target.closest(".c-team-overlay_close")) {
+      closeAll();
+      return;
+    }
   });
 
+  // ESC closes
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closeAll();
   });
-})();
 
+})();
