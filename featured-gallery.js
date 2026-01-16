@@ -1,4 +1,4 @@
-console.log("featured v1");
+console.log("featured v2");
 
 (() => {
   const TABLET_BP = 991;
