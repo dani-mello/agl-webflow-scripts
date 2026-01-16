@@ -1,5 +1,3 @@
-
-
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
@@ -10,32 +8,33 @@
     return 3;
   }
 
+  // ✅ NEW: pick a "gallery root" so each instance stays scoped
+  function getGalleryRoot(wrapper) {
+    // If you have a consistent component wrapper, put it first here.
+    return (
+      wrapper.closest(".c-featured_gallery-wrap") ||     // (recommended wrapper if you add it)
+      wrapper.closest(".w-dyn-item") ||                  // if inside a CMS item
+      wrapper.closest("section") ||                      // fallback
+      wrapper.parentElement ||
+      wrapper
+    );
+  }
+
+  // ✅ UPDATED: only find controls inside the SAME root
   function findControls(wrapper) {
+    const root = getGalleryRoot(wrapper);
+
     // 1) inside wrapper
     let controls = wrapper.querySelector(".inline-gallery__controls");
     if (controls) return controls;
 
-    // 2) parent
-    if (wrapper.parentElement) {
-      controls = wrapper.parentElement.querySelector(":scope > .inline-gallery__controls");
-      if (controls) return controls;
+    // 2) inside root (this is the big fix)
+    controls = root.querySelector(".inline-gallery__controls");
+    if (controls) return controls;
 
-      controls = wrapper.parentElement.querySelector(".inline-gallery__controls");
-      if (controls) return controls;
-    }
-
-    // 3) next sibling
+    // 3) immediate next sibling
     const next = wrapper.nextElementSibling;
-    if (next && next.classList && next.classList.contains("inline-gallery__controls")) {
-      return next;
-    }
-
-    // 4) closest section
-    const section = wrapper.closest("section, .w-section, .w-container, .w-layout-blockcontainer");
-    if (section) {
-      controls = section.querySelector(".inline-gallery__controls");
-      if (controls) return controls;
-    }
+    if (next?.classList?.contains("inline-gallery__controls")) return next;
 
     return null;
   }
@@ -44,20 +43,25 @@
     if (wrapper.dataset.galleryInit === "1") return;
     wrapper.dataset.galleryInit = "1";
 
+    const root = getGalleryRoot(wrapper);
+
     const track = wrapper.querySelector(".c-featured_gallery-track");
     const slides = track
       ? Array.from(track.querySelectorAll(".c-featured_gallery-slide"))
       : [];
 
     const controls = findControls(wrapper);
-    const prev = controls ? controls.querySelector(".ig-prev") : wrapper.querySelector(".ig-prev");
-    const next = controls ? controls.querySelector(".ig-next") : wrapper.querySelector(".ig-next");
-    const progress = controls ? controls.querySelector(".ig-progress") : wrapper.querySelector(".ig-progress");
+
+    // ✅ UPDATED: query from controls first, otherwise from *root* (not wrapper)
+    const prev = controls?.querySelector(".ig-prev") || root.querySelector(".ig-prev");
+    const next = controls?.querySelector(".ig-next") || root.querySelector(".ig-next");
+    const progress = controls?.querySelector(".ig-progress") || root.querySelector(".ig-progress");
 
     console.log("[GALLERY] init", {
       wrapper: wrapper.className,
       hasTrack: !!track,
       slides: slides.length,
+      root: root.className || root.tagName,
       hasControls: !!controls,
       hasProgress: !!progress,
       hasPrev: !!prev,
@@ -92,7 +96,7 @@
 
     function maxIndex() {
       const visible = getVisible();
-      return Math.max(0, Math.ceil(N - visible));
+      return Math.max(0, N - visible); // (slightly cleaner than ceil)
     }
 
     function clampIndex(i) {
@@ -128,7 +132,7 @@
       updateButtons();
     }
 
-    // Drag/swipe (same as your smooth version)
+    // Drag/swipe
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
@@ -222,7 +226,6 @@
       }
     }, true);
 
-    // Buttons
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
@@ -240,13 +243,11 @@
       });
     }
 
-    // Images load
     wrapper.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
       img.addEventListener("load", () => { computeMetrics(); goTo(index); }, { once: true });
     });
 
-    // Resize
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
