@@ -1,4 +1,4 @@
-console.log("featured v2");
+console.log("featured v3");
 
 (() => {
   const TABLET_BP = 991;
@@ -95,13 +95,33 @@ console.log("[GALLERY] progress resolved:", progress, "parent:", progress.parent
     let stepPx = 0;
 
     // Build progress segments
-    progress.innerHTML = "";
-    for (let i = 0; i < N; i++) {
-      const seg = document.createElement("div");
-      seg.className = "ig-progress__seg";
-      progress.appendChild(seg);
-    }
-    const segs = Array.from(progress.children);
+    // Build progress segments (with failsafe styles so it shows on ANY page)
+progress.innerHTML = "";
+
+// ✅ Failsafe layout so it can’t be “invisible” due to missing CSS
+progress.style.display = "flex";
+progress.style.gap = "6px";
+progress.style.width = "100%";
+progress.style.alignItems = "center";
+
+// If the parent has weird collapsing, this helps too:
+progress.style.minHeight = "2px";
+
+for (let i = 0; i < N; i++) {
+  const seg = document.createElement("div");
+  seg.className = "ig-progress__seg";
+
+  // ✅ Failsafe segment visuals (uses your AGL gold + opacity changes)
+  seg.style.flex = "1 1 0";
+  seg.style.height = "2px";
+  seg.style.borderRadius = "999px";
+  seg.style.background = "#fcb124";   // AGL gold
+  seg.style.opacity = "0.25";
+
+  progress.appendChild(seg);
+}
+const segs = Array.from(progress.children);
+
 
     function computeMetrics() {
       if (slides.length < 2) { stepPx = 0; return; }
@@ -130,16 +150,30 @@ console.log("[GALLERY] progress resolved:", progress, "parent:", progress.parent
     }
 
     function updateProgress() {
-      const visible = getVisible();
-      segs.forEach((s) => s.classList.remove("is-active", "is-current"));
+  const visible = getVisible();
 
-      const start = index;
-      const end = Math.min(index + visible - 1, N - 1);
-      for (let i = start; i <= end; i++) segs[i]?.classList.add("is-active");
+  // reset
+  segs.forEach((s) => {
+    s.classList.remove("is-active", "is-current");
+    s.style.opacity = "0.25";
+  });
 
-      const current = Math.min(start + Math.floor(visible / 2), N - 1);
-      segs[current]?.classList.add("is-current");
+  const start = index;
+  const end = Math.min(index + visible - 1, N - 1);
+  for (let i = start; i <= end; i++) {
+    if (segs[i]) {
+      segs[i].classList.add("is-active");
+      segs[i].style.opacity = "0.55";
     }
+  }
+
+  const current = Math.min(start + Math.floor(visible / 2), N - 1);
+  if (segs[current]) {
+    segs[current].classList.add("is-current");
+    segs[current].style.opacity = "1";
+  }
+}
+
 
     function goTo(i) {
       computeMetrics();
