@@ -1,4 +1,4 @@
-console.log("GALLERY (featured/partners) v7");
+
 
 (() => {
   const TABLET_BP = 991;
