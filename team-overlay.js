@@ -1,4 +1,4 @@
-console.log("team-overlay v1");
+console.log("team-overlay v2");
 
 
 (function () {
@@ -57,6 +57,8 @@ console.log("team-overlay v1");
 
     lockScroll();
     overlay.classList.add("is-open");
+    overlay.scrollTop = 0; // ensure overlay itself never becomes the scroll container
+
 
     // optional: reset overlay scroll to top each time
     var content = overlay.querySelector(".c-team-overlay_content");
