@@ -1,4 +1,4 @@
-console.log("team-overlay v4");
+console.log("team-overlay v5");
 
 
 
@@ -42,8 +42,8 @@ console.log("team-overlay v4");
   }
 
   function openFromCard(cardEl) {
-    // ✅ Works across ALL collection lists because it finds the nearest CMS item
-    var item = cardEl.closest(".c-team-collection_item");
+    // ✅ Find the CMS item wrapper in ANY collection list
+    var item = cardEl.closest(".c-team-collection_item, .w-dyn-item");
     if (!item) return;
 
     var overlay = item.querySelector(".c-team-overlay");
@@ -64,7 +64,6 @@ console.log("team-overlay v4");
     if (content) content.scrollTop = 0;
   }
 
-  // ✅ ONE listener for the whole page
   document.addEventListener("click", function (e) {
     var card = e.target.closest(".c-team_wrap");
     if (card) { openFromCard(card); return; }
@@ -77,4 +76,5 @@ console.log("team-overlay v4");
     if (e.key === "Escape") closeAll();
   });
 })();
+
 
