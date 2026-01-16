@@ -1,4 +1,4 @@
-console.log("featured v3");
+console.log("featured v4");
 
 (() => {
   const TABLET_BP = 991;
@@ -100,12 +100,11 @@ progress.innerHTML = "";
 
 // ✅ Failsafe layout so it can’t be “invisible” due to missing CSS
 progress.style.display = "flex";
-progress.style.gap = "6px";
 progress.style.width = "100%";
 progress.style.alignItems = "center";
 
 // If the parent has weird collapsing, this helps too:
-progress.style.minHeight = "2px";
+progress.style.minHeight = "1px";
 
 for (let i = 0; i < N; i++) {
   const seg = document.createElement("div");
@@ -113,9 +112,9 @@ for (let i = 0; i < N; i++) {
 
   // ✅ Failsafe segment visuals (uses your AGL gold + opacity changes)
   seg.style.flex = "1 1 0";
-  seg.style.height = "2px";
+  seg.style.height = "1px";
   seg.style.borderRadius = "999px";
-  seg.style.background = "#fcb124";   // AGL gold
+  seg.style.background = "#888";   
   seg.style.opacity = "0.25";
 
   progress.appendChild(seg);
