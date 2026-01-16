@@ -1,13 +1,4 @@
-console.log("[YT] control v5 loaded ✅");
 
-/* youtube-embed-control.js
-   HTML:
-   <div class="video-embed js-yt-embed" data-yt-id="r0MGm-MgHkE" data-yt-muted="false">
-     <div class="js-yt-player"></div>
-     <button class="yt-sound-btn js-yt-sound" type="button">Sound off</button>
-     <button class="yt-unmute-overlay js-yt-unmute" type="button">Tap for sound</button>
-   </div>
-*/
 
 (function () {
   "use strict";
