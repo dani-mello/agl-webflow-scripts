@@ -1,52 +1,105 @@
-console.log("GEAR GALLERY V1");
-
-/* gear-gallery.js
-   - ONLY targets .c-gear_gallery instances
-   - Controls are scoped per gallery (won’t fight your other inline gallery script)
-   - Visible counts: Desktop 4, Tablet 3, Mobile 1
-*/
+console.log("GEAR GALLERY V2");
 
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
 
   function getVisible() {
-    if (window.matchMedia(`(max-width:${MOBILE_BP}px)`).matches) return 1;
-    if (window.matchMedia(`(max-width:${TABLET_BP}px)`).matches) return 3;
+    if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
+    if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 3;
     return 4;
   }
 
-  function initGallery(root) {
-    if (root.dataset.ggInit === "1") return;
-    root.dataset.ggInit = "1";
+  function getGalleryRoot(wrapper) {
+    return (
+      wrapper.closest(".c-gear_gallery") ||
+      wrapper.closest(".w-dyn-item") ||
+      wrapper.closest("section") ||
+      wrapper.parentElement ||
+      wrapper
+    );
+  }
 
-    const mask = root.querySelector(".c-gear_gallery-mask");
-    const track = root.querySelector(".c-gear_gallery-track");
-    const slides = track ? Array.from(track.querySelectorAll(".c-gear_gallery-slide")) : [];
+  function findControls(wrapper) {
+    const root = getGalleryRoot(wrapper);
 
-    // ✅ Controls MUST be inside this gallery root
-    const controls = root.querySelector(".inline-gallery__controls") || root;
-    const prev = controls.querySelector(".ig-prev");
-    const next = controls.querySelector(".ig-next");
-    const progress = controls.querySelector(".ig-progress");
+    let controls = wrapper.querySelector(".inline-gallery__controls");
+    if (controls) return controls;
 
-    if (!mask || !track || slides.length < 2 || !progress) return;
+    controls = root.querySelector(".inline-gallery__controls");
+    if (controls) return controls;
+
+    const next = wrapper.nextElementSibling;
+    if (next?.classList?.contains("inline-gallery__controls")) return next;
+
+    return null;
+  }
+
+  function initGearGallery(wrapper) {
+    if (wrapper.dataset.gearGalleryInit === "1") return;
+    wrapper.dataset.gearGalleryInit = "1";
+
+    const root = getGalleryRoot(wrapper);
+
+    const track = wrapper.querySelector(".c-gear_gallery-track");
+    const slides = track
+      ? Array.from(track.querySelectorAll(".c-gear_gallery-slide"))
+      : [];
+
+    const controls = findControls(wrapper);
+
+    const prev =
+      controls?.querySelector(".ig-prev") ||
+      wrapper.querySelector(".ig-prev");
+
+    const next =
+      controls?.querySelector(".ig-next") ||
+      wrapper.querySelector(".ig-next");
+
+    let progress =
+      controls?.querySelector(".ig-progress") ||
+      wrapper.querySelector(".ig-progress");
+
+    // Create progress if missing
+    if (!progress) {
+      progress = document.createElement("div");
+      progress.className = "ig-progress";
+      if (controls) controls.appendChild(progress);
+      else wrapper.appendChild(progress);
+    }
+
+    if (!track || slides.length < 2 || !progress) return;
 
     const N = slides.length;
     let index = 0;
     let stepPx = 0;
 
-    // Build progress segments
+    // Build + style progress (same approach as featured gallery)
     progress.innerHTML = "";
+    progress.style.display = "flex";
+    progress.style.width = "100%";
+    progress.style.alignItems = "center";
+    progress.style.minHeight = "1px";
+    progress.style.gap = "8px";
+
     for (let i = 0; i < N; i++) {
       const seg = document.createElement("div");
       seg.className = "ig-progress__seg";
+      seg.style.flex = "1 1 0";
+      seg.style.height = "1px";
+      seg.style.borderRadius = "999px";
+      seg.style.background = "#888";
+      seg.style.opacity = "0.25";
       progress.appendChild(seg);
     }
+
     const segs = Array.from(progress.children);
 
     function computeMetrics() {
-      if (slides.length < 2) return;
+      if (slides.length < 2) {
+        stepPx = 0;
+        return;
+      }
       const r0 = slides[0].getBoundingClientRect();
       const r1 = slides[1].getBoundingClientRect();
       const gapPx = Math.max(0, Math.round(r1.left - r0.right));
@@ -55,7 +108,7 @@ console.log("GEAR GALLERY V1");
 
     function maxIndex() {
       const visible = getVisible();
-      return Math.max(0, Math.ceil(N - visible));
+      return Math.max(0, N - visible);
     }
 
     function clampIndex(i) {
@@ -66,25 +119,51 @@ console.log("GEAR GALLERY V1");
       track.style.transform = `translate3d(${-index * stepPx}px, 0, 0)`;
     }
 
-    function updateProgress() {
-      segs.forEach((s) => s.classList.remove("is-active"));
-      const active = Math.min(index, N - 1);
-      segs[active]?.classList.add("is-active");
-    }
-
-    function goTo(i) {
-      index = clampIndex(i);
-      applyTransform();
-      updateProgress();
+    function updateButtons() {
       if (prev) prev.classList.toggle("is-disabled", index === 0);
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
-    // --- Drag / swipe ---
+    function updateProgress() {
+      const visible = getVisible();
+
+      segs.forEach((s) => {
+        s.classList.remove("is-active", "is-current");
+        s.style.opacity = "0.25";
+      });
+
+      const start = index;
+      const end = Math.min(index + visible - 1, N - 1);
+
+      for (let i = start; i <= end; i++) {
+        if (segs[i]) {
+          segs[i].classList.add("is-active");
+          segs[i].style.opacity = "0.55";
+        }
+      }
+
+      const current = Math.min(start + Math.floor(visible / 2), N - 1);
+      if (segs[current]) {
+        segs[current].classList.add("is-current");
+        segs[current].style.opacity = "1";
+      }
+    }
+
+    function goTo(i) {
+      computeMetrics();
+      index = clampIndex(i);
+      applyTransform();
+      updateProgress();
+      updateButtons();
+    }
+
+    // --- Drag / swipe (same style as featured gallery) ---
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
     let moved = false;
+    let rafId = null;
+    let pendingX = null;
 
     function getTranslateX(el) {
       const t = getComputedStyle(el).transform;
@@ -97,7 +176,34 @@ console.log("GEAR GALLERY V1");
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    // ✅ allow vertical scroll inside description, but capture horizontal drags
+    function minTranslate() {
+      return -maxIndex() * stepPx;
+    }
+
+    function maxTranslate() {
+      return 0;
+    }
+
+    function withResistance(x) {
+      const minX = minTranslate();
+      const maxX = maxTranslate();
+      if (x > maxX) return maxX + (x - maxX) * 0.25;
+      if (x < minX) return minX + (x - minX) * 0.25;
+      return x;
+    }
+
+    function scheduleMove(x) {
+      pendingX = x;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (pendingX == null) return;
+        setTranslateX(withResistance(pendingX));
+      });
+    }
+
+    const mask =
+      wrapper.querySelector(".c-gear_gallery-mask") || wrapper;
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
@@ -105,19 +211,21 @@ console.log("GEAR GALLERY V1");
       isDown = true;
       moved = false;
 
+      computeMetrics();
       track.style.transition = "none";
       startX = e.clientX;
       startTranslate = getTranslateX(track);
+
       mask.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
     }
 
     function onMove(e) {
       if (!isDown) return;
-
       const dx = e.clientX - startX;
       if (Math.abs(dx) > 3) moved = true;
-
-      setTranslateX(startTranslate + dx);
+      scheduleMove(startTranslate + dx);
+      e.preventDefault();
     }
 
     function onUp(e) {
@@ -125,22 +233,25 @@ console.log("GEAR GALLERY V1");
       isDown = false;
 
       track.style.transition = "transform 300ms ease";
-
       const dx = e.clientX - startX;
-      const threshold = stepPx * 0.18;
+      const threshold = Math.min(stepPx * 0.22, 120);
 
       if (dx < -threshold) goTo(index + 1);
       else if (dx > threshold) goTo(index - 1);
       else goTo(index);
+
+      e.preventDefault();
+      setTimeout(() => {
+        moved = false;
+      }, 0);
     }
 
-    mask.addEventListener("pointerdown", onDown);
-    mask.addEventListener("pointermove", onMove);
-    mask.addEventListener("pointerup", onUp);
-    mask.addEventListener("pointercancel", onUp);
-    mask.addEventListener("pointerleave", onUp);
+    mask.addEventListener("pointerdown", onDown, { passive: false });
+    mask.addEventListener("pointermove", onMove, { passive: false });
+    mask.addEventListener("pointerup", onUp, { passive: false });
+    mask.addEventListener("pointercancel", onUp, { passive: false });
+    mask.addEventListener("pointerleave", onUp, { passive: false });
 
-    // prevent click-through if dragged
     mask.addEventListener(
       "click",
       (e) => {
@@ -152,23 +263,36 @@ console.log("GEAR GALLERY V1");
       true
     );
 
-    // Buttons
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
         if (next.classList.contains("is-disabled")) return;
+        track.style.transition = "transform 300ms ease";
         goTo(index + 1);
       });
     }
+
     if (prev) {
       prev.addEventListener("click", (e) => {
         e.preventDefault();
         if (prev.classList.contains("is-disabled")) return;
+        track.style.transition = "transform 300ms ease";
         goTo(index - 1);
       });
     }
 
-    // Resize
+    wrapper.querySelectorAll("img").forEach((img) => {
+      if (img.complete) return;
+      img.addEventListener(
+        "load",
+        () => {
+          computeMetrics();
+          goTo(index);
+        },
+        { once: true }
+      );
+    });
+
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
@@ -183,16 +307,21 @@ console.log("GEAR GALLERY V1");
   }
 
   function initAll() {
-    document.querySelectorAll(".c-gear_gallery").forEach(initGallery);
+    document.querySelectorAll(".c-gear_gallery").forEach(initGearGallery);
   }
 
   const run = () => initAll();
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run, { once: true });
   } else {
     run();
   }
+
   window.addEventListener("load", run, { once: true });
+  setTimeout(run, 0);
+  setTimeout(run, 300);
+
   if (window.Webflow && typeof window.Webflow.push === "function") {
     window.Webflow.push(run);
   }
