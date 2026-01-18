@@ -1,4 +1,4 @@
-console.log("STAGGERED HEADING (LINES) ANIMATION LOADED v3.1 - FOUC FIX");
+
 
 // animate-heading.js
 // Requires GSAP + ScrollTrigger + SplitText
