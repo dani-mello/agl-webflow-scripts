@@ -1,11 +1,9 @@
 console.log("GEAR GALLERY V1");
 
 /* gear-gallery.js
-   - Component safe (class-based, no IDs)
-   - Supports multiple gear galleries on a page
-   - Builds & updates progress segments
-   - Drag/swipe via Pointer Events
-   - Visible counts: Desktop 4, Tablet 3, Mobile 1
+   Webflow-safe: mask = Collection List Wrapper
+                track = Collection List
+                slide = Collection Item
 */
 
 (() => {
@@ -22,7 +20,7 @@ console.log("GEAR GALLERY V1");
     if (root.dataset.ggInit === "1") return;
     root.dataset.ggInit = "1";
 
-    const mask = root.querySelector(".c-gear_gallery-mask") || root;
+    const mask = root.querySelector(".c-gear_gallery-mask");
     const track = root.querySelector(".c-gear_gallery-track");
     const slides = track ? Array.from(track.querySelectorAll(".c-gear_gallery-slide")) : [];
 
@@ -30,7 +28,7 @@ console.log("GEAR GALLERY V1");
     const next = root.querySelector(".ig-next");
     const progress = root.querySelector(".ig-progress");
 
-    if (!track || slides.length < 2 || !progress) return;
+    if (!mask || !track || slides.length < 2 || !progress) return;
 
     const N = slides.length;
     let index = 0;
@@ -80,7 +78,7 @@ console.log("GEAR GALLERY V1");
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
-    // --- Drag / swipe (pointer events) ---
+    // --- Drag / swipe ---
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
@@ -97,27 +95,27 @@ console.log("GEAR GALLERY V1");
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    // Allow vertical scroll inside description, but capture horizontal drags
+    // Allow vertical scroll in description, capture horizontal drags
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
-      // ignore right click / non-primary mouse
       if (e.button !== undefined && e.button !== 0) return;
 
       isDown = true;
       moved = false;
-
       track.style.transition = "none";
+
       startX = e.clientX;
       startTranslate = getTranslateX(track);
-
       mask.setPointerCapture?.(e.pointerId);
     }
 
     function onMove(e) {
       if (!isDown) return;
+
       const dx = e.clientX - startX;
       if (Math.abs(dx) > 3) moved = true;
+
       setTranslateX(startTranslate + dx);
     }
 
@@ -141,7 +139,7 @@ console.log("GEAR GALLERY V1");
     mask.addEventListener("pointercancel", onUp);
     mask.addEventListener("pointerleave", onUp);
 
-    // prevent click-through if dragged
+    // Prevent click-through if dragged
     mask.addEventListener(
       "click",
       (e) => {
@@ -153,7 +151,6 @@ console.log("GEAR GALLERY V1");
       true
     );
 
-    // Buttons (optional)
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
@@ -169,7 +166,6 @@ console.log("GEAR GALLERY V1");
       });
     }
 
-    // Resize recalcs widths + max index for breakpoint visible changes
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
