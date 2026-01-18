@@ -1,5 +1,3 @@
-console.log("GEAR GALLERY V2");
-
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
