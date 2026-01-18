@@ -1,3 +1,5 @@
+console.log("GEAR GALLERY V1");
+
 /* gear-gallery.js
    - Component safe (class-based, no IDs)
    - Supports multiple gear galleries on a page
