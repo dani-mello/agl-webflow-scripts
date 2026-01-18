@@ -1,9 +1,9 @@
 console.log("GEAR GALLERY V1");
 
 /* gear-gallery.js
-   Webflow-safe: mask = Collection List Wrapper
-                track = Collection List
-                slide = Collection Item
+   - ONLY targets .c-gear_gallery instances
+   - Controls are scoped per gallery (won’t fight your other inline gallery script)
+   - Visible counts: Desktop 4, Tablet 3, Mobile 1
 */
 
 (() => {
@@ -24,9 +24,11 @@ console.log("GEAR GALLERY V1");
     const track = root.querySelector(".c-gear_gallery-track");
     const slides = track ? Array.from(track.querySelectorAll(".c-gear_gallery-slide")) : [];
 
-    const prev = root.querySelector(".ig-prev");
-    const next = root.querySelector(".ig-next");
-    const progress = root.querySelector(".ig-progress");
+    // ✅ Controls MUST be inside this gallery root
+    const controls = root.querySelector(".inline-gallery__controls") || root;
+    const prev = controls.querySelector(".ig-prev");
+    const next = controls.querySelector(".ig-next");
+    const progress = controls.querySelector(".ig-progress");
 
     if (!mask || !track || slides.length < 2 || !progress) return;
 
@@ -95,16 +97,15 @@ console.log("GEAR GALLERY V1");
       track.style.transform = `translate3d(${x}px, 0, 0)`;
     }
 
-    // Allow vertical scroll in description, capture horizontal drags
+    // ✅ allow vertical scroll inside description, but capture horizontal drags
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
       if (e.button !== undefined && e.button !== 0) return;
-
       isDown = true;
       moved = false;
-      track.style.transition = "none";
 
+      track.style.transition = "none";
       startX = e.clientX;
       startTranslate = getTranslateX(track);
       mask.setPointerCapture?.(e.pointerId);
@@ -139,7 +140,7 @@ console.log("GEAR GALLERY V1");
     mask.addEventListener("pointercancel", onUp);
     mask.addEventListener("pointerleave", onUp);
 
-    // Prevent click-through if dragged
+    // prevent click-through if dragged
     mask.addEventListener(
       "click",
       (e) => {
@@ -151,6 +152,7 @@ console.log("GEAR GALLERY V1");
       true
     );
 
+    // Buttons
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
@@ -166,6 +168,7 @@ console.log("GEAR GALLERY V1");
       });
     }
 
+    // Resize
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
@@ -190,8 +193,6 @@ console.log("GEAR GALLERY V1");
     run();
   }
   window.addEventListener("load", run, { once: true });
-  setTimeout(run, 0);
-  setTimeout(run, 300);
   if (window.Webflow && typeof window.Webflow.push === "function") {
     window.Webflow.push(run);
   }
