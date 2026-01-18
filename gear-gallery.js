@@ -80,7 +80,6 @@ console.log("GEAR GALLERY V2");
     progress.style.width = "100%";
     progress.style.alignItems = "center";
     progress.style.minHeight = "1px";
-    progress.style.gap = "8px";
 
     for (let i = 0; i < N; i++) {
       const seg = document.createElement("div");
