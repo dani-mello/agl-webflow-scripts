@@ -1,4 +1,4 @@
-console.log("new hero v2 (Safari/Firefox hardened)");
+console.log("new hero v3 (Safari/Firefox hardened)");
 
 (function () {
   var root = document.querySelector(".c-hero");
