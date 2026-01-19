@@ -1,18 +1,16 @@
-console.log("new hero v1 NEW");
-
-console.log("new hero v1 (safari/firefox patch)");
+console.log("new hero v2 (Safari/Firefox hardened)");
 
 (function () {
   var root = document.querySelector(".c-hero");
   if (!root) return;
 
+  // Prevent double init
   if (root.dataset.heroSplitStackInit === "1") return;
   root.dataset.heroSplitStackInit = "1";
 
   var prefersReduced =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
   if (prefersReduced) return;
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
@@ -26,13 +24,27 @@ console.log("new hero v1 (safari/firefox patch)");
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
+  // Kill only our trigger if hot reloaded
   var old = ScrollTrigger.getById("heroSplitStack");
-  if (old) old.kill();
+  if (old) old.kill(true);
 
+  // -----------------------------
+  // Browser detection (safer)
+  // -----------------------------
+  var ua = navigator.userAgent;
+  var isFirefox = /firefox/i.test(ua);
+  // Safari = AppleWebKit + Safari but NOT Chrome/Chromium/Android
+  var isSafari =
+    /safari/i.test(ua) &&
+    /applewebkit/i.test(ua) &&
+    !/chrome|crios|chromium|android/i.test(ua);
+
+  // -----------------------------
+  // Elements
+  // -----------------------------
   var headline = root.querySelector(".c-hero_headline");
   var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
 
-  // ✅ include v1 too (Firefox “half screen” is often the base layer not being full-bleed)
   var v1Reveal = root.querySelector(".c-hero_reveal.is-v1");
   var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
   var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
@@ -44,6 +56,26 @@ console.log("new hero v1 (safari/firefox patch)");
   headline.removeAttribute("aria-hidden");
   h1.removeAttribute("aria-hidden");
 
+  // Optional: your new wrapper class (if you added it)
+  function findWrap(revealEl) {
+    if (!revealEl) return null;
+    return (
+      revealEl.querySelector(".c-hero_video-wrap") ||
+      revealEl.querySelector(".c-hero_video") || // fallback if wrap missing
+      null
+    );
+  }
+
+  var v1Wrap = findWrap(v1Reveal);
+  var v2Wrap = findWrap(v2Reveal);
+  var v3Wrap = findWrap(v3Reveal);
+
+  // Collect videos (for metadata-based refresh)
+  var videos = root.querySelectorAll("video");
+
+  // -----------------------------
+  // Full-bleed helper
+  // -----------------------------
   function forceFullBleed(el) {
     if (!el) return;
     el.style.position = "absolute";
@@ -53,22 +85,34 @@ console.log("new hero v1 (safari/firefox patch)");
     el.style.left = "0";
     el.style.width = "100%";
     el.style.height = "100%";
-    el.style.overflow = "hidden"; // ✅ helps clip/mask in Safari/Firefox
+    el.style.overflow = "hidden";
   }
+
+  // Make reveals + wraps cover properly
   forceFullBleed(v1Reveal);
   forceFullBleed(v2Reveal);
   forceFullBleed(v3Reveal);
+  forceFullBleed(v1Wrap);
+  forceFullBleed(v2Wrap);
+  forceFullBleed(v3Wrap);
+
+  // Ensure headline always sits above
+  gsap.set(headline, { zIndex: 20, position: "absolute" });
+
+  if (gradient) {
+    gsap.set(gradient, {
+      zIndex: 10,
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      pointerEvents: "none"
+    });
+  }
 
   // -----------------------------
-  // SAFARI fallback detection
+  // Curtains: clip-path default, Safari scaleX fallback
   // -----------------------------
-  var ua = navigator.userAgent;
-  var isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-  // (desktop Safari & iOS Safari both match this)
-
-  // Curtain methods:
-  // - Default: clip-path (your current)
-  // - Safari fallback: scaleX curtain (much more reliable for video)
   function setClip(el, value) {
     if (!el) return;
     gsap.set(el, { clipPath: value, webkitClipPath: value });
@@ -78,7 +122,6 @@ console.log("new hero v1 (safari/firefox patch)");
     if (!el) return;
 
     if (isSafari) {
-      // ✅ Transform curtain from center
       gsap.set(el, {
         transformOrigin: "50% 50%",
         scaleX: 0,
@@ -117,8 +160,12 @@ console.log("new hero v1 (safari/firefox patch)");
     );
   }
 
+  // Prep curtains (v1 stays visible as base)
+  curtainClosed(v2Reveal);
+  curtainClosed(v3Reveal);
+
   // -----------------------------
-  // TEXT: your SplitText block unchanged
+  // SplitText (kept, but with more robust rebuild)
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
@@ -185,30 +232,13 @@ console.log("new hero v1 (safari/firefox patch)");
     });
   }
 
-  if (gradient) {
-    gsap.set(gradient, {
-      zIndex: 10,
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      pointerEvents: "none",
-      force3D: true
-    });
-  }
-  gsap.set(headline, { zIndex: 20, position: "absolute" });
-
-  // Prep curtains
-  curtainClosed(v2Reveal);
-  curtainClosed(v3Reveal);
-
   ensureMeasurable();
   buildLines();
-
   requestAnimationFrame(function () {
     playIntro();
   });
 
+  // If layout changes (esp. Firefox), rebuild SplitText on refreshInit
   ScrollTrigger.addEventListener("refreshInit", function () {
     headline.removeAttribute("aria-hidden");
     h1.removeAttribute("aria-hidden");
@@ -217,12 +247,19 @@ console.log("new hero v1 (safari/firefox patch)");
   });
 
   // -----------------------------
-  // TIMELINE: unchanged timing/labels
+  // Timeline (same structure)
   // -----------------------------
   var tl = gsap.timeline();
 
   if (gradient) gsap.set(gradient, { autoAlpha: 1 });
-  if (gradient) tl.fromTo(gradient, { autoAlpha: 0.85 }, { autoAlpha: 1, duration: 0.6 }, 0);
+  if (gradient) {
+    tl.fromTo(
+      gradient,
+      { autoAlpha: 0.85 },
+      { autoAlpha: 1, duration: 0.6 },
+      0
+    );
+  }
 
   tl.to({}, { duration: 1 });
   curtainOpen(tl, v2Reveal, "v2Open", 2);
@@ -230,7 +267,10 @@ console.log("new hero v1 (safari/firefox patch)");
   curtainOpen(tl, v3Reveal, "v3Open", 2);
   tl.to({}, { duration: 1 });
 
-  ScrollTrigger.create({
+  // -----------------------------
+  // ScrollTrigger (hardened)
+  // -----------------------------
+  var st = ScrollTrigger.create({
     id: "heroSplitStack",
     trigger: root,
     start: "top top",
@@ -241,7 +281,12 @@ console.log("new hero v1 (safari/firefox patch)");
     invalidateOnRefresh: true,
     animation: tl,
 
+    // Safari tends to behave better pinned with fixed.
+    // Firefox is usually fine with default, but fixed is also okay.
+    pinType: isSafari ? "fixed" : undefined,
+
     onUpdate: function () {
+      // keep headline visible regardless of browser paint quirks
       headline.style.setProperty("visibility", "visible", "important");
       headline.style.setProperty("display", "block", "important");
       gsap.set(headline, { opacity: 1 });
@@ -252,4 +297,73 @@ console.log("new hero v1 (safari/firefox patch)");
       gsap.set(headline, { opacity: 1 });
     }
   });
+
+  // -----------------------------
+  // Safari/Firefox: refresh AFTER video metadata is known
+  // Fixes: first panel offset, Firefox starting on video 2
+  // -----------------------------
+  var refreshQueued = false;
+
+  function queueRefresh() {
+    if (refreshQueued) return;
+    refreshQueued = true;
+
+    // let layout settle for a couple frames (important for Safari)
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        try {
+          // Nudge layout (forces paint)
+          root.style.transform = "translateZ(0)";
+          root.offsetHeight;
+          root.style.transform = "";
+
+          ScrollTrigger.refresh();
+        } catch (e) {}
+        refreshQueued = false;
+      });
+    });
+  }
+
+  // If videos already have metadata, refresh immediately
+  function videoReady(v) {
+    return v && v.readyState >= 1; // HAVE_METADATA
+  }
+
+  var anyPending = false;
+  videos.forEach
+    ? videos.forEach(function (v) {
+        if (!videoReady(v)) anyPending = true;
+      })
+    : (function () {
+        // NodeList fallback
+        for (var i = 0; i < videos.length; i++) {
+          if (!videoReady(videos[i])) anyPending = true;
+        }
+      })();
+
+  if (!anyPending) {
+    queueRefresh();
+  } else {
+    for (var i = 0; i < videos.length; i++) {
+      (function (v) {
+        if (!v) return;
+        v.addEventListener("loadedmetadata", queueRefresh, { once: true });
+        v.addEventListener("canplay", queueRefresh, { once: true });
+      })(videos[i]);
+    }
+  }
+
+  // Also refresh on full load (fonts, etc.)
+  window.addEventListener("load", queueRefresh, { once: true });
+
+  // Firefox: sometimes needs a refresh after resize/orientation settles
+  if (isFirefox) {
+    window.addEventListener(
+      "resize",
+      function () {
+        queueRefresh();
+      },
+      { passive: true }
+    );
+  }
 })();
