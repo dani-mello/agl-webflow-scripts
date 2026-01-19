@@ -1,4 +1,4 @@
-console.log("new hero v3 (Safari/Firefox/Opera hardened)");
+console.log("new hero v2 (Safari/Firefox hardened)");
 
 (function () {
   var root = document.querySelector(".c-hero");
@@ -29,22 +29,15 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   if (old) old.kill(true);
 
   // -----------------------------
-  // Browser detection
+  // Browser detection (safer)
   // -----------------------------
   var ua = navigator.userAgent;
   var isFirefox = /firefox/i.test(ua);
-
   // Safari = AppleWebKit + Safari but NOT Chrome/Chromium/Android
   var isSafari =
     /safari/i.test(ua) &&
     /applewebkit/i.test(ua) &&
     !/chrome|crios|chromium|android/i.test(ua);
-
-  // Opera on Chromium identifies with OPR/
-  var isOpera = /OPR\//i.test(ua) || /Opera/i.test(ua);
-
-  // ✅ Use transform curtains on Safari + Opera (fixes Safari first-frame issues + Opera shake)
-  var useTransformCurtain = isSafari || isOpera;
 
   // -----------------------------
   // Elements
@@ -63,9 +56,14 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   headline.removeAttribute("aria-hidden");
   h1.removeAttribute("aria-hidden");
 
+  // Optional: your new wrapper class (if you added it)
   function findWrap(revealEl) {
     if (!revealEl) return null;
-    return revealEl.querySelector(".c-hero_video-wrap") || null;
+    return (
+      revealEl.querySelector(".c-hero_video-wrap") ||
+      revealEl.querySelector(".c-hero_video") || // fallback if wrap missing
+      null
+    );
   }
 
   var v1Wrap = findWrap(v1Reveal);
@@ -90,6 +88,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
     el.style.overflow = "hidden";
   }
 
+  // Make reveals + wraps cover properly
   forceFullBleed(v1Reveal);
   forceFullBleed(v2Reveal);
   forceFullBleed(v3Reveal);
@@ -112,9 +111,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   }
 
   // -----------------------------
-  // Curtains
-  // - Default: clip-path
-  // - Safari + Opera: scaleX transform (more stable for video)
+  // Curtains: clip-path default, Safari scaleX fallback
   // -----------------------------
   function setClip(el, value) {
     if (!el) return;
@@ -124,7 +121,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   function curtainClosed(el) {
     if (!el) return;
 
-    if (useTransformCurtain) {
+    if (isSafari) {
       gsap.set(el, {
         transformOrigin: "50% 50%",
         scaleX: 0,
@@ -138,7 +135,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   function curtainOpen(tl, el, pos, dur) {
     if (!el) return tl.to({}, { duration: dur || 1.2 }, pos);
 
-    if (useTransformCurtain) {
+    if (isSafari) {
       return tl.to(
         el,
         {
@@ -168,7 +165,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   curtainClosed(v3Reveal);
 
   // -----------------------------
-  // SplitText
+  // SplitText (kept, but with more robust rebuild)
   // -----------------------------
   var originalText = h1.textContent;
   var splitLines = null;
@@ -241,6 +238,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
     playIntro();
   });
 
+  // If layout changes (esp. Firefox), rebuild SplitText on refreshInit
   ScrollTrigger.addEventListener("refreshInit", function () {
     headline.removeAttribute("aria-hidden");
     h1.removeAttribute("aria-hidden");
@@ -249,7 +247,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   });
 
   // -----------------------------
-  // Timeline
+  // Timeline (same structure)
   // -----------------------------
   var tl = gsap.timeline();
 
@@ -270,9 +268,9 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   tl.to({}, { duration: 1 });
 
   // -----------------------------
-  // ScrollTrigger
+  // ScrollTrigger (hardened)
   // -----------------------------
-  ScrollTrigger.create({
+  var st = ScrollTrigger.create({
     id: "heroSplitStack",
     trigger: root,
     start: "top top",
@@ -283,11 +281,12 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
     invalidateOnRefresh: true,
     animation: tl,
 
-    // Safari often behaves better with fixed pinning.
-    // Opera is Chromium; leaving default is usually fine, but fixed is safe here too.
+    // Safari tends to behave better pinned with fixed.
+    // Firefox is usually fine with default, but fixed is also okay.
     pinType: isSafari ? "fixed" : undefined,
 
     onUpdate: function () {
+      // keep headline visible regardless of browser paint quirks
       headline.style.setProperty("visibility", "visible", "important");
       headline.style.setProperty("display", "block", "important");
       gsap.set(headline, { opacity: 1 });
@@ -300,8 +299,8 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
   });
 
   // -----------------------------
-  // Refresh AFTER video metadata is known
-  // Fixes: Safari first frame offset, Firefox starting late, general layout drift
+  // Safari/Firefox: refresh AFTER video metadata is known
+  // Fixes: first panel offset, Firefox starting on video 2
   // -----------------------------
   var refreshQueued = false;
 
@@ -309,6 +308,7 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
     if (refreshQueued) return;
     refreshQueued = true;
 
+    // let layout settle for a couple frames (important for Safari)
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         try {
@@ -324,29 +324,39 @@ console.log("new hero v3 (Safari/Firefox/Opera hardened)");
     });
   }
 
+  // If videos already have metadata, refresh immediately
   function videoReady(v) {
     return v && v.readyState >= 1; // HAVE_METADATA
   }
 
   var anyPending = false;
-  for (var i = 0; i < videos.length; i++) {
-    if (!videoReady(videos[i])) anyPending = true;
-  }
+  videos.forEach
+    ? videos.forEach(function (v) {
+        if (!videoReady(v)) anyPending = true;
+      })
+    : (function () {
+        // NodeList fallback
+        for (var i = 0; i < videos.length; i++) {
+          if (!videoReady(videos[i])) anyPending = true;
+        }
+      })();
 
   if (!anyPending) {
     queueRefresh();
   } else {
-    for (var j = 0; j < videos.length; j++) {
+    for (var i = 0; i < videos.length; i++) {
       (function (v) {
         if (!v) return;
         v.addEventListener("loadedmetadata", queueRefresh, { once: true });
         v.addEventListener("canplay", queueRefresh, { once: true });
-      })(videos[j]);
+      })(videos[i]);
     }
   }
 
+  // Also refresh on full load (fonts, etc.)
   window.addEventListener("load", queueRefresh, { once: true });
 
+  // Firefox: sometimes needs a refresh after resize/orientation settles
   if (isFirefox) {
     window.addEventListener(
       "resize",
