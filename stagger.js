@@ -15,10 +15,10 @@ console.log("STAGGER v3");
     if (!items.length) return;
 
     const start = parent.getAttribute("data-stagger-start") || "top 90%"; // ✅ per-item start
-    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.08");
-    const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "20");
-    const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.8");
-    const duration = parseFloat(parent.getAttribute("data-stagger-duration") || "0.7");
+    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.2");
+    const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
+    const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
+    const duration = parseFloat(parent.getAttribute("data-stagger-duration") || "1");
     const ease = parent.getAttribute("data-stagger-ease") || "power3.out";
 
     if (prefersReduced) {
