@@ -1,5 +1,7 @@
 // animate-heading.js
 // Requires GSAP + ScrollTrigger + SplitText
+// Updated: waits for pagewipe reveal event ("agl:pageRevealed") before init,
+// so the FIRST heading animation starts after the loading transition.
 (function () {
   const htmlEl = document.documentElement;
 
@@ -22,11 +24,13 @@
       if (heading.dataset.ahInit === "1") return;
       heading.dataset.ahInit = "1";
 
-      // If you didn't add the attribute, this still works, but won't prevent first-paint flicker.
-      // We keep this as a safety net.
+      // Safety net to prevent first-paint flicker
       heading.style.visibility = "hidden";
 
-      const split = new SplitText(heading, { type: "lines", linesClass: "ah-line" });
+      const split = new SplitText(heading, {
+        type: "lines",
+        linesClass: "ah-line"
+      });
 
       // Wrap each line in a mask
       split.lines.forEach((line) => {
@@ -75,12 +79,38 @@
     setTimeout(() => ScrollTrigger.refresh(), 400);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
+  // Run after pagewipe reveal (or immediately if already revealed / no pagewipe)
+  function runAfterReveal(fn) {
+    if (window.__aglPageRevealed) return fn();
+
+    // If pagewipe isn't installed, __aglPageRevealed may never be set,
+    // so fall back to DOM readiness.
+    let fallbackRan = false;
+    const fallback = () => {
+      if (fallbackRan) return;
+      fallbackRan = true;
+      fn();
+    };
+
+    window.addEventListener("agl:pageRevealed", () => {
+      fallbackRan = true; // prevent fallback double-run
+      fn();
+    }, { once: true });
+
+    // Fallback: if no reveal event fires within a moment, run anyway.
+    setTimeout(fallback, 1200);
   }
 
-  // Optional manual re-init hook
-  window.initAnimateHeadings = boot;
+  function onReady() {
+    runAfterReveal(boot);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", onReady);
+  } else {
+    onReady();
+  }
+
+  // Optional manual re-init hook (still respects reveal timing)
+  window.initAnimateHeadings = onReady;
 })();
