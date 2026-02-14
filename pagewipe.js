@@ -1,9 +1,4 @@
-// pagewipe.js
-// Right → Left pagewipe (FAST cover on click, smooth reveal on next page load)
-// Fixes:
-// 1) Reveal stagger shows gold (dark leaves first)
-// 2) Inline gallery arrows don't trigger wipe
-// 3) Bottom menu / in-page scroll doesn't trigger wipe
+
 (function () {
   if (window.__pageWipeInit) return;
   window.__pageWipeInit = true;
