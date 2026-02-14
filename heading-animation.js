@@ -1,14 +1,16 @@
-
-
 // animate-heading.js
 // Requires GSAP + ScrollTrigger + SplitText
 (function () {
-  console.log("u-animate-heading INIT");
+  const htmlEl = document.documentElement;
 
+  // If GSAP isn't available, ensure content is visible
   if (!window.gsap || !window.ScrollTrigger || !window.SplitText) {
-    console.warn("GSAP / ScrollTrigger / SplitText missing");
+    htmlEl.classList.add("gsap-not-found");
     return;
   }
+
+  // GSAP exists, make sure we are NOT in "not found" mode
+  htmlEl.classList.remove("gsap-not-found");
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -20,12 +22,13 @@
       if (heading.dataset.ahInit === "1") return;
       heading.dataset.ahInit = "1";
 
-      // ✅ Hide immediately (also covers cases where CSS loads late)
+      // If you didn't add the attribute, this still works, but won't prevent first-paint flicker.
+      // We keep this as a safety net.
       heading.style.visibility = "hidden";
 
       const split = new SplitText(heading, { type: "lines", linesClass: "ah-line" });
 
-      // Wrap each line in a mask (inline styles only)
+      // Wrap each line in a mask
       split.lines.forEach((line) => {
         const mask = document.createElement("div");
         mask.style.overflow = "hidden";
@@ -38,12 +41,12 @@
         mask.appendChild(line);
       });
 
-      // ✅ Set the initial state BEFORE revealing
+      // Initial state
       gsap.set(split.lines, { x: -15, y: 100 });
 
-      // ✅ Reveal only after SplitText + initial set are complete
+      // Mark ready → CSS will reveal it (and we also clear inline hide)
       heading.classList.add("is-ah-ready");
-      heading.style.visibility = ""; // let CSS handle it now
+      heading.style.visibility = "";
 
       gsap.to(split.lines, {
         x: 0,
@@ -65,16 +68,19 @@
 
   function boot() {
     initAnimateHeadings();
+
+    // Refresh passes (helpful if fonts/layout shift)
     requestAnimationFrame(() => ScrollTrigger.refresh());
     setTimeout(() => ScrollTrigger.refresh(), 150);
     setTimeout(() => ScrollTrigger.refresh(), 400);
   }
 
-  if (document.readyState === "complete") {
-    boot();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
   } else {
-    window.addEventListener("load", boot);
+    boot();
   }
 
+  // Optional manual re-init hook
   window.initAnimateHeadings = boot;
 })();
