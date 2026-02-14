@@ -1,77 +1,72 @@
 // pagewipe.js
-// Requires GSAP (no ScrollTrigger needed)
+// Right → Left elastic pagewipe (cover on click, reveal on new page load)
+// Requires GSAP
 (function () {
   if (window.__pageWipeInit) return;
   window.__pageWipeInit = true;
 
   const prefersReduced =
-    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const cfg = {
     root: ".c-pagewipe",
-    panels: ".c-pagewipe_panel",
-    // Set to true if you want the "reveal" to run on EVERY page load.
-    runRevealEveryPage: false,
-    // Session key: reveal once per tab/session
-    sessionKey: "agl_pagewipe_revealed",
-    // Timing
-    inDur: 0.55,
-    outDur: 0.65,
-    ease: "power2.inOut",
-    // Stagger: dark leads, gold trails (gold shows behind as it follows)
-    stagger: 0.08
+
+    // Timing (slower / more premium)
+    coverDur: 0.9,   // IN: from right to cover
+    revealDur: 1.05, // OUT: to left to reveal
+    stagger: 0.14,
+
+    // Elastic feel
+    easeCover: "elastic.out(1, 0.65)",
+    easeReveal: "elastic.inOut(1, 0.65)",
+
+    // Run reveal on EVERY page load
+    runRevealEveryPage: true
   };
 
   function dispatchRevealed() {
+    window.__aglPageRevealed = true;
     window.dispatchEvent(new CustomEvent("agl:pageRevealed"));
-    window.__aglPageRevealed = true; // backup flag for scripts that check globals
   }
 
-  function getEls() {
+  function getPanels() {
     const root = document.querySelector(cfg.root);
     if (!root) return null;
-    const panels = Array.from(root.querySelectorAll(cfg.panels));
-    if (!panels.length) return null;
 
-    // Ensure order: gold first (behind), dark last (top) — matches markup above.
+    // Order matters: gold behind, dark on top (your markup order)
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
-    return { root, panels: [gold, dark].filter(Boolean) };
+    const panels = [gold, dark].filter(Boolean);
+
+    return panels.length ? panels : null;
   }
 
-  function setClosed(panels) {
-    // Closed = panels sitting above viewport (hidden)
-    gsap.set(panels, { yPercent: -105 });
-  }
+  // States
+  const setCovered = (panels) => gsap.set(panels, { xPercent: 0 });
+  const setOffRight = (panels) => gsap.set(panels, { xPercent: 105 });
+  const setOffLeft = (panels) => gsap.set(panels, { xPercent: -105 });
 
-  function setOpen(panels) {
-    // Open = panels covering viewport
-    gsap.set(panels, { yPercent: 0 });
-  }
-
-  function animateIn(panels, onComplete) {
-    // Panels slide DOWN to cover screen (dark leads, gold trails)
+  // Animations
+  function animateCoverFromRight(panels, onComplete) {
+    // Panels start off-screen RIGHT → move to COVER (x=0)
     gsap.to(panels, {
-      yPercent: 0,
-      duration: cfg.inDur,
-      ease: cfg.ease,
+      xPercent: 0,
+      duration: cfg.coverDur,
+      ease: cfg.easeCover,
       stagger: cfg.stagger,
       onComplete
     });
   }
 
-  function animateOut(panels, onComplete) {
-    // Panels slide DOWN past viewport to reveal page
+  function animateRevealToLeft(panels, onComplete) {
+    // Panels move left past viewport to REVEAL
     gsap.to(panels, {
-      yPercent: 105,
-      duration: cfg.outDur,
-      ease: cfg.ease,
+      xPercent: -105,
+      duration: cfg.revealDur,
+      ease: cfg.easeReveal,
       stagger: cfg.stagger,
-      onComplete: () => {
-        // Reset back to closed position for next transition
-        gsap.set(panels, { yPercent: -105 });
-        onComplete && onComplete();
-      }
+      onComplete
     });
   }
 
@@ -79,62 +74,57 @@
     if (!a || !a.href) return false;
     if (a.target && a.target !== "" && a.target !== "_self") return false;
     if (a.hasAttribute("download")) return false;
-    if (a.getAttribute("rel") && a.getAttribute("rel").includes("external")) return false;
 
     const url = new URL(a.href, window.location.href);
 
-    // Only same-origin
+    // same origin only
     if (url.origin !== window.location.origin) return false;
 
-    // Let in-page anchors behave normally (or you can animate them separately)
+    // allow in-page anchors
     if (url.pathname === window.location.pathname && url.hash) return false;
 
-    // Ignore mailto/tel
+    // ignore mailto/tel
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
 
     return true;
   }
 
   function init() {
-    if (!window.gsap) {
-      console.warn("[PageWipe] GSAP missing");
-      return;
-    }
+    if (!window.gsap) return;
 
-    const els = getEls();
-    if (!els) return;
-    const { panels } = els;
+    const panels = getPanels();
+    if (!panels) return;
 
     document.documentElement.classList.add("has-pagewipe-ready");
 
-    // If reduced motion: skip fancy stuff, just ensure revealed event fires
     if (prefersReduced) {
-      setClosed(panels);
+      // Don’t animate; just get the overlay out of the way
+      setOffRight(panels);
       dispatchRevealed();
       return;
     }
 
-    // Initial state: cover screen immediately to avoid flashes (super important)
-    setOpen(panels);
+    // ---------- PAGE LOAD (REVEAL) ----------
+    // Because CSS defaults panels to COVER (translateX(0)),
+    // we reveal by sliding them OFF LEFT.
+    //
+    // After revealing, park panels OFF RIGHT so the next click can slide them in.
+    setCovered(panels);
 
-    const alreadyRevealed = sessionStorage.getItem(cfg.sessionKey) === "1";
-    const runReveal = cfg.runRevealEveryPage ? true : !alreadyRevealed;
-
-    if (runReveal) {
-      // Small delay gives the browser one paint, so reveal feels smoother
-      gsap.delayedCall(0.05, () => {
-        animateOut(panels, () => {
-          sessionStorage.setItem(cfg.sessionKey, "1");
+    if (cfg.runRevealEveryPage) {
+      gsap.delayedCall(0.08, () => {
+        animateRevealToLeft(panels, () => {
+          // Reset for next click: off RIGHT
+          setOffRight(panels);
           dispatchRevealed();
         });
       });
     } else {
-      // No reveal animation — just hide overlay and continue
-      setClosed(panels);
+      setOffRight(panels);
       dispatchRevealed();
     }
 
-    // Intercept internal link clicks for page transitions
+    // ---------- LINK CLICK (COVER) ----------
     document.addEventListener(
       "click",
       (e) => {
@@ -144,26 +134,29 @@
         e.preventDefault();
         const href = a.href;
 
-        // Cover current page, then navigate
-        setClosed(panels);
-        animateIn(panels, () => {
+        // Ensure start state is off RIGHT, then cover
+        setOffRight(panels);
+        animateCoverFromRight(panels, () => {
+          // Stay covered while navigating
           window.location.href = href;
         });
       },
       true
     );
 
-    // If user hits back/forward and page is restored from cache
+    // ---------- BACK/FORWARD CACHE ----------
     window.addEventListener("pageshow", (e) => {
-      if (e.persisted) {
-        // Ensure overlay is closed & event fired
-        setClosed(panels);
+      if (!e.persisted) return;
+
+      // When coming from bfcache, replay reveal cleanly
+      setCovered(panels);
+      animateRevealToLeft(panels, () => {
+        setOffRight(panels);
         dispatchRevealed();
-      }
+      });
     });
   }
 
-  // Start ASAP
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
