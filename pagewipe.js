@@ -1,5 +1,5 @@
 // pagewipe.js
-// Right → Left elastic pagewipe (cover on click, reveal on new page load)
+// Right → Left pagewipe (FAST cover on click, smooth reveal on next page load)
 // Requires GSAP
 (function () {
   if (window.__pageWipeInit) return;
@@ -12,17 +12,14 @@
   const cfg = {
     root: ".c-pagewipe",
 
-    // Timing (slower / more premium)
-    coverDur: 0.9,   // IN: from right to cover
-    revealDur: 1.05, // OUT: to left to reveal
-    stagger: 0.14,
+    // Fast cover, smooth reveal (no bounce)
+    coverDur: 0.28,     // very fast
+    revealDur: 0.55,    // a touch slower so it feels intentional
+    stagger: 0.06,      // subtle colour offset (not wobbly)
 
-    // Elastic feel
-    easeCover: "elastic.out(1, 0.65)",
-    easeReveal: "elastic.inOut(1, 0.65)",
-
-    // Run reveal on EVERY page load
-    runRevealEveryPage: true
+    // Smooth, premium easing (no bounce)
+    easeCover: "power3.in",
+    easeReveal: "power3.out"
   };
 
   function dispatchRevealed() {
@@ -34,7 +31,7 @@
     const root = document.querySelector(cfg.root);
     if (!root) return null;
 
-    // Order matters: gold behind, dark on top (your markup order)
+    // Gold behind, dark on top (your markup order)
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
     const panels = [gold, dark].filter(Boolean);
@@ -48,8 +45,8 @@
   const setOffLeft = (panels) => gsap.set(panels, { xPercent: -105 });
 
   // Animations
-  function animateCoverFromRight(panels, onComplete) {
-    // Panels start off-screen RIGHT → move to COVER (x=0)
+  function coverFromRight(panels, onComplete) {
+    // Start off-screen RIGHT → cover
     gsap.to(panels, {
       xPercent: 0,
       duration: cfg.coverDur,
@@ -59,8 +56,8 @@
     });
   }
 
-  function animateRevealToLeft(panels, onComplete) {
-    // Panels move left past viewport to REVEAL
+  function revealToLeft(panels, onComplete) {
+    // Covering → move LEFT off-screen to reveal
     gsap.to(panels, {
       xPercent: -105,
       duration: cfg.revealDur,
@@ -77,13 +74,8 @@
 
     const url = new URL(a.href, window.location.href);
 
-    // same origin only
     if (url.origin !== window.location.origin) return false;
-
-    // allow in-page anchors
     if (url.pathname === window.location.pathname && url.hash) return false;
-
-    // ignore mailto/tel
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
 
     return true;
@@ -98,33 +90,21 @@
     document.documentElement.classList.add("has-pagewipe-ready");
 
     if (prefersReduced) {
-      // Don’t animate; just get the overlay out of the way
       setOffRight(panels);
       dispatchRevealed();
       return;
     }
 
-    // ---------- PAGE LOAD (REVEAL) ----------
-    // Because CSS defaults panels to COVER (translateX(0)),
-    // we reveal by sliding them OFF LEFT.
-    //
-    // After revealing, park panels OFF RIGHT so the next click can slide them in.
+    // -------- PAGE LOAD: REVEAL (no waiting) --------
+    // CSS starts panels covering (translateX(0)), so reveal immediately.
     setCovered(panels);
-
-    if (cfg.runRevealEveryPage) {
-      gsap.delayedCall(0.08, () => {
-        animateRevealToLeft(panels, () => {
-          // Reset for next click: off RIGHT
-          setOffRight(panels);
-          dispatchRevealed();
-        });
-      });
-    } else {
+    revealToLeft(panels, () => {
+      // Park off RIGHT ready for the next click
       setOffRight(panels);
       dispatchRevealed();
-    }
+    });
 
-    // ---------- LINK CLICK (COVER) ----------
+    // -------- CLICK: COVER (fast, no waiting) --------
     document.addEventListener(
       "click",
       (e) => {
@@ -134,23 +114,21 @@
         e.preventDefault();
         const href = a.href;
 
-        // Ensure start state is off RIGHT, then cover
+        // Ensure we start off RIGHT, then cover immediately
         setOffRight(panels);
-        animateCoverFromRight(panels, () => {
-          // Stay covered while navigating
+        coverFromRight(panels, () => {
           window.location.href = href;
         });
       },
       true
     );
 
-    // ---------- BACK/FORWARD CACHE ----------
+    // -------- BACK/FORWARD CACHE --------
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
 
-      // When coming from bfcache, replay reveal cleanly
       setCovered(panels);
-      animateRevealToLeft(panels, () => {
+      revealToLeft(panels, () => {
         setOffRight(panels);
         dispatchRevealed();
       });
