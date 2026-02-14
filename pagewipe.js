@@ -1,6 +1,9 @@
 // pagewipe.js
 // Right → Left pagewipe (FAST cover on click, smooth reveal on next page load)
-// Requires GSAP
+// Fixes:
+// 1) Reveal stagger shows gold (dark leaves first)
+// 2) Inline gallery arrows don't trigger wipe
+// 3) Bottom menu / in-page scroll doesn't trigger wipe
 (function () {
   if (window.__pageWipeInit) return;
   window.__pageWipeInit = true;
@@ -13,13 +16,28 @@
     root: ".c-pagewipe",
 
     // Fast cover, smooth reveal (no bounce)
-    coverDur: 0.28,     // very fast
-    revealDur: 0.55,    // a touch slower so it feels intentional
-    stagger: 0.06,      // subtle colour offset (not wobbly)
+    coverDur: 0.26,
+    revealDur: 0.55,
+    staggerEach: 0.06,
 
-    // Smooth, premium easing (no bounce)
     easeCover: "power3.in",
-    easeReveal: "power3.out"
+    easeReveal: "power3.out",
+
+    // Click ignore system
+    ignoreAttr: "data-pagewipe-ignore",
+    ignoreSelectors: [
+      // Your in-page scroll UI / bottom navs (add more if needed)
+      ".c-bottom-nav",
+      ".c-trip-bottom-nav",
+      ".c-trip-bottom-nav_inner",
+
+      // Inline gallery UI (add your exact arrow classes if different)
+      ".c-inline-gallery",
+      ".c-inline-gallery_arrow",
+      ".c-inline-gallery_btn",
+      ".swiper-button-next",
+      ".swiper-button-prev"
+    ].join(",")
   };
 
   function dispatchRevealed() {
@@ -31,40 +49,48 @@
     const root = document.querySelector(cfg.root);
     if (!root) return null;
 
-    // Gold behind, dark on top (your markup order)
+    // Order is important: gold behind, dark on top
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
     const panels = [gold, dark].filter(Boolean);
-
     return panels.length ? panels : null;
   }
 
   // States
   const setCovered = (panels) => gsap.set(panels, { xPercent: 0 });
   const setOffRight = (panels) => gsap.set(panels, { xPercent: 105 });
-  const setOffLeft = (panels) => gsap.set(panels, { xPercent: -105 });
 
-  // Animations
+  // Cover: gold then dark (dark arrives slightly after = still fine, but subtle)
+  // Reveal: reverse stagger so DARK leaves first -> gold becomes visible
   function coverFromRight(panels, onComplete) {
-    // Start off-screen RIGHT → cover
     gsap.to(panels, {
       xPercent: 0,
       duration: cfg.coverDur,
       ease: cfg.easeCover,
-      stagger: cfg.stagger,
+      stagger: { each: cfg.staggerEach, from: "start" },
       onComplete
     });
   }
 
   function revealToLeft(panels, onComplete) {
-    // Covering → move LEFT off-screen to reveal
     gsap.to(panels, {
       xPercent: -105,
       duration: cfg.revealDur,
       ease: cfg.easeReveal,
-      stagger: cfg.stagger,
+      // ✅ KEY FIX: dark (last / on top) moves first
+      stagger: { each: cfg.staggerEach, from: "end" },
       onComplete
     });
+  }
+
+  function isIgnoredClick(e) {
+    // Explicit opt-out (best for one-off buttons)
+    if (e.target.closest(`[${cfg.ignoreAttr}]`)) return true;
+
+    // Ignore UI areas like inline gallery + bottom nav
+    if (cfg.ignoreSelectors && e.target.closest(cfg.ignoreSelectors)) return true;
+
+    return false;
   }
 
   function shouldInterceptLink(a) {
@@ -72,10 +98,20 @@
     if (a.target && a.target !== "" && a.target !== "_self") return false;
     if (a.hasAttribute("download")) return false;
 
+    // Ignore "scroll within page" patterns
+    const href = a.getAttribute("href") || "";
+    if (href === "#" || href.startsWith("#")) return false;
+    if (a.hasAttribute("data-scroll-to")) return false;
+
     const url = new URL(a.href, window.location.href);
 
+    // same origin only
     if (url.origin !== window.location.origin) return false;
+
+    // allow in-page anchors
     if (url.pathname === window.location.pathname && url.hash) return false;
+
+    // ignore mailto/tel
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
 
     return true;
@@ -95,26 +131,26 @@
       return;
     }
 
-    // -------- PAGE LOAD: REVEAL (no waiting) --------
-    // CSS starts panels covering (translateX(0)), so reveal immediately.
+    // PAGE LOAD: start covered (CSS should do this too), then reveal immediately
     setCovered(panels);
     revealToLeft(panels, () => {
-      // Park off RIGHT ready for the next click
       setOffRight(panels);
       dispatchRevealed();
     });
 
-    // -------- CLICK: COVER (fast, no waiting) --------
+    // CLICK: cover fast, then navigate
     document.addEventListener(
       "click",
       (e) => {
+        if (isIgnoredClick(e)) return;
+
         const a = e.target.closest("a");
+        if (!a) return;
         if (!shouldInterceptLink(a)) return;
 
         e.preventDefault();
         const href = a.href;
 
-        // Ensure we start off RIGHT, then cover immediately
         setOffRight(panels);
         coverFromRight(panels, () => {
           window.location.href = href;
@@ -123,7 +159,7 @@
       true
     );
 
-    // -------- BACK/FORWARD CACHE --------
+    // Back/forward cache
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
 
