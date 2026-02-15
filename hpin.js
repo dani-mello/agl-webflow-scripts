@@ -1,11 +1,10 @@
 (function () {
-  const DEBUG = false;
   const MOBILE_MQ = "(max-width: 900px)";
 
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
-    console.warn("HPIN: GSAP or ScrollTrigger missing");
     return;
   }
+
   gsap.registerPlugin(ScrollTrigger);
   ScrollTrigger.config({ ignoreMobileResize: true });
 
@@ -22,15 +21,12 @@
   }
 
   const SECTIONS = Array.from(document.querySelectorAll(".c-hpin"));
-  if (DEBUG) console.log("HPIN: sections found =", SECTIONS.length);
   if (!SECTIONS.length) return;
 
   let ids = [];
   let ro = null;
   let building = false;
   let lastBuildAt = 0;
-
-  // ✅ NEW: lock rebuilds while any HPIN is pinned/active
   let lockRebuild = false;
 
   function viewW(view) {
@@ -54,26 +50,22 @@
   }
 
   function softBuild(delayMs) {
-    // ✅ NEW: never rebuild while pinned/active
     if (lockRebuild) return;
-
     clearTimeout(window.__hpin_softBuild_t);
     window.__hpin_softBuild_t = setTimeout(build, delayMs || 0);
   }
 
   function build() {
-    // ✅ NEW: hard stop if pinned
     if (lockRebuild) return;
-
     if (building) return;
+
     const now = Date.now();
-    if (now - lastBuildAt < 80) return; // slightly more conservative
+    if (now - lastBuildAt < 80) return;
 
     building = true;
     lastBuildAt = now;
 
     const mobile = isMobileNow();
-    if (DEBUG) console.log("HPIN build: mobile =", mobile);
 
     killAll();
 
@@ -89,7 +81,6 @@
       const id = "hpin_" + index;
       ids.push(id);
 
-      // reset
       gsap.set(track, { x: 0, clearProps: "transform" });
       gsap.set(track, { x: 0 });
 
@@ -112,32 +103,24 @@
         start: mobile ? "top top" : "top+=1 top",
         end: () => "+=" + scrollDistance(),
 
-        // (keep your original pin target)
         pin: inner,
         pinReparent: !mobile,
         pinSpacing: true,
 
-        scrub: prefersReduced ? false : true, // ✅ CHANGE: remove smoothing catch-up
+        scrub: prefersReduced ? false : true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
         animation: tween,
-
-        // ✅ CHANGE: remove fastScrollEnd (it causes the “snap to end” vibe in FF)
-        // fastScrollEnd: true,
 
         onRefreshInit: () => {
           gsap.set(track, { x: 0 });
         },
 
-        // ✅ NEW: lock rebuilds while this trigger is active (pinned region)
         onEnter: () => (lockRebuild = true),
         onEnterBack: () => (lockRebuild = true),
         onLeave: () => (lockRebuild = false),
         onLeaveBack: () => (lockRebuild = false),
-
         onKill: () => (lockRebuild = false)
-
-        // ,markers: true
       });
     });
 
@@ -147,6 +130,7 @@
 
   function hookImages() {
     const imgs = document.querySelectorAll("img");
+
     imgs.forEach((img) => {
       const refresh = () => softBuild(0);
 
@@ -191,14 +175,12 @@
 
     if (ro) ro.disconnect();
     ro = new ResizeObserver(() => {
-      // ✅ NEW: ignore RO while pinned
       if (lockRebuild) return;
       softBuild(120);
     });
 
     SECTIONS.forEach((section) => {
       const view = section.querySelector(".c-hpin_view");
-      // ✅ CHANGE: observe ONLY view + section (not track)
       if (view) ro.observe(view);
       ro.observe(section);
     });
@@ -230,8 +212,6 @@
 
   function start() {
     requestAnimationFrame(() => requestAnimationFrame(build));
-
-    // ✅ CHANGE: fewer delayed rebuilds (still enough)
     [250, 800].forEach((ms) => setTimeout(() => softBuild(0), ms));
 
     hookImages();
