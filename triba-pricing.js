@@ -1,4 +1,99 @@
 // triba-pricing.js
+// Loads pricing + template content from Triba Concord API
+
+(function () {
+  if (window.__TRIBA_TEMPLATE_INIT__) return;
+  window.__TRIBA_TEMPLATE_INIT__ = true;
+
+  function init() {
+    const bridge = document.querySelector(".js-triba");
+    if (!bridge) return;
+
+    const useTriba = bridge.dataset.useTriba === "true";
+    const templateId = (bridge.dataset.tribaTemplateId || "").trim();
+    if (!useTriba || !templateId) return;
+
+    const ORG_ID = "4a66ebe2-9349-4c0b-8595-459a85795db7";
+    const API_KEY = window.TRIBA_API_KEY || "";
+    const BASE = "https://concord.triba.co";
+
+    if (!API_KEY) {
+      console.warn("Triba API key missing.");
+      return;
+    }
+
+    const elPrice = document.querySelector(".js-price-from");
+    const elDeposit = document.querySelector(".js-price-deposit");
+    const elPoster = document.querySelector(".js-triba-poster");
+    const elDescription = document.querySelector(".js-triba-description");
+
+    const money = (minorUnits, currency = "NZD") => {
+      const n = Number(minorUnits || 0) / 100;
+      return new Intl.NumberFormat("en-NZ", {
+        style: "currency",
+        currency
+      }).format(n);
+    };
+
+    async function run() {
+      try {
+        const url = `${BASE}/${ORG_ID}/experience-templates/${encodeURIComponent(templateId)}`;
+        const res = await fetch(url, {
+          headers: { "x-api-key": API_KEY }
+        });
+
+        if (!res.ok) throw new Error(`Triba API ${res.status}`);
+
+        const json = await res.json();
+        const data = json?.data;
+        if (!data) return;
+
+        /* --------------------------
+           PRICE
+        --------------------------- */
+        const pricing = data.pricing;
+
+        if (pricing?.type === "fixed") {
+          if (elPrice) {
+            elPrice.textContent = money(pricing.amount, pricing.currency || "NZD");
+          }
+        }
+
+        if (pricing?.deposit != null && elDeposit) {
+          elDeposit.textContent =
+            `Deposit: ${money(pricing.deposit, pricing.currency || "NZD")}`;
+          elDeposit.style.display = "";
+        }
+
+        /* --------------------------
+           POSTER IMAGE
+        --------------------------- */
+        if (elPoster && data.media?.poster) {
+          elPoster.src = data.media.poster;
+        }
+
+        /* --------------------------
+           DESCRIPTION
+        --------------------------- */
+        if (elDescription && data.description) {
+          elDescription.textContent = data.description;
+        }
+
+      } catch (err) {
+        console.warn("Triba template load failed", err);
+      }
+    }
+
+    run();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+
+})();// triba-pricing.js
 // Loads pricing from Triba Concord API into Trip Template page
 
 (function () {
