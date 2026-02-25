@@ -19,7 +19,9 @@
 
   const money = (minorUnits, currency = "NZD") => {
     const n = Number(minorUnits || 0) / 100;
-    return new Intl.NumberFormat("en-NZ", { style: "currency", currency }).format(n);
+    return new Intl.NumberFormat("en-NZ", { style: "currency", currency }).format(
+      n
+    );
   };
 
   const formatDateRange = (startISO, endISO) => {
@@ -39,11 +41,17 @@
       start.getFullYear() === end.getFullYear();
 
     if (sameMonth) {
-      const monthYear = start.toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
+      const monthYear = start.toLocaleDateString("en-NZ", {
+        month: "short",
+        year: "numeric"
+      });
       return `${start.getDate()}–${end.getDate()} ${monthYear}`;
     }
 
-    return `${start.toLocaleDateString("en-NZ", full)} – ${end.toLocaleDateString("en-NZ", full)}`;
+    return `${start.toLocaleDateString(
+      "en-NZ",
+      full
+    )} – ${end.toLocaleDateString("en-NZ", full)}`;
   };
 
   const setPoster = (el, url) => {
@@ -72,15 +80,11 @@
     el.style.backgroundPosition = "center";
   };
 
+  // ✅ Keep Webflow styling: don't inject <p> tags. Just set text + preserve line breaks.
   const setDescription = (el, text) => {
     if (!el || !text) return;
-    const safe = String(text).trim();
-
-    // Preserve paragraphs from Triba text (blank lines become <p>)
-    el.innerHTML = safe
-      .split(/\n\s*\n/g)
-      .map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-      .join("");
+    el.textContent = String(text).trim();
+    el.style.whiteSpace = "pre-line"; // preserves Triba line breaks without changing your typography
   };
 
   const getTripAbbrev = (templateName) => {
@@ -89,8 +93,16 @@
     if (m && m[1]) return m[1].trim();
 
     // fallback: first letters of first 3 words (e.g. "Tasman Glacier Ice" -> TGI)
-    const words = (templateName || "").trim().split(/\s+/).filter(Boolean);
-    return words.slice(0, 3).map(w => w[0].toUpperCase()).join("") || "TRIP";
+    const words = (templateName || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    return (
+      words
+        .slice(0, 3)
+        .map((w) => w[0].toUpperCase())
+        .join("") || "TRIP"
+    );
   };
 
   async function init() {
@@ -134,7 +146,10 @@
       // Deposit (optional)
       if (elDeposit) {
         if (pricing?.deposit != null) {
-          elDeposit.textContent = `Deposit: ${money(pricing.deposit, pricing.currency || "NZD")}`;
+          elDeposit.textContent = `Deposit: ${money(
+            pricing.deposit,
+            pricing.currency || "NZD"
+          )}`;
           elDeposit.style.display = "";
         } else {
           elDeposit.style.display = "none";
@@ -161,12 +176,14 @@
 
       // Match by name (current API does not expose template_id on experiences)
       const matching = experiences
-        .filter(e => e?.name === template.name)
-        .filter(e => e?.dates?.start_date) // must have a start date
-        .sort((a, b) => new Date(a.dates.start_date) - new Date(b.dates.start_date));
+        .filter((e) => e?.name === template.name)
+        .filter((e) => e?.dates?.start_date) // must have a start date
+        .sort(
+          (a, b) => new Date(a.dates.start_date) - new Date(b.dates.start_date)
+        );
 
       if (!matching.length) {
-        elSchedule.innerHTML = ""; // keep it clean (or set a message if you want)
+        elSchedule.innerHTML = "";
         return;
       }
 
@@ -177,13 +194,14 @@
 
       matching.forEach((exp, index) => {
         const code = `${abbrev}${index + 1}`;
-        const dateRange = formatDateRange(exp.dates?.start_date, exp.dates?.end_date);
+        const dateRange = formatDateRange(
+          exp.dates?.start_date,
+          exp.dates?.end_date
+        );
 
-        // Row wrapper (use your existing styling class if you have one)
         const row = document.createElement("div");
-        row.className = "c-trip-schedule_item"; // change this to your real row class if needed
+        row.className = "c-trip-schedule_item"; // change to your real row class if needed
 
-        // Use your typography classes
         row.innerHTML = `
           <div class="u-eyebrow dark">${code}</div>
           <div class="u-eyebrow dark">${dateRange}</div>
@@ -198,10 +216,8 @@
           elSchedule.appendChild(line);
         }
       });
-
     } catch (err) {
       // Fail quietly so the page never breaks
-      // (Keep console warning minimal for dev)
       console.warn("Triba load failed", err);
     }
   }
