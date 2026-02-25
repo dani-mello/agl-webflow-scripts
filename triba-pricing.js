@@ -14,7 +14,7 @@
     if (!useTriba || !templateId) return;
 
     const ORG_ID = "4a66ebe2-9349-4c0b-8595-459a85795db7";
-    const API_KEY = window.TRIBA_API_KEY || "";
+    const API_KEY = window.TRIBA_API_KEY || "5L4A80M9A527NhvaHevy630O9eXobJx88Sp7ZG9C";
     const BASE = "https://concord.triba.co";
 
     if (!API_KEY) {
