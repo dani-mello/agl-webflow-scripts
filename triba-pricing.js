@@ -68,9 +68,34 @@
         /* --------------------------
            POSTER IMAGE
         --------------------------- */
-        if (elPoster && data.media?.poster) {
-          elPoster.src = data.media.poster;
-        }
+      // POSTER IMAGE (Webflow-safe)
+const posterUrl = data?.media?.poster;
+
+if (posterUrl) {
+  const posterEl = document.querySelector(".js-triba-poster");
+
+  if (posterEl) {
+    // Case A: element is an <img>
+    if (posterEl.tagName === "IMG") {
+      posterEl.src = posterUrl;
+      posterEl.removeAttribute("srcset"); // stop Webflow candidates overriding
+      posterEl.removeAttribute("sizes");
+    } else {
+      // Case B: wrapper contains an <img> (very common)
+      const innerImg = posterEl.querySelector("img");
+      if (innerImg) {
+        innerImg.src = posterUrl;
+        innerImg.removeAttribute("srcset");
+        innerImg.removeAttribute("sizes");
+      } else {
+        // Case C: it's a div using background-image
+        posterEl.style.backgroundImage = `url("${posterUrl}")`;
+        posterEl.style.backgroundSize = "cover";
+        posterEl.style.backgroundPosition = "center";
+      }
+    }
+  }
+}
 
         /* --------------------------
            DESCRIPTION
