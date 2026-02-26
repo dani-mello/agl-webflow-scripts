@@ -1,7 +1,4 @@
 // bottomnav-stopper.js
-// Generic bottom nav stopper
-// Keeps bottom nav fixed until it reaches a stop marker
-
 (function () {
   if (window.__BOTTOMNAV_STOPPER__) return;
   window.__BOTTOMNAV_STOPPER__ = true;
@@ -13,29 +10,35 @@
   }
 
   onReady(() => {
-    const nav = document.querySelector(".js-trip-bottomnav-move");
-    const stopEl = document.querySelector(".js-trip-bottomnav-stop");
-    if (!nav || !stopEl) return;
+    const navs = document.querySelectorAll(".js-trip-bottomnav-move");
+    if (!navs.length) return;
 
-    function update() {
-      const navH = nav.offsetHeight || 0;
-      const stopRect = stopEl.getBoundingClientRect();
-      const overlap = Math.max(0, navH - stopRect.top);
-      nav.style.transform = overlap ? `translateY(${-overlap}px)` : "translateY(0)";
-    }
+    navs.forEach((nav) => {
+      const stopEl = document.querySelector(".js-trip-bottomnav-stop");
+      if (!stopEl) return;
 
-    let raf = 0;
-    function requestUpdate() {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        update();
-      });
-    }
+      function update() {
+        const navH = nav.offsetHeight || 0;
+        const stopRect = stopEl.getBoundingClientRect();
+        const overlap = Math.max(0, navH - stopRect.top);
+        nav.style.transform = overlap
+          ? `translateY(${-overlap}px)`
+          : "translateY(0)";
+      }
 
-    window.addEventListener("scroll", requestUpdate, { passive: true });
-    window.addEventListener("resize", requestUpdate);
+      let raf = 0;
+      function requestUpdate() {
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          update();
+        });
+      }
 
-    update();
+      window.addEventListener("scroll", requestUpdate, { passive: true });
+      window.addEventListener("resize", requestUpdate);
+
+      update();
+    });
   });
 })();
