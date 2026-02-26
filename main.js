@@ -1,4 +1,4 @@
-<script>
+
 (() => {
   // Wait until the DOM exists
   const ready = (fn) => {
@@ -355,4 +355,3 @@
     onPage("home", () => {});
   });
 })();
-</script>
