@@ -2,9 +2,17 @@
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
 
+  // ✅ Add a “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
+  const WIDE_BP = 1280;
+
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
     if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
+
+    // ✅ Larger than desktop
+    if (window.matchMedia(`(min-width: ${WIDE_BP}px)`).matches) return 4;
+
+    // Default desktop
     return 3;
   }
 
@@ -137,10 +145,7 @@
         }
       }
 
-      const current = Math.min(
-        start + Math.floor(visible / 2),
-        N - 1
-      );
+      const current = Math.min(start + Math.floor(visible / 2), N - 1);
 
       if (segs[current]) {
         segs[current].classList.add("is-current");
