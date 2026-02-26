@@ -1,44 +1,45 @@
-// bottomnav-stopper.js
-(function () {
-  if (window.__BOTTOMNAV_STOPPER__) return;
-  window.__BOTTOMNAV_STOPPER__ = true;
 
+(() => {
   function onReady(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn, { once: true });
     } else fn();
   }
 
-  onReady(() => {
-    const navs = document.querySelectorAll(".js-trip-bottomnav-move");
-    if (!navs.length) return;
+  function onWebflowReady(fn) {
+    window.Webflow ||= [];
+    window.Webflow.push(fn);
+  }
 
-    navs.forEach((nav) => {
-      const stopEl = document.querySelector(".js-trip-bottomnav-stop");
-      if (!stopEl) return;
+  function initTripBottomNavStop() {
+    const mover = document.querySelector(".js-trip-bottomnav-move");
+    const stopEl = document.querySelector(".js-trip-bottomnav-stop");
 
-      function update() {
-        const navH = nav.offsetHeight || 0;
-        const stopRect = stopEl.getBoundingClientRect();
-        const overlap = Math.max(0, navH - stopRect.top);
-        nav.style.transform = overlap
-          ? `translateY(${-overlap}px)`
-          : "translateY(0)";
+    if (!mover || !stopEl || !window.gsap || !window.ScrollTrigger) return;
+
+    // safe to call even if already registered
+    try { gsap.registerPlugin(ScrollTrigger); } catch (e) {}
+
+    gsap.set(mover, { willChange: "transform" });
+
+    ScrollTrigger.create({
+      trigger: stopEl,
+      start: "top bottom",
+      end: "bottom top",
+      invalidateOnRefresh: true,
+      onUpdate(self) {
+        const past = self.scroll() - self.start;
+        gsap.set(mover, { y: past > 0 ? -past : 0 });
+      },
+      onLeaveBack() {
+        gsap.set(mover, { y: 0 });
       }
-
-      let raf = 0;
-      function requestUpdate() {
-        if (raf) return;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          update();
-        });
-      }
-
-      window.addEventListener("scroll", requestUpdate, { passive: true });
-      window.addEventListener("resize", requestUpdate);
-
-      update();
     });
-  });
+
+    // One more refresh after layout/images settle (Webflow loves a late reflow)
+    requestAnimationFrame(() => ScrollTrigger.refresh());
+    setTimeout(() => ScrollTrigger.refresh(), 250);
+  }
+
+  onReady(() => onWebflowReady(initTripBottomNavStop));
 })();
