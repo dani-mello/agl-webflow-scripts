@@ -1,3 +1,4 @@
+<script>
 (() => {
   // Wait until the DOM exists
   const ready = (fn) => {
@@ -22,7 +23,6 @@
   };
 
   ready(() => {
-
     const page = document.body?.dataset?.page;
 
     const onPage = (name, fn) => {
@@ -65,7 +65,6 @@
     // Requires: data-nav="explore" on trigger
     // ----------------------------
     waitFor('[data-nav="explore"]', (exploreTrigger) => {
-
       const exploreMega = document.querySelector(".explore-mega");
       const explorePrimaryWrap = document.querySelector(".explore-primary");
       const exploreSecondary = document.querySelector(".explore-secondary");
@@ -104,10 +103,7 @@
 
       const scheduleClose = () => {
         closeTimer = setTimeout(() => {
-          if (
-            !exploreTrigger.matches(":hover") &&
-            !exploreMega.matches(":hover")
-          ) {
+          if (!exploreTrigger.matches(":hover") && !exploreMega.matches(":hover")) {
             closeExplore();
           }
         }, 220);
@@ -120,17 +116,26 @@
 
       exploreTrigger.addEventListener("click", (e) => e.preventDefault());
 
+      // ✅ UPDATED: primary hover now closes secondary when item has no panel
       primaryItems.forEach((item) => {
         item.addEventListener("mouseenter", () => {
           if (closeTimer) clearTimeout(closeTimer);
 
           const key = item.dataset.panel;
+
+          // Primary selection UI
           explorePrimaryWrap.classList.add("has-selection");
           primaryItems.forEach((i) => i.classList.remove("is-selected"));
           item.classList.add("is-selected");
 
-          if (!key || key === "none") return;
+          // ✅ If this primary item has no secondary, close + clear previous secondary state
+          if (!key || key === "none") {
+            exploreSecondary?.classList.remove("is-open");
+            panels.forEach((p) => p.classList.remove("is-active"));
+            return;
+          }
 
+          // Otherwise show secondary and activate the right panel
           exploreSecondary?.classList.add("is-open");
 
           panels.forEach((panel) => {
@@ -151,7 +156,6 @@
     // Requires: data-nav="prepare" on trigger
     // ----------------------------
     waitFor('[data-nav="prepare"]', (trigger) => {
-
       const panel = document.querySelector(".prepare-mega");
       if (!panel) {
         console.warn("[AGL] Prepare mega panel missing (.prepare-mega).");
@@ -196,99 +200,105 @@
     });
 
     // ----------------------------
-// MOBILE: mobile menu
-// ----------------------------
-(() => {
-  const burger  = document.querySelector(".nav-btn-mobile");
-  const overlay = document.querySelector(".mobile-overlay");
-  const panels  = Array.from(document.querySelectorAll(".mobile-panel"));
+    // MOBILE: mobile menu
+    // ----------------------------
+    (() => {
+      const burger = document.querySelector(".nav-btn-mobile");
+      const overlay = document.querySelector(".mobile-overlay");
+      const panels = Array.from(document.querySelectorAll(".mobile-panel"));
 
-  if (!burger || !overlay || !panels.length) {
-    console.warn("[AGL] Mobile menu missing elements", { burger: !!burger, overlay: !!overlay, panels: panels.length });
-    return;
-  }
+      if (!burger || !overlay || !panels.length) {
+        console.warn("[AGL] Mobile menu missing elements", {
+          burger: !!burger,
+          overlay: !!overlay,
+          panels: panels.length,
+        });
+        return;
+      }
 
-  let current = "main";
-  const getPanel = (key) => panels.find(p => p.dataset.target === key);
+      let current = "main";
+      const getPanel = (key) => panels.find((p) => p.dataset.target === key);
 
-  const resetPanels = () => {
-    panels.forEach(p => p.classList.remove("is-active", "is-prev"));
-  };
+      const resetPanels = () => {
+        panels.forEach((p) => p.classList.remove("is-active", "is-prev"));
+      };
 
-  const openOverlay = () => {
-    overlay.classList.add("is-open");
-    burger.classList.add("is-open");
-    document.documentElement.classList.add("no-scroll");
+      const openOverlay = () => {
+        overlay.classList.add("is-open");
+        burger.classList.add("is-open");
+        document.documentElement.classList.add("no-scroll");
 
-    resetPanels();
-    const main = getPanel("main");
-    if (main) {
-      main.classList.add("is-active");
-      requestAnimationFrame(() => animatePanelLinks(main));
-    }
-    current = "main";
-  };
+        resetPanels();
+        const main = getPanel("main");
+        if (main) {
+          main.classList.add("is-active");
+          requestAnimationFrame(() => animatePanelLinks(main));
+        }
+        current = "main";
+      };
 
-  const closeOverlay = () => {
-    overlay.classList.remove("is-open");
-    burger.classList.remove("is-open");
-    document.documentElement.classList.remove("no-scroll");
-    resetPanels();
-    current = "main";
-  };
+      const closeOverlay = () => {
+        overlay.classList.remove("is-open");
+        burger.classList.remove("is-open");
+        document.documentElement.classList.remove("no-scroll");
+        resetPanels();
+        current = "main";
+      };
 
-  const goTo = (target) => {
-    const next = getPanel(target);
-    const curr = getPanel(current);
-    if (!next || next === curr) return;
+      const goTo = (target) => {
+        const next = getPanel(target);
+        const curr = getPanel(current);
+        if (!next || next === curr) return;
 
-    curr?.classList.remove("is-active");
-    curr?.classList.add("is-prev");
+        curr?.classList.remove("is-active");
+        curr?.classList.add("is-prev");
 
-    next.classList.add("is-active");
-    next.classList.remove("is-prev");
+        next.classList.add("is-active");
+        next.classList.remove("is-prev");
 
-    requestAnimationFrame(() => animatePanelLinks(next));
-    current = target;
-  };
+        requestAnimationFrame(() => animatePanelLinks(next));
+        current = target;
+      };
 
-  burger.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    overlay.classList.contains("is-open") ? closeOverlay() : openOverlay();
-  }, true);
+      burger.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          overlay.classList.contains("is-open") ? closeOverlay() : openOverlay();
+        },
+        true
+      );
 
-  overlay.addEventListener("click", (e) => {
-    const contact = e.target.closest(".mobile-contact");
-    if (contact) {
-      e.preventDefault();
-      closeOverlay();
-      document.querySelector(".contact-overlay")?.classList.add("is-open");
-      document.documentElement.classList.add("no-scroll");
-      return;
-    }
+      overlay.addEventListener("click", (e) => {
+        const contact = e.target.closest(".mobile-contact");
+        if (contact) {
+          e.preventDefault();
+          closeOverlay();
+          document.querySelector(".contact-overlay")?.classList.add("is-open");
+          document.documentElement.classList.add("no-scroll");
+          return;
+        }
 
-    const back = e.target.closest(".btn-options-mobile-return");
-    if (back) {
-      e.preventDefault();
-      goTo(back.dataset.back);
-      return;
-    }
+        const back = e.target.closest(".btn-options-mobile-return");
+        if (back) {
+          e.preventDefault();
+          goTo(back.dataset.back);
+          return;
+        }
 
-    const go = e.target.closest("[data-go]");
-    if (go) {
-      e.preventDefault();
-      goTo(go.dataset.go);
-    }
-  });
+        const go = e.target.closest("[data-go]");
+        if (go) {
+          e.preventDefault();
+          goTo(go.dataset.go);
+        }
+      });
 
-  // Escape closes
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && overlay.classList.contains("is-open")) closeOverlay();
-  });
-
-})();
-
+      // Escape closes
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay.classList.contains("is-open")) closeOverlay();
+      });
+    })();
 
     // ----------------------------
     // Contact overlay open/close
@@ -345,5 +355,4 @@
     onPage("home", () => {});
   });
 })();
-
-
+</script>
