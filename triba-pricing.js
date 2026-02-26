@@ -204,7 +204,7 @@
 
         row.innerHTML = `
           <div class="u-eyebrow dark">${code}</div>
-          <div class="u-eyebrow dark">${dateRange}</div>
+          <div class="u-eyebrow dark large">${dateRange}</div>
         `;
 
         elSchedule.appendChild(row);
