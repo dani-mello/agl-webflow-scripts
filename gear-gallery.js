@@ -1,3 +1,11 @@
+/* gear-gallery.js
+   - Webflow/component safe (class-based, no IDs)
+   - Supports multiple gear galleries on a page
+   - Builds & updates progress segments
+   - Adds drag/swipe via Pointer Events
+   - ✅ Hides .inline-gallery__controls when no scrolling is possible
+*/
+
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
@@ -37,8 +45,6 @@
     if (wrapper.dataset.gearGalleryInit === "1") return;
     wrapper.dataset.gearGalleryInit = "1";
 
-    const root = getGalleryRoot(wrapper);
-
     const track = wrapper.querySelector(".c-gear_gallery-track");
     const slides = track
       ? Array.from(track.querySelectorAll(".c-gear_gallery-slide"))
@@ -72,7 +78,7 @@
     let index = 0;
     let stepPx = 0;
 
-    // Build + style progress (same approach as featured gallery)
+    // Build + style progress
     progress.innerHTML = "";
     progress.style.display = "flex";
     progress.style.width = "100%";
@@ -121,6 +127,13 @@
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
+    // ✅ NEW: hide controls when there is nothing to scroll
+    function updateControlsVisibility() {
+      if (!controls) return;
+      const canScroll = maxIndex() > 0;
+      controls.style.display = canScroll ? "" : "none";
+    }
+
     function updateProgress() {
       const visible = getVisible();
 
@@ -152,9 +165,10 @@
       applyTransform();
       updateProgress();
       updateButtons();
+      updateControlsVisibility(); // ✅ NEW
     }
 
-    // --- Drag / swipe (same style as featured gallery) ---
+    // --- Drag / swipe ---
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
@@ -199,11 +213,13 @@
       });
     }
 
-    const mask =
-      wrapper.querySelector(".c-gear_gallery-mask") || wrapper;
+    const mask = wrapper.querySelector(".c-gear_gallery-mask") || wrapper;
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
+      // ✅ Optional UX: no drag if cannot scroll
+      if (maxIndex() === 0) return;
+
       if (e.button !== undefined && e.button !== 0) return;
       isDown = true;
       moved = false;
@@ -284,6 +300,7 @@
         "load",
         () => {
           computeMetrics();
+          updateControlsVisibility(); // ✅ NEW
           goTo(index);
         },
         { once: true }
@@ -295,11 +312,13 @@
       clearTimeout(t);
       t = setTimeout(() => {
         computeMetrics();
+        updateControlsVisibility(); // ✅ NEW
         goTo(index);
       }, 60);
     });
 
     computeMetrics();
+    updateControlsVisibility(); // ✅ NEW
     goTo(0);
   }
 
