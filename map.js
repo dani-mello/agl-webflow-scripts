@@ -194,7 +194,7 @@
         requestAnimationFrame(function () {
           window.ScrollTrigger.create({
             trigger: container,
-            start: "top 60%",
+            start: "top 50%",
             once: true,
             onEnter: playPins,
           });
