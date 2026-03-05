@@ -1,8 +1,16 @@
+/* featured-inline-gallery.js
+   - Webflow/component safe (class-based, no IDs)
+   - Supports multiple galleries on a page
+   - Builds & updates progress segments
+   - Adds drag/swipe via Pointer Events
+   - ✅ Hides .inline-gallery__controls when no scrolling is possible
+*/
+
 (() => {
   const TABLET_BP = 991;
   const MOBILE_BP = 767;
 
-  // ✅ Add a “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
+  // ✅ “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
   const WIDE_BP = 1320;
 
   function getVisible() {
@@ -127,6 +135,13 @@
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
+    // ✅ NEW: hide controls when there is nothing to scroll
+    function updateControlsVisibility() {
+      if (!controls) return;
+      const canScroll = maxIndex() > 0;
+      controls.style.display = canScroll ? "" : "none";
+    }
+
     function updateProgress() {
       const visible = getVisible();
 
@@ -159,6 +174,7 @@
       applyTransform();
       updateProgress();
       updateButtons();
+      updateControlsVisibility(); // ✅ NEW
     }
 
     let isDown = false;
@@ -210,6 +226,9 @@
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
+      // ✅ Optional UX improvement: no drag if cannot scroll
+      if (maxIndex() === 0) return;
+
       if (e.button !== undefined && e.button !== 0) return;
       isDown = true;
       moved = false;
@@ -290,6 +309,7 @@
         "load",
         () => {
           computeMetrics();
+          updateControlsVisibility(); // ✅ NEW
           goTo(index);
         },
         { once: true }
@@ -301,11 +321,13 @@
       clearTimeout(t);
       t = setTimeout(() => {
         computeMetrics();
+        updateControlsVisibility(); // ✅ NEW
         goTo(index);
       }, 60);
     });
 
     computeMetrics();
+    updateControlsVisibility(); // ✅ NEW
     goTo(0);
   }
 
