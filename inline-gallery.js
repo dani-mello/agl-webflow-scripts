@@ -191,32 +191,5 @@
     window.Webflow.push(run);
   }
   
-   // inline-gallery-controls.js
-(function () {
-  const galleries = document.querySelectorAll(".inline-gallery");
 
-  galleries.forEach((gallery) => {
-    const mask = gallery.querySelector(".inline-gallery__mask");
-    const track = gallery.querySelector(".inline-gallery__track");
-    const controls = gallery.querySelector(".inline-gallery__controls");
-
-    if (!mask || !track || !controls) return;
-
-    function checkOverflow() {
-      const hasOverflow = track.scrollWidth > mask.clientWidth + 2;
-
-      if (hasOverflow) {
-        controls.style.display = "";
-      } else {
-        controls.style.display = "none";
-      }
-    }
-
-    // run on load
-    checkOverflow();
-
-    // run on resize (important for breakpoints)
-    window.addEventListener("resize", checkOverflow);
-  });
-})();
 })();
