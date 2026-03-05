@@ -7,7 +7,7 @@
 */
 
 (() => {
-  const TABLET_BP = 991;
+  const TABLET_BP = 1080;
   const MOBILE_BP = 767;
 
   // ✅ “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
