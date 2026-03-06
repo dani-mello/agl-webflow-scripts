@@ -4,7 +4,8 @@
    - Builds & updates progress segments
    - Adds drag/swipe via Pointer Events
    - Hides .inline-gallery__controls when no scrolling is possible
-   - FIX: manual link navigation when click gets swallowed by drag layer
+   - FIX: normal click works
+   - FIX: drag does not trigger link navigation
 */
 
 (() => {
@@ -252,6 +253,7 @@
       if (!moved && Math.abs(dx) > DRAG_START_PX) {
         moved = true;
         suppressClick = true;
+        pressedLink = null; // cancel link as soon as gesture becomes a drag
       }
 
       if (!moved) return;
@@ -269,43 +271,43 @@
 
       track.style.transition = "transform 300ms ease";
 
-      // Normal click on link: force navigation manually
-      if (!moved) {
-        if (pressedLink) {
-          const href = pressedLink.getAttribute("href");
-          const target = pressedLink.getAttribute("target");
-
-          pressedLink = null;
-
-          if (href) {
-            if (target === "_blank") {
-              window.open(href, "_blank", "noopener");
-            } else {
-              window.location.href = href;
-            }
-          }
-          return;
-        }
-
-        pressedLink = null;
-        return;
-      }
-
       const dx = e.clientX - startX;
       const threshold = Math.min(stepPx * 0.22, 120);
 
-      if (dx < -threshold) goTo(index + 1);
-      else if (dx > threshold) goTo(index - 1);
-      else goTo(index);
+      // Real drag: slide only, never navigate
+      if (moved) {
+        if (dx < -threshold) goTo(index + 1);
+        else if (dx > threshold) goTo(index - 1);
+        else goTo(index);
 
-      pressedLink = null;
+        pressedLink = null;
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+        setTimeout(() => {
           moved = false;
           suppressClick = false;
-        });
-      });
+        }, 80);
+
+        return;
+      }
+
+      // Normal click: navigate manually if we started on a link
+      if (pressedLink) {
+        const href = pressedLink.getAttribute("href");
+        const target = pressedLink.getAttribute("target");
+
+        pressedLink = null;
+
+        if (href) {
+          if (target === "_blank") {
+            window.open(href, "_blank", "noopener");
+          } else {
+            window.location.href = href;
+          }
+        }
+        return;
+      }
+
+      pressedLink = null;
     }
 
     function onCancel() {
