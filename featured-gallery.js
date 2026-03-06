@@ -9,9 +9,9 @@
 */
 
 (() => {
-  const MOBILE_BP = 767;
-  const TABLET_BP = 991;
-  const DESKTOP_BP = 1500;
+  const MOBILE_BP = 568;
+  const TABLET_BP = 768;
+  const DESKTOP_BP = 1700;
   const DRAG_START_PX = 20;
 
   function getVisible() {
