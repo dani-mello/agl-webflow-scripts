@@ -7,11 +7,11 @@
 */
 
 (() => {
-  const TABLET_BP = 1400;
+  const TABLET_BP = 1600;
   const MOBILE_BP = 767;
 
   // ✅ “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
-  const WIDE_BP = 1400;
+  const WIDE_BP = 1600;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
