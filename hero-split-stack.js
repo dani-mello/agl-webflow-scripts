@@ -1,4 +1,4 @@
-<script>
+
 console.log("hero split stack v4.2 - mapped to real structure");
 
 (function () {
@@ -238,4 +238,4 @@ console.log("hero split stack v4.2 - mapped to real structure");
 
   window.addEventListener("load", queueRefresh, { once: true });
 })();
-</script>
+
