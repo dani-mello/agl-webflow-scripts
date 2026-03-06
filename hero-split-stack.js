@@ -1,4 +1,4 @@
-console.log("hero split stack clean v1");
+console.log("hero split stack clean v2");
 
 (function () {
   const root = document.querySelector(".c-hero");
@@ -15,14 +15,13 @@ console.log("hero split stack clean v1");
 
   if (
     typeof gsap === "undefined" ||
-    typeof ScrollTrigger === "undefined" ||
-    typeof SplitText === "undefined"
+    typeof ScrollTrigger === "undefined"
   ) {
-    console.warn("GSAP / ScrollTrigger / SplitText missing");
+    console.warn("GSAP / ScrollTrigger missing");
     return;
   }
 
-  gsap.registerPlugin(ScrollTrigger, SplitText);
+  gsap.registerPlugin(ScrollTrigger);
 
   const old = ScrollTrigger.getById("heroSplitStack");
   if (old) old.kill(true);
@@ -59,19 +58,13 @@ console.log("hero split stack clean v1");
     });
   }
 
-  // v2 and v3 start closed from center
+  // Start v2 + v3 closed from center
   gsap.set([v2Reveal, v3Reveal], {
     left: "50%",
     xPercent: -50,
     width: "0%",
     transformOrigin: "50% 50%",
     overflow: "hidden"
-  });
-
-
-     gsap.set(headline, {
-    autoAlpha: 1,
-    zIndex: 20
   });
 
   // -----------------------------
