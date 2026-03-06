@@ -22,13 +22,13 @@
     heading.classList.add("is-ah-ready");
   }
 
-  function animateLines(lines) {
-    gsap.to(lines, {
+  function animateWords(words) {
+    gsap.to(words, {
       x: 0,
       y: 0,
       duration: 0.8,
       ease: "power3.out",
-      stagger: 0.3,
+      stagger: 0.035,
       overwrite: true
     });
   }
@@ -43,19 +43,21 @@
       heading.style.visibility = "hidden";
 
       const split = new SplitText(heading, {
-        type: "lines",
-        linesClass: "ah-line"
+        type: "lines,words",
+        linesClass: "ah-line",
+        wordsClass: "ah-word"
       });
 
       const lines = split.lines || [];
+      const words = split.words || [];
 
-      if (!lines.length) {
+      if (!lines.length || !words.length) {
         showHeadingSafely(heading);
         return;
       }
 
+      // Mask each line
       lines.forEach((line) => {
-        // avoid double wrapping if script is re-run
         if (line.parentElement && line.parentElement.classList.contains("ah-mask")) return;
 
         const mask = document.createElement("div");
@@ -70,31 +72,39 @@
         mask.appendChild(line);
       });
 
-      gsap.set(lines, { x: -15, y: 100 });
+      // Word setup
+      gsap.set(words, {
+        display: "inline-block",
+        x: -10,
+        y: "1.05em",
+        rotate: 0.8,
+        opacity: 1,
+        willChange: "transform"
+      });
 
       if (isHeroHeading) {
         showHeadingSafely(heading);
 
-        gsap.to(lines, {
+        gsap.to(words, {
           x: 0,
           y: 0,
+          rotate: 0,
           duration: 0.8,
           ease: "power3.out",
-          stagger: 0.3,
+          stagger: 0.035,
           delay: 1.6
         });
 
         return;
       }
 
-      // Non-hero headings: reveal only when actually near viewport
       const io = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
             if (!entry.isIntersecting) return;
 
             showHeadingSafely(heading);
-            animateLines(lines);
+            animateWords(words);
             io.unobserve(heading);
           });
         },
