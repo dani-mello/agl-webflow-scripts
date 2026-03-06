@@ -1,22 +1,24 @@
-
 /* featured-inline-gallery.js
-   - Webflow/component safe
-   - multiple galleries supported
-   - progress + arrows + drag
-   - reviewed click/drag fix
+   - Webflow/component safe (class-based, no IDs)
+   - Supports multiple galleries on a page
+   - Builds & updates progress segments
+   - Adds drag/swipe via Pointer Events
+   - Hides .inline-gallery__controls when no scrolling is possible
+   - FIX: normal card clicks work unless user actually drags
 */
 
 (() => {
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
   const WIDE_BP = 1500;
-
   const DRAG_START_PX = 8;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
     if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
+
     if (window.matchMedia(`(min-width: ${WIDE_BP}px)`).matches) return 4;
+
     return 3;
   }
 
@@ -43,12 +45,6 @@
     if (next?.classList?.contains("inline-gallery__controls")) return next;
 
     return null;
-  }
-
-  function isInteractive(target) {
-    return !!target.closest(
-      'a, button, [role="button"], input, select, textarea, label, summary, .ig-prev, .ig-next'
-    );
   }
 
   function initGallery(wrapper) {
@@ -111,6 +107,7 @@
         stepPx = 0;
         return;
       }
+
       const r0 = slides[0].getBoundingClientRect();
       const r1 = slides[1].getBoundingClientRect();
       const gapPx = Math.max(0, Math.round(r1.left - r0.right));
@@ -118,7 +115,8 @@
     }
 
     function maxIndex() {
-      return Math.max(0, N - getVisible());
+      const visible = getVisible();
+      return Math.max(0, N - visible);
     }
 
     function clampIndex(i) {
@@ -136,7 +134,8 @@
 
     function updateControlsVisibility() {
       if (!controls) return;
-      controls.style.display = maxIndex() > 0 ? "" : "none";
+      const canScroll = maxIndex() > 0;
+      controls.style.display = canScroll ? "" : "none";
     }
 
     function updateProgress() {
@@ -169,8 +168,8 @@
       computeMetrics();
       index = clampIndex(i);
       applyTransform();
-      updateButtons();
       updateProgress();
+      updateButtons();
       updateControlsVisibility();
     }
 
@@ -179,11 +178,9 @@
     let suppressClick = false;
     let startX = 0;
     let startTranslate = 0;
-    let pointerId = null;
-    let downOnInteractive = false;
-
     let rafId = null;
     let pendingX = null;
+    let downOnLink = false;
 
     function getTranslateX(el) {
       const t = getComputedStyle(el).transform;
@@ -207,14 +204,17 @@
     function withResistance(x) {
       const minX = minTranslate();
       const maxX = maxTranslate();
+
       if (x > maxX) return maxX + (x - maxX) * 0.25;
       if (x < minX) return minX + (x - minX) * 0.25;
+
       return x;
     }
 
     function scheduleMove(x) {
       pendingX = x;
       if (rafId) return;
+
       rafId = requestAnimationFrame(() => {
         rafId = null;
         if (pendingX == null) return;
@@ -234,8 +234,7 @@
       isDown = true;
       moved = false;
       suppressClick = false;
-      pointerId = e.pointerId;
-      downOnInteractive = isInteractive(e.target);
+      downOnLink = !!e.target.closest("a");
 
       computeMetrics();
       track.style.transition = "none";
@@ -247,34 +246,30 @@
 
     function onMove(e) {
       if (!isDown) return;
-      if (pointerId != null && e.pointerId !== pointerId) return;
 
       const dx = e.clientX - startX;
+
+      // Let normal click happen unless user clearly drags
+      if (!moved && Math.abs(dx) <= DRAG_START_PX) return;
 
       if (!moved && Math.abs(dx) > DRAG_START_PX) {
         moved = true;
         suppressClick = true;
       }
 
-      if (!moved) return;
-
-      // once it is a real drag, we take over even if it started on a link
       e.preventDefault();
       scheduleMove(startTranslate + dx);
     }
 
     function onUp(e) {
       if (!isDown) return;
-      if (pointerId != null && e.pointerId !== pointerId) return;
-
       isDown = false;
-      pointerId = null;
 
       track.style.transition = "transform 300ms ease";
 
-      // normal click: do nothing, let link work
+      // normal click: let link work
       if (!moved) {
-        downOnInteractive = false;
+        downOnLink = false;
         return;
       }
 
@@ -285,44 +280,37 @@
       else if (dx > threshold) goTo(index - 1);
       else goTo(index);
 
-      downOnInteractive = false;
+      downOnLink = false;
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           moved = false;
+          suppressClick = false;
         });
       });
-
-      setTimeout(() => {
-        suppressClick = false;
-      }, 80);
     }
 
     function onCancel() {
       if (!isDown) return;
 
       isDown = false;
-      pointerId = null;
-      downOnInteractive = false;
+      downOnLink = false;
 
       track.style.transition = "transform 300ms ease";
       goTo(index);
 
       requestAnimationFrame(() => {
         moved = false;
-      });
-
-      setTimeout(() => {
         suppressClick = false;
-      }, 80);
+      });
     }
 
     mask.addEventListener("pointerdown", onDown, { passive: true });
     mask.addEventListener("pointermove", onMove, { passive: false });
     mask.addEventListener("pointerup", onUp, { passive: true });
     mask.addEventListener("pointercancel", onCancel, { passive: true });
+    mask.addEventListener("pointerleave", onCancel, { passive: true });
 
-    // prevent accidental navigation only after real drag
     mask.addEventListener(
       "click",
       (e) => {
@@ -334,30 +322,8 @@
       true
     );
 
-    // stop browser native dragging from links/images
-    track.addEventListener("dragstart", (e) => {
-      e.preventDefault();
-    });
-
-    if (next) {
-      next.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (next.classList.contains("is-disabled")) return;
-        track.style.transition = "transform 300ms ease";
-        goTo(index + 1);
-      });
-    }
-
-    if (prev) {
-      prev.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (prev.classList.contains("is-disabled")) return;
-        track.style.transition = "transform 300ms ease";
-        goTo(index - 1);
-      });
-    }
+    // Stop native browser drag interfering with card links
+    track.addEventListener("dragstart", (e) => e.preventDefault());
 
     wrapper.querySelectorAll("img").forEach((img) => {
       img.setAttribute("draggable", "false");
@@ -378,10 +344,28 @@
       a.setAttribute("draggable", "false");
     });
 
-    let resizeTimer;
+    if (next) {
+      next.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (next.classList.contains("is-disabled")) return;
+        track.style.transition = "transform 300ms ease";
+        goTo(index + 1);
+      });
+    }
+
+    if (prev) {
+      prev.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (prev.classList.contains("is-disabled")) return;
+        track.style.transition = "transform 300ms ease";
+        goTo(index - 1);
+      });
+    }
+
+    let t;
     window.addEventListener("resize", () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
+      clearTimeout(t);
+      t = setTimeout(() => {
         computeMetrics();
         updateControlsVisibility();
         goTo(index);
@@ -417,4 +401,3 @@
     window.Webflow.push(run);
   }
 })();
-
