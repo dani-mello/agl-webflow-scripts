@@ -68,12 +68,13 @@ console.log("hero split stack clean v1");
     overflow: "hidden"
   });
 
-  // -----------------------------
+
+   // -----------------------------
   // SplitText intro
   // -----------------------------
-  const originalText = h1.textContent;
+  const originalText = h1.textContent.trim();
   let split = null;
-  let lines = [];
+  let lineInners = [];
 
   function buildSplit() {
     if (split) {
@@ -83,42 +84,45 @@ console.log("hero split stack clean v1");
     }
 
     h1.textContent = originalText;
+    h1.style.visibility = "visible";
+    headline.style.visibility = "visible";
 
     split = new SplitText(h1, {
       type: "lines",
       linesClass: "u-split-line"
     });
 
-    lines = split.lines || [];
+    const lines = split.lines || [];
+    lineInners = [];
 
-    // wrap inner line content for masked motion
     lines.forEach((line) => {
-      const inner = document.createElement("div");
-      inner.innerHTML = line.innerHTML;
-      line.innerHTML = "";
-      line.appendChild(inner);
+      const content = line.innerHTML;
+      line.innerHTML = '<span class="u-split-line_inner">' + content + "</span>";
+      const inner = line.querySelector(".u-split-line_inner");
+      if (inner) lineInners.push(inner);
     });
 
-    const inners = lines.map((line) => line.firstElementChild).filter(Boolean);
-
-    gsap.set(inners, {
+    gsap.set(headline, { autoAlpha: 1 });
+    gsap.set(h1, { autoAlpha: 1 });
+    gsap.set(lineInners, {
       yPercent: 110,
+      x: -18,
       rotate: 1,
-      x: -18
+      opacity: 1
     });
-
-    return inners;
   }
 
-  const introInners = buildSplit();
+  buildSplit();
 
-  gsap.to(introInners, {
-    yPercent: 0,
-    rotate: 0,
-    x: 0,
-    duration: 1.1,
-    ease: "power3.out",
-    stagger: 0.22
+  requestAnimationFrame(() => {
+    gsap.to(lineInners, {
+      yPercent: 0,
+      x: 0,
+      rotate: 0,
+      duration: 1.1,
+      ease: "power3.out",
+      stagger: 0.22
+    });
   });
 
   // -----------------------------
