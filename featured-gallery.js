@@ -13,7 +13,7 @@
   const MOBILE_BP = 767;
   const DESKTOP_BP = 1500;
   const WIDE_BP = 1700;
-  const DRAG_START_PX = 10;
+  const DRAG_START_PX = 12;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
