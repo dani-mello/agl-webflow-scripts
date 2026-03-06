@@ -60,9 +60,9 @@
 
       gsap.set(split.lines, { x: -15, y: 100 });
 
-      showHeadingSafely(heading);
-
       if (isHeroHeading) {
+        showHeadingSafely(heading);
+
         gsap.to(split.lines, {
           x: 0,
           y: 0,
@@ -72,19 +72,24 @@
           delay: 1.6
         });
       } else {
-        gsap.to(split.lines, {
-          x: 0,
-          y: 0,
-          duration: 0.8,
-          ease: "power3.out",
-          stagger: 0.3,
-          scrollTrigger: {
-            id: `animateHeading-${index}`,
-            trigger: heading,
-            start: "top 85%",
-            once: true,
-            invalidateOnRefresh: true,
-            refreshPriority: -10
+        ScrollTrigger.create({
+          id: `animateHeading-${index}`,
+          trigger: heading,
+          start: "top 85%",
+          once: true,
+          invalidateOnRefresh: true,
+          refreshPriority: -10,
+          onEnter: () => {
+            showHeadingSafely(heading);
+
+            gsap.to(split.lines, {
+              x: 0,
+              y: 0,
+              duration: 0.8,
+              ease: "power3.out",
+              stagger: 0.3,
+              overwrite: true
+            });
           }
         });
       }
