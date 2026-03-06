@@ -1,4 +1,4 @@
-<script>
+
 /* featured-inline-gallery.js
    - Webflow/component safe
    - multiple galleries supported
@@ -417,4 +417,4 @@
     window.Webflow.push(run);
   }
 })();
-</script>
+
