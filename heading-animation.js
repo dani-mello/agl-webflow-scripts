@@ -76,7 +76,7 @@
       gsap.set(words, {
         display: "inline-block",
         x: -10,
-        y: "1.3em",
+        y: "2em",
         rotate: 0.8,
         opacity: 1,
         willChange: "transform"
