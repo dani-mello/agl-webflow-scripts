@@ -14,14 +14,12 @@
   const DESKTOP_BP = 1280;
   const DRAG_START_PX = 20;
 
-function getVisible() {
-  const w = window.innerWidth;
-
-  if (w <= MOBILE_BP) return 1;
-  if (w <= TABLET_BP) return 2;
-  if (w <= DESKTOP_BP) return 3;
-  return 4;
-}
+  function getVisible() {
+    if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
+    if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
+    if (window.matchMedia(`(max-width: ${DESKTOP_BP}px)`).matches) return 3;
+    return 4;
+  }
 
   function getGalleryRoot(wrapper) {
     return (
