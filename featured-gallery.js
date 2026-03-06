@@ -1,19 +1,17 @@
 <script>
 /* featured-inline-gallery.js
-   - Webflow/component safe (class-based, no IDs)
-   - Supports multiple galleries on a page
-   - Builds & updates progress segments
-   - Adds drag/swipe via Pointer Events
-   - Hides .inline-gallery__controls when no scrolling is possible
-   - FIX: preserve normal clicks on links
-   - FIX: only cancel click after a real drag
+   - Webflow/component safe
+   - multiple galleries supported
+   - progress + arrows + drag
+   - reviewed click/drag fix
 */
 
 (() => {
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
   const WIDE_BP = 1500;
-  const DRAG_START_PX = 6;
+
+  const DRAG_START_PX = 8;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
@@ -45,6 +43,12 @@
     if (next?.classList?.contains("inline-gallery__controls")) return next;
 
     return null;
+  }
+
+  function isInteractive(target) {
+    return !!target.closest(
+      'a, button, [role="button"], input, select, textarea, label, summary, .ig-prev, .ig-next'
+    );
   }
 
   function initGallery(wrapper) {
@@ -114,8 +118,7 @@
     }
 
     function maxIndex() {
-      const visible = getVisible();
-      return Math.max(0, N - visible);
+      return Math.max(0, N - getVisible());
     }
 
     function clampIndex(i) {
@@ -155,6 +158,7 @@
       }
 
       const current = Math.min(start + Math.floor(visible / 2), N - 1);
+
       if (segs[current]) {
         segs[current].classList.add("is-current");
         segs[current].style.opacity = "1";
@@ -165,8 +169,8 @@
       computeMetrics();
       index = clampIndex(i);
       applyTransform();
-      updateProgress();
       updateButtons();
+      updateProgress();
       updateControlsVisibility();
     }
 
@@ -175,9 +179,11 @@
     let suppressClick = false;
     let startX = 0;
     let startTranslate = 0;
+    let pointerId = null;
+    let downOnInteractive = false;
+
     let rafId = null;
     let pendingX = null;
-    let activePointerId = null;
 
     function getTranslateX(el) {
       const t = getComputedStyle(el).transform;
@@ -228,7 +234,8 @@
       isDown = true;
       moved = false;
       suppressClick = false;
-      activePointerId = e.pointerId;
+      pointerId = e.pointerId;
+      downOnInteractive = isInteractive(e.target);
 
       computeMetrics();
       track.style.transition = "none";
@@ -240,7 +247,7 @@
 
     function onMove(e) {
       if (!isDown) return;
-      if (activePointerId != null && e.pointerId !== activePointerId) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
 
       const dx = e.clientX - startX;
 
@@ -251,20 +258,25 @@
 
       if (!moved) return;
 
+      // once it is a real drag, we take over even if it started on a link
       e.preventDefault();
       scheduleMove(startTranslate + dx);
     }
 
     function onUp(e) {
       if (!isDown) return;
-      if (activePointerId != null && e.pointerId !== activePointerId) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
 
       isDown = false;
-      activePointerId = null;
+      pointerId = null;
 
       track.style.transition = "transform 300ms ease";
 
-      if (!moved) return;
+      // normal click: do nothing, let link work
+      if (!moved) {
+        downOnInteractive = false;
+        return;
+      }
 
       const dx = e.clientX - startX;
       const threshold = Math.min(stepPx * 0.22, 120);
@@ -272,6 +284,8 @@
       if (dx < -threshold) goTo(index + 1);
       else if (dx > threshold) goTo(index - 1);
       else goTo(index);
+
+      downOnInteractive = false;
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -281,13 +295,16 @@
 
       setTimeout(() => {
         suppressClick = false;
-      }, 50);
+      }, 80);
     }
 
     function onCancel() {
       if (!isDown) return;
+
       isDown = false;
-      activePointerId = null;
+      pointerId = null;
+      downOnInteractive = false;
+
       track.style.transition = "transform 300ms ease";
       goTo(index);
 
@@ -297,7 +314,7 @@
 
       setTimeout(() => {
         suppressClick = false;
-      }, 50);
+      }, 80);
     }
 
     mask.addEventListener("pointerdown", onDown, { passive: true });
@@ -305,6 +322,7 @@
     mask.addEventListener("pointerup", onUp, { passive: true });
     mask.addEventListener("pointercancel", onCancel, { passive: true });
 
+    // prevent accidental navigation only after real drag
     mask.addEventListener(
       "click",
       (e) => {
@@ -315,6 +333,11 @@
       },
       true
     );
+
+    // stop browser native dragging from links/images
+    track.addEventListener("dragstart", (e) => {
+      e.preventDefault();
+    });
 
     if (next) {
       next.addEventListener("click", (e) => {
@@ -337,6 +360,8 @@
     }
 
     wrapper.querySelectorAll("img").forEach((img) => {
+      img.setAttribute("draggable", "false");
+
       if (img.complete) return;
       img.addEventListener(
         "load",
@@ -347,6 +372,10 @@
         },
         { once: true }
       );
+    });
+
+    wrapper.querySelectorAll("a").forEach((a) => {
+      a.setAttribute("draggable", "false");
     });
 
     let resizeTimer;
