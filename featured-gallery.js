@@ -11,7 +11,7 @@
 (() => {
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
-  const WIDE_BP = 1700;
+  const WIDE_BP = 2200;
   const DRAG_START_PX = 12;
 
 function getVisible() {
