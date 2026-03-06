@@ -9,9 +9,9 @@
 */
 
 (() => {
-  const TABLET_BP = 910;
   const MOBILE_BP = 767;
-  const WIDE_BP = 4000;
+  const TABLET_BP = 991;
+  const DESKTOP_BP = 1280;
   const DRAG_START_PX = 12;
 
 function getVisible() {
@@ -19,11 +19,7 @@ function getVisible() {
 
   if (w <= MOBILE_BP) return 1;
   if (w <= TABLET_BP) return 2;
-
-  // Desktop range
-  if (w < WIDE_BP) return 3;
-
-  // Wide desktop
+  if (w <= DESKTOP_BP) return 3;
   return 4;
 }
 
