@@ -1,9 +1,9 @@
 // animate-heading.js
-// Requires GSAP + ScrollTrigger + SplitText
+// Requires GSAP + SplitText
 (function () {
   const htmlEl = document.documentElement;
 
-  if (!window.gsap || !window.ScrollTrigger || !window.SplitText) {
+  if (!window.gsap || !window.SplitText) {
     htmlEl.classList.add("gsap-not-found");
     document.querySelectorAll(".u-animate-heading").forEach((el) => {
       el.style.visibility = "";
@@ -15,8 +15,6 @@
 
   htmlEl.classList.remove("gsap-not-found");
 
-  gsap.registerPlugin(ScrollTrigger, SplitText);
-
   function showHeadingSafely(heading) {
     heading.style.visibility = "";
     heading.style.opacity = "";
@@ -24,7 +22,18 @@
     heading.classList.add("is-ah-ready");
   }
 
-  function initOneHeading(heading, index) {
+  function animateLines(lines) {
+    gsap.to(lines, {
+      x: 0,
+      y: 0,
+      duration: 0.8,
+      ease: "power3.out",
+      stagger: 0.3,
+      overwrite: true
+    });
+  }
+
+  function initOneHeading(heading) {
     if (!heading || heading.dataset.ahInit === "1") return;
     heading.dataset.ahInit = "1";
 
@@ -38,12 +47,17 @@
         linesClass: "ah-line"
       });
 
-      if (!split.lines || !split.lines.length) {
+      const lines = split.lines || [];
+
+      if (!lines.length) {
         showHeadingSafely(heading);
         return;
       }
 
-      split.lines.forEach((line) => {
+      lines.forEach((line) => {
+        // avoid double wrapping if script is re-run
+        if (line.parentElement && line.parentElement.classList.contains("ah-mask")) return;
+
         const mask = document.createElement("div");
         mask.className = "ah-mask";
         mask.style.overflow = "hidden";
@@ -52,18 +66,16 @@
         line.style.display = "block";
         line.style.willChange = "transform";
 
-        if (line.parentNode) {
-          line.parentNode.insertBefore(mask, line);
-          mask.appendChild(line);
-        }
+        line.parentNode.insertBefore(mask, line);
+        mask.appendChild(line);
       });
 
-      gsap.set(split.lines, { x: -15, y: 100 });
+      gsap.set(lines, { x: -15, y: 100 });
 
       if (isHeroHeading) {
         showHeadingSafely(heading);
 
-        gsap.to(split.lines, {
+        gsap.to(lines, {
           x: 0,
           y: 0,
           duration: 0.8,
@@ -71,28 +83,28 @@
           stagger: 0.3,
           delay: 1.6
         });
-      } else {
-        ScrollTrigger.create({
-          id: `animateHeading-${index}`,
-          trigger: heading,
-          start: "top 85%",
-          once: true,
-          invalidateOnRefresh: true,
-          refreshPriority: -10,
-          onEnter: () => {
-            showHeadingSafely(heading);
 
-            gsap.to(split.lines, {
-              x: 0,
-              y: 0,
-              duration: 0.8,
-              ease: "power3.out",
-              stagger: 0.3,
-              overwrite: true
-            });
-          }
-        });
+        return;
       }
+
+      // Non-hero headings: reveal only when actually near viewport
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+
+            showHeadingSafely(heading);
+            animateLines(lines);
+            io.unobserve(heading);
+          });
+        },
+        {
+          threshold: 0.2,
+          rootMargin: "0px 0px -10% 0px"
+        }
+      );
+
+      io.observe(heading);
     } catch (err) {
       console.warn("animate-heading failed:", err);
       showHeadingSafely(heading);
@@ -103,17 +115,11 @@
     const headings = document.querySelectorAll(".u-animate-heading");
     if (!headings.length) return;
 
-    headings.forEach((heading, index) => {
-      initOneHeading(heading, index);
-    });
+    headings.forEach((heading) => initOneHeading(heading));
   }
 
   function boot() {
     initAnimateHeadings();
-
-    requestAnimationFrame(() => ScrollTrigger.refresh());
-    setTimeout(() => ScrollTrigger.refresh(), 150);
-    setTimeout(() => ScrollTrigger.refresh(), 400);
   }
 
   function runAfterReveal(fn) {
