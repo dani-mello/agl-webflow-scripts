@@ -1,4 +1,5 @@
-console.log("hero split stack v4 - simplified + stabler");
+<script>
+console.log("hero split stack v4.2 - mapped to real structure");
 
 (function () {
   const root = document.querySelector(".c-hero");
@@ -28,84 +29,52 @@ console.log("hero split stack v4 - simplified + stabler");
 
   const headline = root.querySelector(".c-hero_headline");
   const h1 = headline?.querySelector(".c-hero_h1");
-
-  const v1Reveal = root.querySelector(".c-hero_reveal.is-v1");
-  const v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
-  const v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
-
   const gradient = root.querySelector(".l-bottom-gradient");
+
+  const layers = root.querySelectorAll(".c-hero_layer");
+  const reveals = root.querySelectorAll(".c-hero_reveal");
   const videos = root.querySelectorAll("video");
 
-  if (!headline || !h1 || !v1Reveal || !v2Reveal || !v3Reveal) return;
+  // expected:
+  // layer 1 = base video
+  // reveal 1 = second video reveal
+  // reveal 2 = third video reveal
+  const baseLayer = layers[0];
+  const v2Reveal = reveals[0];
+  const v3Reveal = reveals[1];
 
-  // -----------------------------
-  // Helpers
-  // -----------------------------
-  function forceLayer(el, z) {
-    if (!el) return;
-    Object.assign(el.style, {
-      position: "absolute",
-      inset: "0",
-      width: "100%",
-      height: "100%",
-      overflow: "hidden"
-    });
-    if (z != null) el.style.zIndex = String(z);
+  if (!headline || !h1 || !baseLayer || !v2Reveal || !v3Reveal) {
+    console.warn("Hero structure incomplete");
+    return;
   }
 
-  function setupReveal(el, z) {
-    if (!el) return;
-    forceLayer(el, z);
+  gsap.set(root, {
+    position: "relative",
+    overflow: "hidden"
+  });
 
-    // Stable center reveal using width + xPercent
-    gsap.set(el, {
-      left: "50%",
-      xPercent: -50,
-      width: "0%",
-      transformOrigin: "50% 50%",
-      willChange: "width"
-    });
-  }
+  gsap.set(layers, {
+    position: "absolute",
+    inset: 0
+  });
 
-  function openReveal(tl, el, pos, dur) {
-    if (!el) return;
-    tl.to(
-      el,
-      {
-        width: "100%",
-        duration: dur,
-        ease: "power2.inOut"
-      },
-      pos
-    );
-  }
+  gsap.set(baseLayer, { zIndex: 1 });
+  if (layers[1]) gsap.set(layers[1], { zIndex: 2 });
+  if (layers[2]) gsap.set(layers[2], { zIndex: 3 });
 
-  function resetReveal(el) {
-    if (!el) return;
-    gsap.set(el, {
-      left: "50%",
-      xPercent: -50,
-      width: "0%"
-    });
-  }
-
-  // -----------------------------
-  // Base layout
-  // -----------------------------
-  root.style.overflow = "clip";
-  root.style.position = root.style.position || "relative";
-  root.style.backfaceVisibility = "hidden";
-  root.style.transform = "translateZ(0)";
-
-  forceLayer(v1Reveal, 1);
-  setupReveal(v2Reveal, 2);
-  setupReveal(v3Reveal, 3);
+  gsap.set([v2Reveal, v3Reveal], {
+    position: "absolute",
+    inset: 0,
+    overflow: "hidden",
+    left: "50%",
+    xPercent: -50,
+    width: "0%"
+  });
 
   gsap.set(headline, {
     position: "absolute",
     zIndex: 20,
-    autoAlpha: 1,
-    willChange: "transform"
+    autoAlpha: 1
   });
 
   if (gradient) {
@@ -120,9 +89,7 @@ console.log("hero split stack v4 - simplified + stabler");
     });
   }
 
-  // -----------------------------
   // SplitText intro
-  // -----------------------------
   const originalText = h1.textContent;
   let splitLines = null;
   let lines = [];
@@ -130,7 +97,7 @@ console.log("hero split stack v4 - simplified + stabler");
 
   function revertSplit() {
     try {
-      splitLines?.revert();
+      if (splitLines) splitLines.revert();
     } catch (e) {}
     splitLines = null;
     lines = [];
@@ -138,7 +105,6 @@ console.log("hero split stack v4 - simplified + stabler");
 
   function buildSplit() {
     revertSplit();
-
     h1.textContent = originalText;
 
     if (!h1.hasAttribute("aria-label")) {
@@ -157,8 +123,7 @@ console.log("hero split stack v4 - simplified + stabler");
         yPercent: 120,
         x: -18,
         rotate: 1,
-        opacity: 0,
-        willChange: "transform, opacity"
+        opacity: 0
       });
     }
   }
@@ -184,14 +149,6 @@ console.log("hero split stack v4 - simplified + stabler");
   buildSplit();
   requestAnimationFrame(() => playIntro());
 
-  // Rebuild only on refreshInit, but do not replay once already played
-  ScrollTrigger.addEventListener("refreshInit", () => {
-    if (!introPlayed) buildSplit();
-  });
-
-  // -----------------------------
-  // Main timeline
-  // -----------------------------
   const tl = gsap.timeline({ paused: true });
 
   if (gradient) {
@@ -204,15 +161,28 @@ console.log("hero split stack v4 - simplified + stabler");
   }
 
   tl.to({}, { duration: 0.9 });
-  openReveal(tl, v2Reveal, ">", 1.8);
+  tl.to(
+    v2Reveal,
+    {
+      width: "100%",
+      duration: 1.8,
+      ease: "power2.inOut"
+    },
+    ">"
+  );
   tl.to({}, { duration: 0.28 });
-  openReveal(tl, v3Reveal, ">", 1.8);
+  tl.to(
+    v3Reveal,
+    {
+      width: "100%",
+      duration: 1.8,
+      ease: "power2.inOut"
+    },
+    ">"
+  );
   tl.to({}, { duration: 0.9 });
 
-  // -----------------------------
-  // ScrollTrigger
-  // -----------------------------
-  const st = ScrollTrigger.create({
+  ScrollTrigger.create({
     id: "heroSplitStack",
     trigger: root,
     start: "top top",
@@ -224,9 +194,6 @@ console.log("hero split stack v4 - simplified + stabler");
     animation: tl
   });
 
-  // -----------------------------
-  // Single controlled refresh
-  // -----------------------------
   let refreshQueued = false;
 
   function queueRefresh() {
@@ -270,22 +237,5 @@ console.log("hero split stack v4 - simplified + stabler");
   }
 
   window.addEventListener("load", queueRefresh, { once: true });
-
-  // -----------------------------
-  // Clean resize handling
-  // -----------------------------
-  let resizeTimer = null;
-  window.addEventListener(
-    "resize",
-    () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        resetReveal(v2Reveal);
-        resetReveal(v3Reveal);
-        st.animation.progress(st.progress);
-        ScrollTrigger.refresh();
-      }, 180);
-    },
-    { passive: true }
-  );
 })();
+</script>
