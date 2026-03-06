@@ -11,17 +11,21 @@
 (() => {
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
-  const DESKTOP_BP = 1500;
   const WIDE_BP = 1700;
   const DRAG_START_PX = 12;
 
-  function getVisible() {
-    if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
-    if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
-    if (window.matchMedia(`(max-width: ${DESKTOP_BP}px)`).matches) return 3;
-    if (window.matchMedia(`(min-width: ${WIDE_BP}px)`).matches) return 4;
-    return 3;
-  }
+function getVisible() {
+  const w = window.innerWidth;
+
+  if (w <= MOBILE_BP) return 1;
+  if (w <= TABLET_BP) return 2;
+
+  // Desktop range
+  if (w < WIDE_BP) return 3;
+
+  // Wide desktop
+  return 4;
+}
 
   function getGalleryRoot(wrapper) {
     return (
