@@ -11,7 +11,7 @@
 (() => {
   const MOBILE_BP = 767;
   const TABLET_BP = 991;
-  const DESKTOP_BP = 1280;
+  const DESKTOP_BP = 1500;
   const DRAG_START_PX = 20;
 
   function getVisible() {
