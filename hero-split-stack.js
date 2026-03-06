@@ -1,4 +1,10 @@
-console.log("hero split stack clean v2");
+/*
+Hero Split Stack
+Alpine Guides
+
+Do not modify without testing in:
+Chrome / Safari / Firefox
+*/
 
 (function () {
   const root = document.querySelector(".c-hero");
