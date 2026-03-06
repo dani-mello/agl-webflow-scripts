@@ -9,15 +9,17 @@
 */
 
 (() => {
-  const MOBILE_BP = 568;
-  const TABLET_BP = 768;
-  const DESKTOP_BP = 1700;
+  const MOBILE_BP = 767;
+  const TABLET_BP = 991;
+  const WIDE_BP = 1700;
   const DRAG_START_PX = 20;
 
   function getVisible() {
-    if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
-    if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
-    if (window.matchMedia(`(max-width: ${DESKTOP_BP}px)`).matches) return 3;
+    const w = window.innerWidth;
+
+    if (w <= MOBILE_BP) return 1;
+    if (w <= TABLET_BP) return 2;
+    if (w < WIDE_BP) return 3;
     return 4;
   }
 
@@ -114,8 +116,7 @@
     }
 
     function maxIndex() {
-      const visible = getVisible();
-      return Math.max(0, N - visible);
+      return Math.max(0, N - getVisible());
     }
 
     function clampIndex(i) {
@@ -253,7 +254,7 @@
       if (!moved && Math.abs(dx) > DRAG_START_PX) {
         moved = true;
         suppressClick = true;
-        pressedLink = null; // cancel link as soon as gesture becomes a drag
+        pressedLink = null;
       }
 
       if (!moved) return;
@@ -274,7 +275,6 @@
       const dx = e.clientX - startX;
       const threshold = Math.min(stepPx * 0.22, 120);
 
-      // Real drag: slide only, never navigate
       if (moved) {
         if (dx < -threshold) goTo(index + 1);
         else if (dx > threshold) goTo(index - 1);
@@ -290,7 +290,6 @@
         return;
       }
 
-      // Normal click: navigate manually if we started on a link
       if (pressedLink) {
         const href = pressedLink.getAttribute("href");
         const target = pressedLink.getAttribute("target");
