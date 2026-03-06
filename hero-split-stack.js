@@ -1,197 +1,148 @@
-console.log("new hero v3 (Safari/Firefox hardened)");
+console.log("hero split stack v4 - simplified + stabler");
 
 (function () {
-  var root = document.querySelector(".c-hero");
+  const root = document.querySelector(".c-hero");
   if (!root) return;
 
-  // Prevent double init
   if (root.dataset.heroSplitStackInit === "1") return;
   root.dataset.heroSplitStackInit = "1";
 
-  var prefersReduced =
+  const prefersReduced =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (prefersReduced) return;
 
-  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
-    console.warn("GSAP or ScrollTrigger missing");
-    return;
-  }
-  if (typeof SplitText === "undefined") {
-    console.warn("SplitText missing");
+  if (
+    typeof gsap === "undefined" ||
+    typeof ScrollTrigger === "undefined" ||
+    typeof SplitText === "undefined"
+  ) {
+    console.warn("GSAP / ScrollTrigger / SplitText missing");
     return;
   }
 
   gsap.registerPlugin(ScrollTrigger, SplitText);
 
-  // Kill only our trigger if hot reloaded
-  var old = ScrollTrigger.getById("heroSplitStack");
+  const old = ScrollTrigger.getById("heroSplitStack");
   if (old) old.kill(true);
 
-  // -----------------------------
-  // Browser detection (safer)
-  // -----------------------------
-  var ua = navigator.userAgent;
-  var isFirefox = /firefox/i.test(ua);
-  // Safari = AppleWebKit + Safari but NOT Chrome/Chromium/Android
-  var isSafari =
-    /safari/i.test(ua) &&
-    /applewebkit/i.test(ua) &&
-    !/chrome|crios|chromium|android/i.test(ua);
+  const headline = root.querySelector(".c-hero_headline");
+  const h1 = headline?.querySelector(".c-hero_h1");
+
+  const v1Reveal = root.querySelector(".c-hero_reveal.is-v1");
+  const v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
+  const v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
+
+  const gradient = root.querySelector(".l-bottom-gradient");
+  const videos = root.querySelectorAll("video");
+
+  if (!headline || !h1 || !v1Reveal || !v2Reveal || !v3Reveal) return;
 
   // -----------------------------
-  // Elements
+  // Helpers
   // -----------------------------
-  var headline = root.querySelector(".c-hero_headline");
-  var h1 = headline ? headline.querySelector(".c-hero_h1") : null;
-
-  var v1Reveal = root.querySelector(".c-hero_reveal.is-v1");
-  var v2Reveal = root.querySelector(".c-hero_reveal.is-v2");
-  var v3Reveal = root.querySelector(".c-hero_reveal.is-v3");
-
-  var gradient = root.querySelector(".l-bottom-gradient");
-
-  if (!headline || !h1) return;
-
-  headline.removeAttribute("aria-hidden");
-  h1.removeAttribute("aria-hidden");
-
-  // Optional: your new wrapper class (if you added it)
-  function findWrap(revealEl) {
-    if (!revealEl) return null;
-    return (
-      revealEl.querySelector(".c-hero_video-wrap") ||
-      revealEl.querySelector(".c-hero_video") || // fallback if wrap missing
-      null
-    );
-  }
-
-  var v1Wrap = findWrap(v1Reveal);
-  var v2Wrap = findWrap(v2Reveal);
-  var v3Wrap = findWrap(v3Reveal);
-
-  // Collect videos (for metadata-based refresh)
-  var videos = root.querySelectorAll("video");
-
-  // -----------------------------
-  // Full-bleed helper
-  // -----------------------------
-  function forceFullBleed(el) {
+  function forceLayer(el, z) {
     if (!el) return;
-    el.style.position = "absolute";
-    el.style.top = "0";
-    el.style.right = "0";
-    el.style.bottom = "0";
-    el.style.left = "0";
-    el.style.width = "100%";
-    el.style.height = "100%";
-    el.style.overflow = "hidden";
+    Object.assign(el.style, {
+      position: "absolute",
+      inset: "0",
+      width: "100%",
+      height: "100%",
+      overflow: "hidden"
+    });
+    if (z != null) el.style.zIndex = String(z);
   }
 
-  // Make reveals + wraps cover properly
-  forceFullBleed(v1Reveal);
-  forceFullBleed(v2Reveal);
-  forceFullBleed(v3Reveal);
-  forceFullBleed(v1Wrap);
-  forceFullBleed(v2Wrap);
-  forceFullBleed(v3Wrap);
+  function setupReveal(el, z) {
+    if (!el) return;
+    forceLayer(el, z);
 
-  // Ensure headline always sits above
-  gsap.set(headline, { zIndex: 20, position: "absolute" });
-
-  if (gradient) {
-    gsap.set(gradient, {
-      zIndex: 10,
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      pointerEvents: "none"
+    // Stable center reveal using width + xPercent
+    gsap.set(el, {
+      left: "50%",
+      xPercent: -50,
+      width: "0%",
+      transformOrigin: "50% 50%",
+      willChange: "width"
     });
   }
 
-  // -----------------------------
-  // Curtains: clip-path default, Safari scaleX fallback
-  // -----------------------------
-  function setClip(el, value) {
+  function openReveal(tl, el, pos, dur) {
     if (!el) return;
-    gsap.set(el, { clipPath: value, webkitClipPath: value });
-  }
-
-  function curtainClosed(el) {
-    if (!el) return;
-
-    if (isSafari) {
-      gsap.set(el, {
-        transformOrigin: "50% 50%",
-        scaleX: 0,
-        force3D: true
-      });
-    } else {
-      setClip(el, "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)");
-    }
-  }
-
-  function curtainOpen(tl, el, pos, dur) {
-    if (!el) return tl.to({}, { duration: dur || 1.2 }, pos);
-
-    if (isSafari) {
-      return tl.to(
-        el,
-        {
-          scaleX: 1,
-          duration: dur || 1.2,
-          ease: "power2.inOut",
-          force3D: true
-        },
-        pos
-      );
-    }
-
-    return tl.to(
+    tl.to(
       el,
       {
-        clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-        webkitClipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-        duration: dur || 1.2,
+        width: "100%",
+        duration: dur,
         ease: "power2.inOut"
       },
       pos
     );
   }
 
-  // Prep curtains (v1 stays visible as base)
-  curtainClosed(v2Reveal);
-  curtainClosed(v3Reveal);
+  function resetReveal(el) {
+    if (!el) return;
+    gsap.set(el, {
+      left: "50%",
+      xPercent: -50,
+      width: "0%"
+    });
+  }
 
   // -----------------------------
-  // SplitText (kept, but with more robust rebuild)
+  // Base layout
   // -----------------------------
-  var originalText = h1.textContent;
-  var splitLines = null;
-  var lines = [];
-  var played = false;
+  root.style.overflow = "clip";
+  root.style.position = root.style.position || "relative";
+  root.style.backfaceVisibility = "hidden";
+  root.style.transform = "translateZ(0)";
+
+  forceLayer(v1Reveal, 1);
+  setupReveal(v2Reveal, 2);
+  setupReveal(v3Reveal, 3);
+
+  gsap.set(headline, {
+    position: "absolute",
+    zIndex: 20,
+    autoAlpha: 1,
+    willChange: "transform"
+  });
+
+  if (gradient) {
+    gsap.set(gradient, {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 10,
+      pointerEvents: "none",
+      autoAlpha: 1
+    });
+  }
+
+  // -----------------------------
+  // SplitText intro
+  // -----------------------------
+  const originalText = h1.textContent;
+  let splitLines = null;
+  let lines = [];
+  let introPlayed = false;
 
   function revertSplit() {
     try {
-      if (splitLines) splitLines.revert();
+      splitLines?.revert();
     } catch (e) {}
     splitLines = null;
     lines = [];
   }
 
-  function ensureMeasurable() {
-    headline.style.setProperty("display", "block", "important");
-    headline.style.setProperty("visibility", "visible", "important");
-    gsap.set(headline, { opacity: 0 });
-  }
-
-  function buildLines() {
+  function buildSplit() {
     revertSplit();
+
     h1.textContent = originalText;
 
     if (!h1.hasAttribute("aria-label")) {
-      h1.setAttribute("aria-label", h1.textContent.trim());
+      h1.setAttribute("aria-label", originalText.trim());
     }
 
     splitLines = new SplitText(h1, {
@@ -207,16 +158,14 @@ console.log("new hero v3 (Safari/Firefox hardened)");
         x: -18,
         rotate: 1,
         opacity: 0,
-        willChange: "transform"
+        willChange: "transform, opacity"
       });
     }
   }
 
   function playIntro() {
-    if (played) return;
-    played = true;
-
-    gsap.set(headline, { opacity: 1, visibility: "visible" });
+    if (introPlayed) return;
+    introPlayed = true;
 
     if (!lines.length) return;
 
@@ -227,143 +176,116 @@ console.log("new hero v3 (Safari/Firefox hardened)");
       opacity: 1,
       duration: 1.1,
       ease: "power3.out",
-      stagger: 0.3,
+      stagger: 0.28,
       overwrite: true
     });
   }
 
-  ensureMeasurable();
-  buildLines();
-  requestAnimationFrame(function () {
-    playIntro();
-  });
+  buildSplit();
+  requestAnimationFrame(() => playIntro());
 
-  // If layout changes (esp. Firefox), rebuild SplitText on refreshInit
-  ScrollTrigger.addEventListener("refreshInit", function () {
-    headline.removeAttribute("aria-hidden");
-    h1.removeAttribute("aria-hidden");
-    ensureMeasurable();
-    if (!played) buildLines();
+  // Rebuild only on refreshInit, but do not replay once already played
+  ScrollTrigger.addEventListener("refreshInit", () => {
+    if (!introPlayed) buildSplit();
   });
 
   // -----------------------------
-  // Timeline (same structure)
+  // Main timeline
   // -----------------------------
-  var tl = gsap.timeline();
+  const tl = gsap.timeline({ paused: true });
 
-  if (gradient) gsap.set(gradient, { autoAlpha: 1 });
   if (gradient) {
     tl.fromTo(
       gradient,
-      { autoAlpha: 0.85 },
+      { autoAlpha: 0.82 },
       { autoAlpha: 1, duration: 0.6 },
       0
     );
   }
 
-  tl.to({}, { duration: 1 });
-  curtainOpen(tl, v2Reveal, "v2Open", 2);
-  tl.to({}, { duration: 0.35 });
-  curtainOpen(tl, v3Reveal, "v3Open", 2);
-  tl.to({}, { duration: 1 });
+  tl.to({}, { duration: 0.9 });
+  openReveal(tl, v2Reveal, ">", 1.8);
+  tl.to({}, { duration: 0.28 });
+  openReveal(tl, v3Reveal, ">", 1.8);
+  tl.to({}, { duration: 0.9 });
 
   // -----------------------------
-  // ScrollTrigger (hardened)
+  // ScrollTrigger
   // -----------------------------
-  var st = ScrollTrigger.create({
+  const st = ScrollTrigger.create({
     id: "heroSplitStack",
     trigger: root,
     start: "top top",
-    end: "+=5200",
+    end: "+=4200",
     pin: true,
-    scrub: 1.6,
+    scrub: 1.1,
     anticipatePin: 1,
     invalidateOnRefresh: true,
-    animation: tl,
-
-    // Safari tends to behave better pinned with fixed.
-    // Firefox is usually fine with default, but fixed is also okay.
-    pinType: isSafari ? "fixed" : undefined,
-
-    onUpdate: function () {
-      // keep headline visible regardless of browser paint quirks
-      headline.style.setProperty("visibility", "visible", "important");
-      headline.style.setProperty("display", "block", "important");
-      gsap.set(headline, { opacity: 1 });
-    },
-    onEnterBack: function () {
-      headline.style.setProperty("visibility", "visible", "important");
-      headline.style.setProperty("display", "block", "important");
-      gsap.set(headline, { opacity: 1 });
-    }
+    animation: tl
   });
 
   // -----------------------------
-  // Safari/Firefox: refresh AFTER video metadata is known
-  // Fixes: first panel offset, Firefox starting on video 2
+  // Single controlled refresh
   // -----------------------------
-  var refreshQueued = false;
+  let refreshQueued = false;
 
   function queueRefresh() {
     if (refreshQueued) return;
     refreshQueued = true;
 
-    // let layout settle for a couple frames (important for Safari)
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        try {
-          // Nudge layout (forces paint)
-          root.style.transform = "translateZ(0)";
-          root.offsetHeight;
-          root.style.transform = "";
-
-          ScrollTrigger.refresh();
-        } catch (e) {}
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        ScrollTrigger.refresh();
         refreshQueued = false;
       });
     });
   }
 
-  // If videos already have metadata, refresh immediately
-  function videoReady(v) {
-    return v && v.readyState >= 1; // HAVE_METADATA
+  function allVideosReady() {
+    if (!videos.length) return true;
+    for (let i = 0; i < videos.length; i++) {
+      if (videos[i].readyState < 1) return false;
+    }
+    return true;
   }
 
-  var anyPending = false;
-  videos.forEach
-    ? videos.forEach(function (v) {
-        if (!videoReady(v)) anyPending = true;
-      })
-    : (function () {
-        // NodeList fallback
-        for (var i = 0; i < videos.length; i++) {
-          if (!videoReady(videos[i])) anyPending = true;
-        }
-      })();
-
-  if (!anyPending) {
+  if (allVideosReady()) {
     queueRefresh();
   } else {
-    for (var i = 0; i < videos.length; i++) {
-      (function (v) {
-        if (!v) return;
-        v.addEventListener("loadedmetadata", queueRefresh, { once: true });
-        v.addEventListener("canplay", queueRefresh, { once: true });
-      })(videos[i]);
+    let remaining = videos.length;
+
+    function handleReady() {
+      remaining--;
+      if (remaining <= 0) queueRefresh();
     }
+
+    videos.forEach((video) => {
+      if (video.readyState >= 1) {
+        handleReady();
+      } else {
+        video.addEventListener("loadedmetadata", handleReady, { once: true });
+        video.addEventListener("error", handleReady, { once: true });
+      }
+    });
   }
 
-  // Also refresh on full load (fonts, etc.)
   window.addEventListener("load", queueRefresh, { once: true });
 
-  // Firefox: sometimes needs a refresh after resize/orientation settles
-  if (isFirefox) {
-    window.addEventListener(
-      "resize",
-      function () {
-        queueRefresh();
-      },
-      { passive: true }
-    );
-  }
+  // -----------------------------
+  // Clean resize handling
+  // -----------------------------
+  let resizeTimer = null;
+  window.addEventListener(
+    "resize",
+    () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resetReveal(v2Reveal);
+        resetReveal(v3Reveal);
+        st.animation.progress(st.progress);
+        ScrollTrigger.refresh();
+      }, 180);
+    },
+    { passive: true }
+  );
 })();
