@@ -11,12 +11,14 @@
 (() => {
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
+  const DESKTOP_BP = 1200;
   const WIDE_BP = 1500;
   const DRAG_START_PX = 10;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
     if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
+    if (window.matchMedia(`(max-width: ${DESKTOP_BP}px)`).matches) return 3;
     if (window.matchMedia(`(min-width: ${WIDE_BP}px)`).matches) return 4;
     return 3;
   }
