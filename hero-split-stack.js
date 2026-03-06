@@ -69,60 +69,9 @@ console.log("hero split stack clean v1");
   });
 
 
-   // -----------------------------
-  // SplitText intro
-  // -----------------------------
-  const originalText = h1.textContent.trim();
-  let split = null;
-  let lineInners = [];
-
-  function buildSplit() {
-    if (split) {
-      try {
-        split.revert();
-      } catch (e) {}
-    }
-
-    h1.textContent = originalText;
-    h1.style.visibility = "visible";
-    headline.style.visibility = "visible";
-
-    split = new SplitText(h1, {
-      type: "lines",
-      linesClass: "u-split-line"
-    });
-
-    const lines = split.lines || [];
-    lineInners = [];
-
-    lines.forEach((line) => {
-      const content = line.innerHTML;
-      line.innerHTML = '<span class="u-split-line_inner">' + content + "</span>";
-      const inner = line.querySelector(".u-split-line_inner");
-      if (inner) lineInners.push(inner);
-    });
-
-    gsap.set(headline, { autoAlpha: 1 });
-    gsap.set(h1, { autoAlpha: 1 });
-    gsap.set(lineInners, {
-      yPercent: 110,
-      x: -18,
-      rotate: 1,
-      opacity: 1
-    });
-  }
-
-  buildSplit();
-
-  requestAnimationFrame(() => {
-    gsap.to(lineInners, {
-      yPercent: 0,
-      x: 0,
-      rotate: 0,
-      duration: 1.1,
-      ease: "power3.out",
-      stagger: 0.22
-    });
+     gsap.set(headline, {
+    autoAlpha: 1,
+    zIndex: 20
   });
 
   // -----------------------------
