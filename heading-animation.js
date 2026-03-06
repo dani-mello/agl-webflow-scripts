@@ -75,7 +75,7 @@
       // Word setup
       gsap.set(words, {
         display: "inline-block",
-        x: -10,
+        x: -30,
         y: "2em",
         rotate: 0.8,
         opacity: 1,
