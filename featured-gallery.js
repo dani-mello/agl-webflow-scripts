@@ -4,7 +4,7 @@
    - Builds & updates progress segments
    - Adds drag/swipe via Pointer Events
    - Hides .inline-gallery__controls when no scrolling is possible
-   - FIX: normal card clicks work unless user actually drags
+   - FIX: manual link navigation when click gets swallowed by drag layer
 */
 
 (() => {
@@ -16,9 +16,7 @@
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
     if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
-
     if (window.matchMedia(`(min-width: ${WIDE_BP}px)`).matches) return 4;
-
     return 3;
   }
 
@@ -134,8 +132,7 @@
 
     function updateControlsVisibility() {
       if (!controls) return;
-      const canScroll = maxIndex() > 0;
-      controls.style.display = canScroll ? "" : "none";
+      controls.style.display = maxIndex() > 0 ? "" : "none";
     }
 
     function updateProgress() {
@@ -180,7 +177,8 @@
     let startTranslate = 0;
     let rafId = null;
     let pendingX = null;
-    let downOnLink = false;
+    let pressedLink = null;
+    let pointerId = null;
 
     function getTranslateX(el) {
       const t = getComputedStyle(el).transform;
@@ -234,7 +232,8 @@
       isDown = true;
       moved = false;
       suppressClick = false;
-      downOnLink = !!e.target.closest("a");
+      pointerId = e.pointerId;
+      pressedLink = e.target.closest("a[href]");
 
       computeMetrics();
       track.style.transition = "none";
@@ -246,16 +245,16 @@
 
     function onMove(e) {
       if (!isDown) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
 
       const dx = e.clientX - startX;
-
-      // Let normal click happen unless user clearly drags
-      if (!moved && Math.abs(dx) <= DRAG_START_PX) return;
 
       if (!moved && Math.abs(dx) > DRAG_START_PX) {
         moved = true;
         suppressClick = true;
       }
+
+      if (!moved) return;
 
       e.preventDefault();
       scheduleMove(startTranslate + dx);
@@ -263,13 +262,32 @@
 
     function onUp(e) {
       if (!isDown) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
+
       isDown = false;
+      pointerId = null;
 
       track.style.transition = "transform 300ms ease";
 
-      // normal click: let link work
+      // Normal click on link: force navigation manually
       if (!moved) {
-        downOnLink = false;
+        if (pressedLink) {
+          const href = pressedLink.getAttribute("href");
+          const target = pressedLink.getAttribute("target");
+
+          pressedLink = null;
+
+          if (href) {
+            if (target === "_blank") {
+              window.open(href, "_blank", "noopener");
+            } else {
+              window.location.href = href;
+            }
+          }
+          return;
+        }
+
+        pressedLink = null;
         return;
       }
 
@@ -280,7 +298,7 @@
       else if (dx > threshold) goTo(index - 1);
       else goTo(index);
 
-      downOnLink = false;
+      pressedLink = null;
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -294,7 +312,8 @@
       if (!isDown) return;
 
       isDown = false;
-      downOnLink = false;
+      pointerId = null;
+      pressedLink = null;
 
       track.style.transition = "transform 300ms ease";
       goTo(index);
@@ -322,7 +341,6 @@
       true
     );
 
-    // Stop native browser drag interfering with card links
     track.addEventListener("dragstart", (e) => e.preventDefault());
 
     wrapper.querySelectorAll("img").forEach((img) => {
