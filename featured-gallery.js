@@ -1,26 +1,29 @@
-/* featured-inline-gallery.js
+<script>
+/* featured-inline-gallery.js (updated)
    - Webflow/component safe (class-based, no IDs)
    - Supports multiple galleries on a page
    - Builds & updates progress segments
-   - Adds drag/swipe via Pointer Events
+   - Drag/swipe via Pointer Events
    - ✅ Hides .inline-gallery__controls when no scrolling is possible
+   - ✅ FIX: Normal clicks on links work (don’t preventDefault on pointerdown)
+   - ✅ FIX: Only treat as drag after a real movement threshold
 */
 
 (() => {
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
 
-  // ✅ “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
+  // “wide desktop” breakpoint (adjust if you want: 1200 / 1280 / 1440)
   const WIDE_BP = 1500;
+
+  // ✅ Drag threshold (px) before we treat gesture as a drag (prevents click being swallowed)
+  const DRAG_START_PX = 6;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
     if (window.matchMedia(`(max-width: ${TABLET_BP}px)`).matches) return 2;
 
-    // ✅ Larger than desktop
     if (window.matchMedia(`(min-width: ${WIDE_BP}px)`).matches) return 4;
-
-    // Default desktop
     return 3;
   }
 
@@ -87,6 +90,7 @@
     let index = 0;
     let stepPx = 0;
 
+    // Build progress segments
     progress.innerHTML = "";
     progress.style.display = "flex";
     progress.style.width = "100%";
@@ -135,7 +139,7 @@
       if (next) next.classList.toggle("is-disabled", index >= maxIndex());
     }
 
-    // ✅ NEW: hide controls when there is nothing to scroll
+    // Hide controls when no scrolling is possible
     function updateControlsVisibility() {
       if (!controls) return;
       const canScroll = maxIndex() > 0;
@@ -174,9 +178,12 @@
       applyTransform();
       updateProgress();
       updateButtons();
-      updateControlsVisibility(); // ✅ NEW
+      updateControlsVisibility();
     }
 
+    // -----------------------------
+    // Pointer drag/swipe (UPDATED)
+    // -----------------------------
     let isDown = false;
     let startX = 0;
     let startTranslate = 0;
@@ -223,13 +230,17 @@
 
     const mask =
       wrapper.querySelector(".c-featured_gallery-mask") || wrapper;
+
+    // Let vertical page scroll work; we handle horizontal drag
     mask.style.touchAction = "pan-y";
 
     function onDown(e) {
-      // ✅ Optional UX improvement: no drag if cannot scroll
+      // No drag if cannot scroll
       if (maxIndex() === 0) return;
 
+      // Left mouse only
       if (e.button !== undefined && e.button !== 0) return;
+
       isDown = true;
       moved = false;
 
@@ -238,14 +249,25 @@
       startX = e.clientX;
       startTranslate = getTranslateX(track);
 
+      // ✅ capture pointer, but DON'T preventDefault here (keeps normal click working)
       mask.setPointerCapture?.(e.pointerId);
-      e.preventDefault();
     }
 
     function onMove(e) {
       if (!isDown) return;
+
       const dx = e.clientX - startX;
-      if (Math.abs(dx) > 3) moved = true;
+
+      // ✅ Only become a drag after a real movement threshold
+      if (!moved && Math.abs(dx) > DRAG_START_PX) {
+        moved = true;
+        // Once it's clearly a drag, stop default so we don't text-select / click links
+        e.preventDefault();
+      }
+
+      // If we haven't crossed threshold, treat as click intent (do nothing)
+      if (!moved) return;
+
       scheduleMove(startTranslate + dx);
       e.preventDefault();
     }
@@ -255,6 +277,7 @@
       isDown = false;
 
       track.style.transition = "transform 300ms ease";
+
       const dx = e.clientX - startX;
       const threshold = Math.min(stepPx * 0.22, 120);
 
@@ -262,18 +285,19 @@
       else if (dx > threshold) goTo(index - 1);
       else goTo(index);
 
-      e.preventDefault();
+      // Don't preventDefault here; click handler below will cancel if moved=true
       setTimeout(() => {
         moved = false;
       }, 0);
     }
 
-    mask.addEventListener("pointerdown", onDown, { passive: false });
+    mask.addEventListener("pointerdown", onDown, { passive: true });
     mask.addEventListener("pointermove", onMove, { passive: false });
-    mask.addEventListener("pointerup", onUp, { passive: false });
-    mask.addEventListener("pointercancel", onUp, { passive: false });
-    mask.addEventListener("pointerleave", onUp, { passive: false });
+    mask.addEventListener("pointerup", onUp, { passive: true });
+    mask.addEventListener("pointercancel", onUp, { passive: true });
+    mask.addEventListener("pointerleave", onUp, { passive: true });
 
+    // ✅ If user dragged, cancel click navigation (capture phase beats link default)
     mask.addEventListener(
       "click",
       (e) => {
@@ -285,6 +309,7 @@
       true
     );
 
+    // Buttons
     if (next) {
       next.addEventListener("click", (e) => {
         e.preventDefault();
@@ -303,31 +328,33 @@
       });
     }
 
+    // Recompute on image load
     wrapper.querySelectorAll("img").forEach((img) => {
       if (img.complete) return;
       img.addEventListener(
         "load",
         () => {
           computeMetrics();
-          updateControlsVisibility(); // ✅ NEW
+          updateControlsVisibility();
           goTo(index);
         },
         { once: true }
       );
     });
 
+    // Recompute on resize
     let t;
     window.addEventListener("resize", () => {
       clearTimeout(t);
       t = setTimeout(() => {
         computeMetrics();
-        updateControlsVisibility(); // ✅ NEW
+        updateControlsVisibility();
         goTo(index);
       }, 60);
     });
 
     computeMetrics();
-    updateControlsVisibility(); // ✅ NEW
+    updateControlsVisibility();
     goTo(0);
   }
 
@@ -355,3 +382,4 @@
     window.Webflow.push(run);
   }
 })();
+</script>
