@@ -12,7 +12,7 @@
   const TABLET_BP = 910;
   const MOBILE_BP = 767;
   const WIDE_BP = 1500;
-  const DRAG_START_PX = 8;
+  const DRAG_START_PX = 10;
 
   function getVisible() {
     if (window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches) return 1;
