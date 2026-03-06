@@ -26,9 +26,9 @@
     gsap.to(words, {
       x: 0,
       y: 0,
-      duration: 0.8,
+      duration: 1,
       ease: "power3.out",
-      stagger: 0.035,
+      stagger: 0.1,
       overwrite: true
     });
   }
