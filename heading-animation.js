@@ -26,10 +26,12 @@
     gsap.to(words, {
       x: 0,
       y: 0,
+      rotate: 0,
       duration: 1,
       ease: "power3.out",
       stagger: 0.3,
-      overwrite: true
+      overwrite: true,
+      clearProps: "willChange"
     });
   }
 
@@ -92,7 +94,8 @@
           duration: 0.8,
           ease: "power3.out",
           stagger: 0.1,
-          delay: 1.6
+          delay: 1.6,
+          clearProps: "willChange"
         });
 
         return;
