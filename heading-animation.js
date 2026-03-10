@@ -29,7 +29,7 @@
       rotate: 0,
       duration: 1,
       ease: "power3.out",
-      stagger: 0.3,
+      stagger: 0.2,
       overwrite: true,
       clearProps: "willChange"
     });
