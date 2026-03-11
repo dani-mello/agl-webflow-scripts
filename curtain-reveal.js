@@ -16,7 +16,7 @@
         }
       });
     },
-    { threshold: 0.45 } // tweak to taste
+    { threshold: 0.8 } // tweak to taste
   );
 
   items.forEach((el) => io.observe(el));
