@@ -1,11 +1,9 @@
 (() => {
-  // Wait until the DOM exists
   const ready = (fn) => {
     if (document.readyState !== "loading") fn();
     else document.addEventListener("DOMContentLoaded", fn);
   };
 
-  // Wait until an element exists (Webflow components can mount after DOMContentLoaded)
   const waitFor = (selector, cb, timeout = 4000) => {
     const start = Date.now();
     const check = () => {
@@ -31,9 +29,6 @@
       }
     };
 
-    // ----------------------------
-    // Panel animation (shared helper)
-    // ----------------------------
     const animatePanelLinks = (panel) => {
       if (!panel) return;
 
@@ -61,7 +56,6 @@
 
     // ----------------------------
     // NAV: Explore mega menu
-    // Requires: data-nav="explore" on trigger
     // ----------------------------
     waitFor('[data-nav="explore"]', (exploreTrigger) => {
       const exploreMega = document.querySelector(".explore-mega");
@@ -82,15 +76,7 @@
 
       let closeTimer = null;
 
-      const clearCloseTimer = () => {
-        if (closeTimer) {
-          clearTimeout(closeTimer);
-          closeTimer = null;
-        }
-      };
-
       const closeExplore = () => {
-        clearCloseTimer();
         exploreMega.classList.remove("is-open");
         exploreSecondary?.classList.remove("is-open");
         panels.forEach((p) => p.classList.remove("is-active"));
@@ -98,58 +84,46 @@
         primaryItems.forEach((i) => i.classList.remove("is-selected"));
       };
 
-      const isInExploreZone = () => {
-        return (
-          exploreTrigger.matches(":hover") ||
-          exploreMega.matches(":hover") ||
-          !!exploreSecondary?.matches(":hover")
-        );
-      };
-
       const openExplore = () => {
-        clearCloseTimer();
-
         if (exploreMega.classList.contains("is-open")) return;
+        if (closeTimer) clearTimeout(closeTimer);
 
-        // Close prepare cleanly
         document.querySelector(".prepare-mega")?.classList.remove("is-open");
-
         exploreMega.classList.add("is-open");
+
         requestAnimationFrame(() => animatePanelLinks(explorePrimaryWrap));
       };
 
       const scheduleClose = () => {
-        clearCloseTimer();
+        if (closeTimer) clearTimeout(closeTimer);
 
         closeTimer = setTimeout(() => {
-          if (!isInExploreZone()) {
+          if (
+            !exploreTrigger.matches(":hover") &&
+            !exploreMega.matches(":hover")
+          ) {
             closeExplore();
           }
-        }, 220);
+        }, 200);
       };
 
-      [exploreTrigger, exploreMega, exploreSecondary]
-        .filter(Boolean)
-        .forEach((el) => {
-          el.addEventListener("mouseenter", openExplore);
-          el.addEventListener("mouseleave", scheduleClose);
-        });
+      [exploreTrigger, exploreMega].forEach((el) => {
+        el.addEventListener("mouseenter", openExplore);
+        el.addEventListener("mouseleave", scheduleClose);
+      });
 
       exploreTrigger.addEventListener("click", (e) => e.preventDefault());
 
-      // Primary hover controls secondary panel
       primaryItems.forEach((item) => {
         item.addEventListener("mouseenter", () => {
-          clearCloseTimer();
+          if (closeTimer) clearTimeout(closeTimer);
 
           const key = item.dataset.panel;
 
-          // Primary selection UI
           explorePrimaryWrap.classList.add("has-selection");
           primaryItems.forEach((i) => i.classList.remove("is-selected"));
           item.classList.add("is-selected");
 
-          // If this primary item has no secondary, close previous secondary state
           if (!key || key === "none") {
             exploreSecondary?.classList.remove("is-open");
             panels.forEach((p) => p.classList.remove("is-active"));
@@ -176,7 +150,6 @@
 
     // ----------------------------
     // NAV: Prepare mega menu
-    // Requires: data-nav="prepare" on trigger
     // ----------------------------
     waitFor('[data-nav="prepare"]', (trigger) => {
       const panel = document.querySelector(".prepare-mega");
@@ -187,30 +160,15 @@
 
       let closeTimer = null;
 
-      const clearCloseTimer = () => {
-        if (closeTimer) {
-          clearTimeout(closeTimer);
-          closeTimer = null;
-        }
-      };
-
       const position = () => {
         panel.style.left = trigger.getBoundingClientRect().left + "px";
       };
 
-      const closePrepare = () => {
-        clearCloseTimer();
-        panel.classList.remove("is-open");
-      };
-
-      const isInPrepareZone = () => {
-        return trigger.matches(":hover") || panel.matches(":hover");
-      };
+      const close = () => panel.classList.remove("is-open");
 
       const open = () => {
-        clearCloseTimer();
-
         if (panel.classList.contains("is-open")) return;
+        if (closeTimer) clearTimeout(closeTimer);
 
         document.querySelector(".explore-mega")?.classList.remove("is-open");
         position();
@@ -220,13 +178,13 @@
       };
 
       const scheduleClose = () => {
-        clearCloseTimer();
+        if (closeTimer) clearTimeout(closeTimer);
 
         closeTimer = setTimeout(() => {
-          if (!isInPrepareZone()) {
-            closePrepare();
+          if (!trigger.matches(":hover") && !panel.matches(":hover")) {
+            close();
           }
-        }, 220);
+        }, 200);
       };
 
       [trigger, panel].forEach((el) => {
@@ -336,14 +294,13 @@
         }
       });
 
-      // Escape closes
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && overlay.classList.contains("is-open")) closeOverlay();
       });
     })();
 
     // ----------------------------
-    // Contact overlay open/close
+    // Contact overlay
     // ----------------------------
     (() => {
       const overlay = document.querySelector(".contact-overlay");
@@ -393,7 +350,6 @@
       });
     })();
 
-    // HOME ONLY (future)
     onPage("home", () => {});
   });
 })();
