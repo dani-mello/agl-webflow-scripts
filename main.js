@@ -1,4 +1,3 @@
-
 (() => {
   // Wait until the DOM exists
   const ready = (fn) => {
@@ -83,7 +82,15 @@
 
       let closeTimer = null;
 
+      const clearCloseTimer = () => {
+        if (closeTimer) {
+          clearTimeout(closeTimer);
+          closeTimer = null;
+        }
+      };
+
       const closeExplore = () => {
+        clearCloseTimer();
         exploreMega.classList.remove("is-open");
         exploreSecondary?.classList.remove("is-open");
         panels.forEach((p) => p.classList.remove("is-active"));
@@ -91,35 +98,49 @@
         primaryItems.forEach((i) => i.classList.remove("is-selected"));
       };
 
+      const isInExploreZone = () => {
+        return (
+          exploreTrigger.matches(":hover") ||
+          exploreMega.matches(":hover") ||
+          !!exploreSecondary?.matches(":hover")
+        );
+      };
+
       const openExplore = () => {
+        clearCloseTimer();
+
         if (exploreMega.classList.contains("is-open")) return;
-        if (closeTimer) clearTimeout(closeTimer);
 
+        // Close prepare cleanly
         document.querySelector(".prepare-mega")?.classList.remove("is-open");
-        exploreMega.classList.add("is-open");
 
+        exploreMega.classList.add("is-open");
         requestAnimationFrame(() => animatePanelLinks(explorePrimaryWrap));
       };
 
       const scheduleClose = () => {
+        clearCloseTimer();
+
         closeTimer = setTimeout(() => {
-          if (!exploreTrigger.matches(":hover") && !exploreMega.matches(":hover")) {
+          if (!isInExploreZone()) {
             closeExplore();
           }
         }, 220);
       };
 
-      exploreTrigger.addEventListener("mouseenter", openExplore);
-      exploreMega.addEventListener("mouseenter", openExplore);
-      exploreTrigger.addEventListener("mouseleave", scheduleClose);
-      exploreMega.addEventListener("mouseleave", scheduleClose);
+      [exploreTrigger, exploreMega, exploreSecondary]
+        .filter(Boolean)
+        .forEach((el) => {
+          el.addEventListener("mouseenter", openExplore);
+          el.addEventListener("mouseleave", scheduleClose);
+        });
 
       exploreTrigger.addEventListener("click", (e) => e.preventDefault());
 
-      // ✅ UPDATED: primary hover now closes secondary when item has no panel
+      // Primary hover controls secondary panel
       primaryItems.forEach((item) => {
         item.addEventListener("mouseenter", () => {
-          if (closeTimer) clearTimeout(closeTimer);
+          clearCloseTimer();
 
           const key = item.dataset.panel;
 
@@ -128,20 +149,22 @@
           primaryItems.forEach((i) => i.classList.remove("is-selected"));
           item.classList.add("is-selected");
 
-          // ✅ If this primary item has no secondary, close + clear previous secondary state
+          // If this primary item has no secondary, close previous secondary state
           if (!key || key === "none") {
             exploreSecondary?.classList.remove("is-open");
             panels.forEach((p) => p.classList.remove("is-active"));
             return;
           }
 
-          // Otherwise show secondary and activate the right panel
           exploreSecondary?.classList.add("is-open");
 
           panels.forEach((panel) => {
             const active = panel.dataset.panel === key;
             panel.classList.toggle("is-active", active);
-            if (active) requestAnimationFrame(() => animatePanelLinks(panel));
+
+            if (active) {
+              requestAnimationFrame(() => animatePanelLinks(panel));
+            }
           });
         });
 
@@ -164,13 +187,30 @@
 
       let closeTimer = null;
 
+      const clearCloseTimer = () => {
+        if (closeTimer) {
+          clearTimeout(closeTimer);
+          closeTimer = null;
+        }
+      };
+
       const position = () => {
         panel.style.left = trigger.getBoundingClientRect().left + "px";
       };
 
+      const closePrepare = () => {
+        clearCloseTimer();
+        panel.classList.remove("is-open");
+      };
+
+      const isInPrepareZone = () => {
+        return trigger.matches(":hover") || panel.matches(":hover");
+      };
+
       const open = () => {
+        clearCloseTimer();
+
         if (panel.classList.contains("is-open")) return;
-        if (closeTimer) clearTimeout(closeTimer);
 
         document.querySelector(".explore-mega")?.classList.remove("is-open");
         position();
@@ -180,17 +220,19 @@
       };
 
       const scheduleClose = () => {
+        clearCloseTimer();
+
         closeTimer = setTimeout(() => {
-          if (!trigger.matches(":hover") && !panel.matches(":hover")) {
-            panel.classList.remove("is-open");
+          if (!isInPrepareZone()) {
+            closePrepare();
           }
         }, 220);
       };
 
-      trigger.addEventListener("mouseenter", open);
-      panel.addEventListener("mouseenter", open);
-      trigger.addEventListener("mouseleave", scheduleClose);
-      panel.addEventListener("mouseleave", scheduleClose);
+      [trigger, panel].forEach((el) => {
+        el.addEventListener("mouseenter", open);
+        el.addEventListener("mouseleave", scheduleClose);
+      });
 
       trigger.addEventListener("click", (e) => e.preventDefault());
 
