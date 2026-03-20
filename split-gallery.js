@@ -15,7 +15,7 @@ gsap.registerPlugin(ScrollTrigger);
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
 
-    const media  = section.querySelector(".c-split-gallery_media"); // in-flow
+    const media  = section.querySelector(".c-split-gallery_media");
     const mask   = section.querySelector(".c-split-gallery_mask");
     const track  = section.querySelector(".c-split-gallery_track");
     const slides = Array.from(section.querySelectorAll(".c-split-gallery_slide"));
@@ -27,8 +27,8 @@ gsap.registerPlugin(ScrollTrigger);
     const isSmall = window.innerWidth <= BREAKPOINT;
 
     const DESKTOP = {
-      cardWMode: "parent", // ✅ new intent
-      cardWRemFallback: 50, // ✅ fallback if parent width is 0 at init
+      cardWMode: "parent",
+      cardWRemFallback: 50,
       cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
@@ -48,29 +48,31 @@ gsap.registerPlugin(ScrollTrigger);
     const cfg = isSmall ? MOBILE : DESKTOP;
 
     gsap.set(track, { clearProps: "transform" });
-    gsap.set(track, { position: "relative", padding: 0, margin: 0, willChange: "transform", width: "100%" });
+    gsap.set(track, {
+      position: "relative",
+      padding: 0,
+      margin: 0,
+      willChange: "transform",
+      width: "100%"
+    });
 
     const rootFont =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
-    // ✅ helper: measure parent width safely (never return 0)
     function getParentWidthPx() {
       const w1 = mask.getBoundingClientRect().width;
       const w2 = section.getBoundingClientRect().width;
       const w3 = window.innerWidth;
 
       const w = (w1 && w1 > 10) ? w1 : (w2 && w2 > 10) ? w2 : w3;
-      return Math.max(320, Math.round(w)); // safety floor
+      return Math.max(320, Math.round(w));
     }
 
-    // Card size
     let cardWpx, cardHpx, baseH;
 
     if (!isSmall) {
-      // ✅ DESKTOP: 100% of parent (mask), with fallback
       const parentW = getParentWidthPx();
       cardWpx = parentW || (cfg.cardWRemFallback * rootFont);
-
       cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
@@ -120,13 +122,12 @@ gsap.registerPlugin(ScrollTrigger);
       }
     }
 
-    // Slides as cards, flush right
     slides.forEach((slide) => {
       gsap.set(slide, {
         position: "absolute",
         right: 0,
         left: "auto",
-        width: cardWpx + "px",     // ✅ back to px (but now parent-based + safe)
+        width: cardWpx + "px",
         height: cardHpx + "px",
         margin: 0,
         overflow: "hidden",
@@ -215,11 +216,12 @@ gsap.registerPlugin(ScrollTrigger);
         ScrollTrigger.create({
           id: "splitGallery-desktop",
           trigger: section,
-          start: "top top",
+          start: "top 85%",
           end: "+=" + pinDistance,
           scrub: true,
           pin: true,
           anticipatePin: 1,
+          invalidateOnRefresh: true,
           onUpdate(self) {
             const y = yStart - naturalTravel * self.progress;
             gsap.set(track, { y });
@@ -232,12 +234,13 @@ gsap.registerPlugin(ScrollTrigger);
         ScrollTrigger.create({
           id: "splitGallery-mobile",
           trigger: media,
-          start: "top top",
+          start: "top 85%",
           end: "+=" + pinDistance,
           scrub: true,
           pin: media,
           pinSpacing: true,
           anticipatePin: 1,
+          invalidateOnRefresh: true,
           onEnter() {
             gsap.set(track, { y: yStart });
             layoutTick();
@@ -258,20 +261,22 @@ gsap.registerPlugin(ScrollTrigger);
 
     const imgEls = Array.from(section.querySelectorAll("img"));
     let pending = 0;
+
     imgEls.forEach((img) => {
       if (!img.complete) {
         pending++;
         img.addEventListener("load", () => {
           pending--;
-          if (pending === 0) ScrollTrigger.refresh();
+          if (pending === 0) {
+            setTimeout(() => ScrollTrigger.refresh(), 100);
+          }
         }, { once: true });
       }
     });
 
-    ScrollTrigger.refresh();
+    setTimeout(() => ScrollTrigger.refresh(), 100);
   }
 
-  // ✅ Run after paint so mask width is real (fixes "0px width" issue)
   function boot() {
     requestAnimationFrame(() => {
       requestAnimationFrame(initSplitGallery);
