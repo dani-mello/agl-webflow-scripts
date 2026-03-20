@@ -7,17 +7,35 @@ gsap.registerPlugin(ScrollTrigger);
 
   function killSplitGalleryTriggers() {
     ScrollTrigger.getAll().forEach((st) => {
-      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) st.kill();
+      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) {
+        st.kill();
+      }
     });
   }
+
+  function safeRefresh() {
+    if (!window.ScrollTrigger) return;
+
+    const scrollY = window.scrollY;
+    ScrollTrigger.refresh();
+    window.scrollTo(0, scrollY);
+  }
+
+  // Expose this so your accordion JS can call it after open/close
+  window.safeRefreshSplitGallery = function (delay = 300) {
+    clearTimeout(window.__splitGallerySafeRefreshTimer);
+    window.__splitGallerySafeRefreshTimer = setTimeout(() => {
+      safeRefresh();
+    }, delay);
+  };
 
   function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
 
-    const media  = section.querySelector(".c-split-gallery_media");
-    const mask   = section.querySelector(".c-split-gallery_mask");
-    const track  = section.querySelector(".c-split-gallery_track");
+    const media = section.querySelector(".c-split-gallery_media");
+    const mask = section.querySelector(".c-split-gallery_mask");
+    const track = section.querySelector(".c-split-gallery_track");
     const slides = Array.from(section.querySelectorAll(".c-split-gallery_slide"));
 
     if (!media || !mask || !track || slides.length < 2) return;
@@ -39,7 +57,7 @@ gsap.registerPlugin(ScrollTrigger);
     const MOBILE = {
       cardHvh: 72,
       minScale: 0.35,
-      falloff: 0.40,
+      falloff: 0.4,
       slowness: 1.6,
       eps: 0.5,
       startHold: 0.07
@@ -64,7 +82,7 @@ gsap.registerPlugin(ScrollTrigger);
       const w2 = section.getBoundingClientRect().width;
       const w3 = window.innerWidth;
 
-      const w = (w1 && w1 > 10) ? w1 : (w2 && w2 > 10) ? w2 : w3;
+      const w = w1 && w1 > 10 ? w1 : w2 && w2 > 10 ? w2 : w3;
       return Math.max(320, Math.round(w));
     }
 
@@ -72,7 +90,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!isSmall) {
       const parentW = getParentWidthPx();
-      cardWpx = parentW || (cfg.cardWRemFallback * rootFont);
+      cardWpx = parentW || cfg.cardWRemFallback * rootFont;
       cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
@@ -101,7 +119,12 @@ gsap.registerPlugin(ScrollTrigger);
 
       const innerImg = imageEl ? imageEl.querySelector("img") : null;
       if (innerImg) {
-        gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
+        gsap.set(imageEl, {
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%"
+        });
         gsap.set(innerImg, {
           position: "absolute",
           inset: 0,
@@ -118,7 +141,12 @@ gsap.registerPlugin(ScrollTrigger);
         imageEl.style.backgroundSize = "cover";
         imageEl.style.backgroundPosition = "center";
         imageEl.style.backgroundRepeat = "no-repeat";
-        gsap.set(imageEl, { position: "absolute", inset: 0, width: "100%", height: "100%" });
+        gsap.set(imageEl, {
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%"
+        });
       }
     }
 
@@ -127,8 +155,8 @@ gsap.registerPlugin(ScrollTrigger);
         position: "absolute",
         right: 0,
         left: "auto",
-        width: cardWpx + "px",
-        height: cardHpx + "px",
+        width: `${cardWpx}px`,
+        height: `${cardHpx}px`,
         margin: 0,
         overflow: "hidden",
         display: "block",
@@ -142,7 +170,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     function centerY() {
       const r = mask.getBoundingClientRect();
-      return r.height ? (r.top + r.height / 2) : (window.innerHeight / 2);
+      return r.height ? r.top + r.height / 2 : window.innerHeight / 2;
     }
 
     function layoutTick() {
@@ -151,8 +179,8 @@ gsap.registerPlugin(ScrollTrigger);
 
       const scales = slides.map((slide) => {
         const rect = slide.getBoundingClientRect();
-        const mid  = rect.top + rect.height / 2;
-        const d    = Math.abs(mid - cy);
+        const mid = rect.top + rect.height / 2;
+        const d = Math.abs(mid - cy);
         const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
         return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
       });
@@ -160,9 +188,9 @@ gsap.registerPlugin(ScrollTrigger);
       let y = 0;
       for (let i = 0; i < slides.length; i++) {
         const s = scales[i];
-        slides[i].style.top       = `${y}px`;
+        slides[i].style.top = `${y}px`;
         slides[i].style.transform = `scale(${s})`;
-        slides[i].style.zIndex    = String(1000 + Math.round(s * 1000));
+        slides[i].style.zIndex = String(1000 + Math.round(s * 1000));
         y += baseH * s - cfg.eps;
       }
 
@@ -177,7 +205,7 @@ gsap.registerPlugin(ScrollTrigger);
       for (let k = 0; k < 10; k++) {
         const cy = centerY();
         const rect = slides[index].getBoundingClientRect();
-        const mid  = rect.top + rect.height / 2;
+        const mid = rect.top + rect.height / 2;
         const delta = cy - mid;
         y += delta;
 
@@ -186,6 +214,7 @@ gsap.registerPlugin(ScrollTrigger);
 
         if (Math.abs(delta) < 0.5) break;
       }
+
       return y;
     }
 
@@ -193,10 +222,10 @@ gsap.registerPlugin(ScrollTrigger);
     layoutTick();
 
     const yStart = solveYForSlide(0);
-    const yEnd   = solveYForSlide(slides.length - 1);
+    const yEnd = solveYForSlide(slides.length - 1);
 
     const naturalTravel = Math.max(yStart - yEnd, 0);
-    const pinDistance   = Math.ceil(naturalTravel * cfg.slowness);
+    const pinDistance = Math.ceil(naturalTravel * cfg.slowness);
 
     gsap.set(track, { y: yStart });
     layoutTick();
@@ -216,7 +245,7 @@ gsap.registerPlugin(ScrollTrigger);
         ScrollTrigger.create({
           id: "splitGallery-desktop",
           trigger: section,
-          start: "top 85%",
+          start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
           pin: true,
@@ -234,7 +263,7 @@ gsap.registerPlugin(ScrollTrigger);
         ScrollTrigger.create({
           id: "splitGallery-mobile",
           trigger: media,
-          start: "top 85%",
+          start: "top top",
           end: "+=" + pinDistance,
           scrub: true,
           pin: media,
@@ -265,16 +294,20 @@ gsap.registerPlugin(ScrollTrigger);
     imgEls.forEach((img) => {
       if (!img.complete) {
         pending++;
-        img.addEventListener("load", () => {
-          pending--;
-          if (pending === 0) {
-            setTimeout(() => ScrollTrigger.refresh(), 100);
-          }
-        }, { once: true });
+        img.addEventListener(
+          "load",
+          () => {
+            pending--;
+            if (pending === 0) {
+              window.safeRefreshSplitGallery(100);
+            }
+          },
+          { once: true }
+        );
       }
     });
 
-    setTimeout(() => ScrollTrigger.refresh(), 100);
+    window.safeRefreshSplitGallery(100);
   }
 
   function boot() {
@@ -292,7 +325,8 @@ gsap.registerPlugin(ScrollTrigger);
   let t;
   window.addEventListener("resize", () => {
     clearTimeout(t);
-    t = setTimeout(boot, 200);
+    t = setTimeout(() => {
+      boot();
+    }, 200);
   });
-
 })();
