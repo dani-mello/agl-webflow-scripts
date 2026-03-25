@@ -22,7 +22,7 @@ console.log("STAGGER v4");
     const items = Array.from(parent.querySelectorAll(".js-stagger-item"));
     if (!items.length) return;
 
-    const start = parent.getAttribute("data-stagger-start") || "top 85%";
+    const start = parent.getAttribute("data-stagger-start") || "top 70%";
     const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.1");
     const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
     const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
