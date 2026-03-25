@@ -1,20 +1,28 @@
-console.log("STAGGER v3");
+console.log("STAGGER v4");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  if (window.__staggerInitV3) return;
-  window.__staggerInitV3 = true;
+  if (window.__staggerInitV4) return;
+  window.__staggerInitV4 = true;
 
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function waitForHPin(cb) {
+    if (window.__HPIN_READY__) {
+      cb();
+      return;
+    }
+    requestAnimationFrame(() => waitForHPin(cb));
+  }
 
   function initStagger(parent) {
     const items = Array.from(parent.querySelectorAll(".js-stagger-item"));
     if (!items.length) return;
 
-    const start = parent.getAttribute("data-stagger-start") || "top 70%"; // ✅ per-item start
+    const start = parent.getAttribute("data-stagger-start") || "top 85%";
     const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.1");
     const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
     const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
@@ -22,42 +30,38 @@ console.log("STAGGER v3");
     const ease = parent.getAttribute("data-stagger-ease") || "power3.out";
 
     if (prefersReduced) {
-      gsap.set(items, { opacity: 1, clearProps: "transform" });
+      gsap.set(items, { opacity: 1, clearProps: "all" });
       return;
     }
 
-    // initial state
     gsap.set(items, { opacity: 0, scale: scaleFrom });
 
-    // slight variance but NOT random order
     items.forEach((el, i) => {
       const signX = i % 2 === 0 ? -1 : 1;
       const signY = i % 3 === 0 ? -1 : 1;
       gsap.set(el, { x: signX * dist, y: signY * dist });
     });
 
-    // ✅ Animate ONLY the items that enter the viewport (batched)
-    ScrollTrigger.batch(items, {
+    const tween = gsap.to(items, {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      scale: 1,
+      duration,
+      ease,
+      stagger: { each },
+      paused: true,
+      overwrite: true,
+      clearProps: "transform"
+    });
+
+    ScrollTrigger.create({
+      trigger: parent,
       start,
       once: true,
-      interval: 0.12, // groups items that enter close together
-      batchMax: 12,   // max items per batch
-      onEnter: (batch) => {
-        // keep DOM order within the batch
-        batch.sort((a, b) => items.indexOf(a) - items.indexOf(b));
-
-        gsap.to(batch, {
-          opacity: 1,
-          x: 0,
-          y: 0,
-          scale: 1,
-          duration,
-          ease,
-          stagger: { each },
-          overwrite: true,
-          clearProps: "transform"
-        });
-      }
+      invalidateOnRefresh: true,
+      onEnter: () => tween.play()
+      // markers: true
     });
   }
 
@@ -67,7 +71,19 @@ console.log("STAGGER v3");
       parent.dataset.staggerInit = "1";
       initStagger(parent);
     });
+
+    ScrollTrigger.sort();
+    ScrollTrigger.refresh();
   }
 
-  initAll();
+  waitForHPin(() => {
+    initAll();
+  });
+
+  window.addEventListener("load", () => {
+    waitForHPin(() => {
+      ScrollTrigger.sort();
+      ScrollTrigger.refresh();
+    });
+  });
 })();
