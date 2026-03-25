@@ -1,11 +1,11 @@
-console.log("STAGGER v4");
+console.log("STAGGER v5");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  if (window.__staggerInitV4) return;
-  window.__staggerInitV4 = true;
+  if (window.__staggerInitV5) return;
+  window.__staggerInitV5 = true;
 
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -22,7 +22,7 @@ console.log("STAGGER v4");
     const items = Array.from(parent.querySelectorAll(".js-stagger-item"));
     if (!items.length) return;
 
-    const start = parent.getAttribute("data-stagger-start") || "top 70%";
+    const start = parent.getAttribute("data-stagger-start") || "top 88%";
     const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.1");
     const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
     const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
@@ -42,25 +42,27 @@ console.log("STAGGER v4");
       gsap.set(el, { x: signX * dist, y: signY * dist });
     });
 
-    const tween = gsap.to(items, {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      scale: 1,
-      duration,
-      ease,
-      stagger: { each },
-      paused: true,
-      overwrite: true,
-      clearProps: "transform"
-    });
-
-    ScrollTrigger.create({
-      trigger: parent,
+    ScrollTrigger.batch(items, {
       start,
       once: true,
+      interval: 0.1,
+      batchMax: 3,
       invalidateOnRefresh: true,
-      onEnter: () => tween.play()
+      onEnter: (batch) => {
+        batch.sort((a, b) => items.indexOf(a) - items.indexOf(b));
+
+        gsap.to(batch, {
+          opacity: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration,
+          ease,
+          stagger: { each },
+          overwrite: true,
+          clearProps: "transform"
+        });
+      }
       // markers: true
     });
   }
