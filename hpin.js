@@ -21,7 +21,10 @@
   }
 
   const SECTIONS = Array.from(document.querySelectorAll(".c-hpin"));
-  if (!SECTIONS.length) return;
+  if (!SECTIONS.length) {
+    window.__HPIN_READY__ = true;
+    return;
+  }
 
   let ids = [];
   let ro = null;
@@ -63,6 +66,7 @@
     if (now - lastBuildAt < 80) return;
 
     building = true;
+    window.__HPIN_READY__ = false;
     lastBuildAt = now;
 
     const mobile = isMobileNow();
@@ -110,6 +114,7 @@
         scrub: prefersReduced ? false : true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
+        refreshPriority: 10,
         animation: tween,
 
         onRefreshInit: () => {
@@ -124,8 +129,11 @@
       });
     });
 
+    ScrollTrigger.sort();
     ScrollTrigger.refresh(true);
+
     building = false;
+    window.__HPIN_READY__ = true;
   }
 
   function hookImages() {
