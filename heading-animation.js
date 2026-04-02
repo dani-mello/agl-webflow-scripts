@@ -94,7 +94,7 @@
           duration: 0.8,
           ease: "power3.out",
           stagger: 0.1,
-          delay: 1.6,
+          delay: 1,
           clearProps: "willChange"
         });
 
