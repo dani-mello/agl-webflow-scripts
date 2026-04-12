@@ -178,9 +178,9 @@
         opacity: 1,
         y: 0,
         scale: 1,
-        duration: 0.55,
+        duration: 1,
         ease: "power2.out",
-        stagger: 0.14,
+        stagger: 0.25,
         overwrite: "auto",
       });
     }
