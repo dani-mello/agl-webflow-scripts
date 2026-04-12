@@ -196,6 +196,7 @@
             trigger: container,
             start: "top 100%",
             once: true,
+            markers: true,
             onEnter: playPins,
           });
 
