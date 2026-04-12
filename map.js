@@ -1,6 +1,5 @@
 // map.js
 (function () {
-
   var owner = "dani-mello";
   var repo = "agl-webflow-scripts";
   var branchOrSha = "main";
@@ -22,6 +21,21 @@
 
   function isMobile() {
     return window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  // --------------------------------------------
+  // Global ScrollTrigger debug
+  // --------------------------------------------
+  if (window.ScrollTrigger && !window.__aglMapDebugListeners) {
+    window.__aglMapDebugListeners = true;
+
+    window.ScrollTrigger.addEventListener("refreshInit", function () {
+      console.log("ST refreshInit | scrollY:", window.scrollY);
+    });
+
+    window.ScrollTrigger.addEventListener("refresh", function () {
+      console.log("ST refresh | scrollY:", window.scrollY);
+    });
   }
 
   // --------------------------------------------
@@ -174,6 +188,8 @@
     }
 
     function playPins() {
+      console.log("MAP onEnter fired | scrollY:", window.scrollY);
+
       window.gsap.to(pins, {
         opacity: 1,
         y: 0,
@@ -193,11 +209,23 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           window.ScrollTrigger.create({
-            trigger: container,
+            trigger: svgEl || container,
             start: "top 100%",
             once: true,
             markers: true,
             onEnter: playPins,
+            onRefresh: function (self) {
+              console.log(
+                "MAP trigger refreshed | start:",
+                self.start,
+                "| end:",
+                self.end,
+                "| scrollY:",
+                window.scrollY,
+                "| trigger:",
+                self.trigger
+              );
+            }
           });
 
           window.ScrollTrigger.refresh();
@@ -225,6 +253,9 @@
       .then(function (svgText) {
         container.innerHTML = svgText;
         initMap(container);
+      })
+      .catch(function (err) {
+        console.error("MAP SVG load failed:", err);
       });
   }
 
