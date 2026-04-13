@@ -24,22 +24,7 @@
   }
 
   // --------------------------------------------
-  // Global ScrollTrigger debug
-  // --------------------------------------------
-  if (window.ScrollTrigger && !window.__aglMapDebugListeners) {
-    window.__aglMapDebugListeners = true;
-
-    window.ScrollTrigger.addEventListener("refreshInit", function () {
-      console.log("ST refreshInit | scrollY:", window.scrollY);
-    });
-
-    window.ScrollTrigger.addEventListener("refresh", function () {
-      console.log("ST refresh | scrollY:", window.scrollY);
-    });
-  }
-
-  // --------------------------------------------
-  // Region copy (keys must match data-region)
+  // Region copy
   // --------------------------------------------
   var regionData = {
     aoraki: {
@@ -61,9 +46,6 @@
     },
   };
 
-  // --------------------------------------------
-  // Init interactions + GSAP AFTER SVG inject
-  // --------------------------------------------
   function initMap(container) {
     var regions = container.querySelectorAll(".map-region");
     var pins = container.querySelectorAll('g[id^="pin-"]');
@@ -73,7 +55,7 @@
     var descEl = document.getElementById("region-description");
     var linkEl = document.getElementById("region-link");
 
-    // ---- MOBILE SIZE BOOST ----
+    // Mobile sizing
     if (isMobile()) {
       container.style.width = "100%";
       container.style.maxWidth = "100%";
@@ -110,7 +92,7 @@
       });
     }
 
-    // Instructional panel on mobile
+    // Mobile default panel
     if (panel && isMobile()) {
       panel.classList.remove(PANEL_HIDDEN_CLASS);
       if (titleEl) titleEl.textContent = "Explore the map";
@@ -188,8 +170,6 @@
     }
 
     function playPins() {
-      console.log("MAP onEnter fired | scrollY:", window.scrollY);
-
       window.gsap.to(pins, {
         opacity: 1,
         y: 0,
@@ -212,20 +192,7 @@
             trigger: svgEl,
             start: "top 50%",
             once: true,
-            markers: true,
             onEnter: playPins,
-            onRefresh: function (self) {
-              console.log(
-                "MAP trigger refreshed | start:",
-                self.start,
-                "| end:",
-                self.end,
-                "| scrollY:",
-                window.scrollY,
-                "| trigger:",
-                self.trigger
-              );
-            }
           });
 
           window.ScrollTrigger.refresh();
@@ -253,32 +220,25 @@
       .then(function (svgText) {
         container.innerHTML = svgText;
         initMap(container);
-      })
-      .catch(function (err) {
-        console.error("MAP SVG load failed:", err);
       });
   }
+
+  // --------------------------------------------
+  // Fix for back/forward cache
+  // --------------------------------------------
+  window.addEventListener("pageshow", function () {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (window.ScrollTrigger) {
+          window.ScrollTrigger.refresh();
+        }
+      });
+    });
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", loadSvg);
   } else {
     loadSvg();
   }
-
-  window.addEventListener("pageshow", function () {
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      if (window.ScrollTrigger) {
-        console.log("pageshow -> forcing ScrollTrigger.refresh()");
-        window.ScrollTrigger.refresh();
-      }
-    });
-  });
-});
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", loadSvg);
-} else {
-  loadSvg();
-}
 })();
