@@ -264,4 +264,21 @@
   } else {
     loadSvg();
   }
+
+  window.addEventListener("pageshow", function () {
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      if (window.ScrollTrigger) {
+        console.log("pageshow -> forcing ScrollTrigger.refresh()");
+        window.ScrollTrigger.refresh();
+      }
+    });
+  });
+});
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", loadSvg);
+} else {
+  loadSvg();
+}
 })();
