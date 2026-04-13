@@ -123,6 +123,7 @@ Chrome / Safari / Firefox
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         ScrollTrigger.refresh();
+        window.__HERO_READY__ = true;
         refreshQueued = false;
       });
     });
