@@ -33,7 +33,7 @@ console.log("STAGGER v7");
     if (!items.length) return;
 
     const start = parent.getAttribute("data-stagger-start") || "top 100%";
-    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.1");
+    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.2");
     const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
     const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
     const duration = parseFloat(parent.getAttribute("data-stagger-duration") || "1");
