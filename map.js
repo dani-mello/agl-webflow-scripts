@@ -209,7 +209,7 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           window.ScrollTrigger.create({
-            trigger: svgEl || container,
+            trigger: svgEl,
             start: "top 100%",
             once: true,
             markers: true,
