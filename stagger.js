@@ -1,21 +1,31 @@
-console.log("STAGGER v5");
+console.log("STAGGER v6");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  if (window.__staggerInitV5) return;
-  window.__staggerInitV5 = true;
+  if (window.__staggerInitV6) return;
+  window.__staggerInitV6 = true;
 
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function waitForHPin(cb) {
-    if (window.__HPIN_READY__) {
+  function hasHero() {
+    return !!document.querySelector(".c-hero");
+  }
+
+  function layoutReady() {
+    const hpinReady = !!window.__HPIN_READY__;
+    const heroReady = !hasHero() || !!window.__HERO_READY__;
+    return hpinReady && heroReady;
+  }
+
+  function waitForLayout(cb) {
+    if (layoutReady()) {
       cb();
       return;
     }
-    requestAnimationFrame(() => waitForHPin(cb));
+    requestAnimationFrame(() => waitForLayout(cb));
   }
 
   function initStagger(parent) {
@@ -34,12 +44,19 @@ console.log("STAGGER v5");
       return;
     }
 
-    gsap.set(items, { opacity: 0, scale: scaleFrom });
+    gsap.set(items, {
+      opacity: 0,
+      scale: scaleFrom
+    });
 
     items.forEach((el, i) => {
       const signX = i % 2 === 0 ? -1 : 1;
       const signY = i % 3 === 0 ? -1 : 1;
-      gsap.set(el, { x: signX * dist, y: signY * dist });
+
+      gsap.set(el, {
+        x: signX * dist,
+        y: signY * dist
+      });
     });
 
     ScrollTrigger.batch(items, {
@@ -78,12 +95,12 @@ console.log("STAGGER v5");
     ScrollTrigger.refresh();
   }
 
-  waitForHPin(() => {
+  waitForLayout(() => {
     initAll();
   });
 
   window.addEventListener("load", () => {
-    waitForHPin(() => {
+    waitForLayout(() => {
       ScrollTrigger.sort();
       ScrollTrigger.refresh();
     });
