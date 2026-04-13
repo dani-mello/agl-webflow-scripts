@@ -1,11 +1,11 @@
-console.log("STAGGER v7");
+console.log("STAGGER v8");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  if (window.__staggerInitV7) return;
-  window.__staggerInitV7 = true;
+  if (window.__staggerInitV8) return;
+  window.__staggerInitV8 = true;
 
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -32,8 +32,8 @@ console.log("STAGGER v7");
     const items = Array.from(parent.querySelectorAll(".js-stagger-item"));
     if (!items.length) return;
 
-    const start = parent.getAttribute("data-stagger-start") || "bottom 100%";
-    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.2");
+    const start = parent.getAttribute("data-stagger-start") || "top 88%";
+    const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.1");
     const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
     const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
     const duration = parseFloat(parent.getAttribute("data-stagger-duration") || "1");
@@ -44,7 +44,46 @@ console.log("STAGGER v7");
       return;
     }
 
-    const animated = [];
+    const queue = [];
+    let ticking = false;
+
+    function flushQueue() {
+      if (!queue.length) {
+        ticking = false;
+        return;
+      }
+
+      const batch = queue.splice(0, queue.length);
+
+      batch.sort((a, b) => items.indexOf(a) - items.indexOf(b));
+
+      gsap.to(batch, {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        scale: 1,
+        duration,
+        ease,
+        stagger: { each },
+        overwrite: true,
+        clearProps: "transform"
+      });
+
+      ticking = false;
+    }
+
+    function queueItem(el) {
+      if (el.dataset.staggerShown === "1") return;
+      el.dataset.staggerShown = "1";
+      queue.push(el);
+
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        flushQueue();
+      });
+    }
 
     items.forEach((el, i) => {
       const signX = i % 2 === 0 ? -1 : 1;
@@ -63,19 +102,7 @@ console.log("STAGGER v7");
         once: true,
         invalidateOnRefresh: true,
         onEnter: () => {
-          animated.push(el);
-
-          gsap.to(el, {
-            opacity: 1,
-            x: 0,
-            y: 0,
-            scale: 1,
-            duration,
-            ease,
-            delay: animated.length > 1 ? each * 0.15 : 0,
-            overwrite: true,
-            clearProps: "transform"
-          });
+          queueItem(el);
         }
         // markers: true
       });
