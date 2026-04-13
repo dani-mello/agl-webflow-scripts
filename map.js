@@ -210,7 +210,7 @@
         requestAnimationFrame(function () {
           window.ScrollTrigger.create({
             trigger: svgEl,
-            start: "top 100%",
+            start: "top 50%",
             once: true,
             markers: true,
             onEnter: playPins,
