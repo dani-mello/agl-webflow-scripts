@@ -1,14 +1,15 @@
-console.log("STAGGER v8");
+console.log("STAGGER v9");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  if (window.__staggerInitV8) return;
-  window.__staggerInitV8 = true;
+  if (window.__staggerInitV9) return;
+  window.__staggerInitV9 = true;
 
   const prefersReduced =
-    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function hasHero() {
     return !!document.querySelector(".c-hero");
@@ -26,6 +27,17 @@ console.log("STAGGER v8");
       return;
     }
     requestAnimationFrame(() => waitForLayout(cb));
+  }
+
+  function delayedRefresh(delay = 0) {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          ScrollTrigger.sort();
+          ScrollTrigger.refresh();
+        });
+      });
+    }, delay);
   }
 
   function initStagger(parent) {
@@ -118,16 +130,41 @@ console.log("STAGGER v8");
 
     ScrollTrigger.sort();
     ScrollTrigger.refresh();
+
+    // extra refresh after things settle a touch more
+    delayedRefresh(220);
+  }
+
+  function boot() {
+    const isHome = hasHero();
+    const initDelay = isHome ? 220 : 0;
+
+    setTimeout(() => {
+      initAll();
+    }, initDelay);
   }
 
   waitForLayout(() => {
-    initAll();
+    if (document.readyState === "complete") {
+      boot();
+    } else {
+      window.addEventListener(
+        "load",
+        () => {
+          boot();
+        },
+        { once: true }
+      );
+    }
   });
 
-  window.addEventListener("load", () => {
-    waitForLayout(() => {
-      ScrollTrigger.sort();
-      ScrollTrigger.refresh();
-    });
-  });
+  window.addEventListener(
+    "load",
+    () => {
+      waitForLayout(() => {
+        delayedRefresh(hasHero() ? 300 : 120);
+      });
+    },
+    { once: true }
+  );
 })();
