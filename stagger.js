@@ -1,11 +1,11 @@
-console.log("STAGGER v9");
+console.log("STAGGER v10");
 
 (() => {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
   gsap.registerPlugin(ScrollTrigger);
 
-  if (window.__staggerInitV9) return;
-  window.__staggerInitV9 = true;
+  if (window.__staggerInitV10) return;
+  window.__staggerInitV10 = true;
 
   const prefersReduced =
     window.matchMedia &&
@@ -38,6 +38,29 @@ console.log("STAGGER v9");
         });
       });
     }, delay);
+  }
+
+  function waitForImagesIn(container) {
+    const images = Array.from(container.querySelectorAll("img"));
+    if (!images.length) return Promise.resolve();
+
+    const pending = images.filter((img) => !img.complete);
+
+    if (!pending.length) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      let remaining = pending.length;
+
+      function done() {
+        remaining--;
+        if (remaining <= 0) resolve();
+      }
+
+      pending.forEach((img) => {
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+      });
+    });
   }
 
   function initStagger(parent) {
@@ -121,27 +144,26 @@ console.log("STAGGER v9");
     });
   }
 
-  function initAll() {
-    document.querySelectorAll(".js-stagger").forEach((parent) => {
-      if (parent.dataset.staggerInit === "1") return;
+  async function initAll() {
+    const parents = Array.from(document.querySelectorAll(".js-stagger"));
+
+    for (const parent of parents) {
+      if (parent.dataset.staggerInit === "1") continue;
+
+      await waitForImagesIn(parent);
+
       parent.dataset.staggerInit = "1";
       initStagger(parent);
-    });
+    }
 
     ScrollTrigger.sort();
     ScrollTrigger.refresh();
 
-    // extra refresh after things settle a touch more
-    delayedRefresh(220);
+    delayedRefresh(250);
   }
 
   function boot() {
-    const isHome = hasHero();
-    const initDelay = isHome ? 220 : 0;
-
-    setTimeout(() => {
-      initAll();
-    }, initDelay);
+    initAll();
   }
 
   waitForLayout(() => {
@@ -162,7 +184,7 @@ console.log("STAGGER v9");
     "load",
     () => {
       waitForLayout(() => {
-        delayedRefresh(hasHero() ? 300 : 120);
+        delayedRefresh(350);
       });
     },
     { once: true }
