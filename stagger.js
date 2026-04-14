@@ -1,5 +1,3 @@
-console.log("STAGGER v11");
-
 (() => {
   if (typeof gsap === "undefined") return;
 
