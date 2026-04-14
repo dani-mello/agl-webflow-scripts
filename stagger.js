@@ -1,73 +1,21 @@
-console.log("STAGGER v10");
+console.log("STAGGER v11");
 
 (() => {
-  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
-  gsap.registerPlugin(ScrollTrigger);
+  if (typeof gsap === "undefined") return;
 
-  if (window.__staggerInitV10) return;
-  window.__staggerInitV10 = true;
+  if (window.__staggerInitV11) return;
+  window.__staggerInitV11 = true;
 
   const prefersReduced =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function hasHero() {
-    return !!document.querySelector(".c-hero");
-  }
-
-  function layoutReady() {
-    const hpinReady = !!window.__HPIN_READY__;
-    const heroReady = !hasHero() || !!window.__HERO_READY__;
-    return hpinReady && heroReady;
-  }
-
-  function waitForLayout(cb) {
-    if (layoutReady()) {
-      cb();
-      return;
-    }
-    requestAnimationFrame(() => waitForLayout(cb));
-  }
-
-  function delayedRefresh(delay = 0) {
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          ScrollTrigger.sort();
-          ScrollTrigger.refresh();
-        });
-      });
-    }, delay);
-  }
-
-  function waitForImagesIn(container) {
-    const images = Array.from(container.querySelectorAll("img"));
-    if (!images.length) return Promise.resolve();
-
-    const pending = images.filter((img) => !img.complete);
-
-    if (!pending.length) return Promise.resolve();
-
-    return new Promise((resolve) => {
-      let remaining = pending.length;
-
-      function done() {
-        remaining--;
-        if (remaining <= 0) resolve();
-      }
-
-      pending.forEach((img) => {
-        img.addEventListener("load", done, { once: true });
-        img.addEventListener("error", done, { once: true });
-      });
-    });
-  }
-
   function initStagger(parent) {
     const items = Array.from(parent.querySelectorAll(".js-stagger-item"));
     if (!items.length) return;
 
-    const start = parent.getAttribute("data-stagger-start") || "top 88%";
+    const threshold = parseFloat(parent.getAttribute("data-stagger-threshold") || "0.2");
+    const rootMargin = parent.getAttribute("data-stagger-rootmargin") || "0px 0px -8% 0px";
     const each = parseFloat(parent.getAttribute("data-stagger-amount") || "0.1");
     const dist = parseFloat(parent.getAttribute("data-stagger-distance") || "30");
     const scaleFrom = parseFloat(parent.getAttribute("data-stagger-scale") || "0.7");
@@ -78,6 +26,21 @@ console.log("STAGGER v10");
       gsap.set(items, { opacity: 1, clearProps: "all" });
       return;
     }
+
+    gsap.set(items, {
+      opacity: 0,
+      scale: scaleFrom
+    });
+
+    items.forEach((el, i) => {
+      const signX = i % 2 === 0 ? -1 : 1;
+      const signY = i % 3 === 0 ? -1 : 1;
+
+      gsap.set(el, {
+        x: signX * dist,
+        y: signY * dist
+      });
+    });
 
     const queue = [];
     let ticking = false;
@@ -115,78 +78,38 @@ console.log("STAGGER v10");
       if (ticking) return;
       ticking = true;
 
-      requestAnimationFrame(() => {
-        flushQueue();
-      });
+      requestAnimationFrame(flushQueue);
     }
 
-    items.forEach((el, i) => {
-      const signX = i % 2 === 0 ? -1 : 1;
-      const signY = i % 3 === 0 ? -1 : 1;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          queueItem(entry.target);
+          observer.unobserve(entry.target);
+        });
+      },
+      {
+        root: null,
+        rootMargin,
+        threshold
+      }
+    );
 
-      gsap.set(el, {
-        opacity: 0,
-        scale: scaleFrom,
-        x: signX * dist,
-        y: signY * dist
-      });
+    items.forEach((el) => observer.observe(el));
+  }
 
-      ScrollTrigger.create({
-        trigger: el,
-        start,
-        once: true,
-        invalidateOnRefresh: true,
-        onEnter: () => {
-          queueItem(el);
-        }
-        // markers: true
-      });
+  function initAll() {
+    document.querySelectorAll(".js-stagger").forEach((parent) => {
+      if (parent.dataset.staggerInit === "1") return;
+      parent.dataset.staggerInit = "1";
+      initStagger(parent);
     });
   }
 
-  async function initAll() {
-    const parents = Array.from(document.querySelectorAll(".js-stagger"));
-
-    for (const parent of parents) {
-      if (parent.dataset.staggerInit === "1") continue;
-
-      await waitForImagesIn(parent);
-
-      parent.dataset.staggerInit = "1";
-      initStagger(parent);
-    }
-
-    ScrollTrigger.sort();
-    ScrollTrigger.refresh();
-
-    delayedRefresh(250);
-  }
-
-  function boot() {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAll, { once: true });
+  } else {
     initAll();
   }
-
-  waitForLayout(() => {
-    if (document.readyState === "complete") {
-      boot();
-    } else {
-      window.addEventListener(
-        "load",
-        () => {
-          boot();
-        },
-        { once: true }
-      );
-    }
-  });
-
-  window.addEventListener(
-    "load",
-    () => {
-      waitForLayout(() => {
-        delayedRefresh(350);
-      });
-    },
-    { once: true }
-  );
 })();
