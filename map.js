@@ -26,28 +26,35 @@
   // --------------------------------------------
   // Region copy
   // --------------------------------------------
-    var regionData = {
-    aoraki: {
-      title: "Aoraki Mount Cook and Westland",
-      description:
-        "Our home turf. The heart of New Zealand alpinism. Where colossal glaciers and towering peaks provide a unique training ground for the world’s great ranges. Learning to climb here will take you safely to any mountain region on Earth.
-",
-      url: "#aoraki-trips",
-    },
+   var regionData = {
+  aoraki: {
+    title: "Aoraki Mount Cook and Westland",
+    description:
+      "Our home turf. The heart of New Zealand alpinism. Where colossal glaciers and towering peaks provide a unique training ground for the world’s great ranges. Learning to climb here will take you safely to any mountain region on Earth.",
+    url: "#aoraki-trips",
+  },
 
-    aspiring: {
-      title: "Mount Aspiring",
-      description: "Long approaches, rewarding ridges, and classic summit days.",
-      url: "#aspiring-trips",
-    },
-    fiordland: {
-      title: "Fiordland",
-      description:
-        "Remote granite, deep fiords, heavy weather — proper wilderness.",
-      url: "#fiordland-trips",
-    },
-  };
+  "methven-heliski": {
+    title: "The Arrowsmiths",
+    description:
+      "Hidden behind the rolling Canterbury high country lies the Arrowsmiths, a formidable sanctuary of jagged, glaciated peaks and vast snowfields. Stretching between the Rangitata and Rakaia headwaters, this rugged wilderness is a playground for those seeking remote alpine summits and world-class heliskiing close to Christchurch.",
+    url: "#arrowsmiths-trips",
+  },
 
+  aspiring: {
+    title: "Mount Aspiring Region",
+    description:
+      "The Aspiring region offers a breathtaking tapestry of ancient glaciers, deep beech forests, and shimmering alpine lakes. It is a true wilderness playground with world-class climbing.",
+    url: "#aspiring-trips",
+  },
+
+  fiordland: {
+    title: "The Darrans - Fiordland",
+    description:
+      "Rising vertically from the depths of the fiords, the Darran Mountains are a realm of sheer granite giants and primeval wilderness. This is New Zealand’s most remote and rugged alpine frontier, where colossal rainfall has carved a landscape of prehistoric scale and world-class rock.",
+    url: "#fiordland-trips",
+  },
+};
   function initMap(container) {
     var regions = container.querySelectorAll(".map-region");
     var pins = container.querySelectorAll('g[id^="pin-"]');
