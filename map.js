@@ -28,9 +28,10 @@
   // --------------------------------------------
   var regionData = {
     aoraki: {
-      title: "Aoraki / Mount Cook",
+      title: "Aoraki Mount Cook and Westland",
       description:
-        "Glaciers, seracs, and serious alpine objectives — our home range.",
+        "Our home turf. The heart of New Zealand alpinism. Where colossal glaciers and towering peaks provide a unique training ground for the world’s great ranges. Learning to climb here will take you safely to any mountain region on Earth.
+",
       url: "#aoraki-trips",
     },
     aspiring: {
