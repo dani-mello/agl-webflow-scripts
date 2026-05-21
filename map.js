@@ -23,9 +23,7 @@
     return window.matchMedia("(max-width: 768px)").matches;
   }
 
-  // --------------------------------------------
-  // Region copy
-  // --------------------------------------------
+  
   var regionData = {
   aoraki: {
     title: "Aoraki Mount Cook and Westland",
@@ -228,9 +226,7 @@
     }
   }
 
-  // --------------------------------------------
-  // Load SVG
-  // --------------------------------------------
+ 
   function loadSvg() {
     var container = document.getElementById(containerId);
     if (!container) return;
@@ -246,9 +242,7 @@
       });
   }
 
-  // --------------------------------------------
-  // Fix for back/forward cache
-  // --------------------------------------------
+ 
   window.addEventListener("pageshow", function () {
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
