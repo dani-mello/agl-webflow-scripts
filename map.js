@@ -26,7 +26,7 @@
   // --------------------------------------------
   // Region copy
   // --------------------------------------------
-   var regionData = {
+  var regionData = {
   aoraki: {
     title: "Aoraki Mount Cook and Westland",
     description:
@@ -53,6 +53,20 @@
     description:
       "Rising vertically from the depths of the fiords, the Darran Mountains are a realm of sheer granite giants and primeval wilderness. This is New Zealand’s most remote and rugged alpine frontier, where colossal rainfall has carved a landscape of prehistoric scale and world-class rock.",
     url: "#fiordland-trips",
+  },
+
+  "oteake-conservation-area": {
+    title: "Oteake Range",
+    description:
+      "An expanse of golden tussock, stark scree slopes, and big-sky freedom. This unique Otago wilderness offers a timeless, off-the-beaten-path landscape perfect for remote alpine trekking and backcountry exploration—away from the jagged peaks.",
+    url: "#oteake-trips",
+  },
+
+  remarkables: {
+    title: "The Remarkables",
+    description:
+      "Rising sharply above Lake Wakatipu, the Remarkables are a serrated wall of sheer schist dominating the Queenstown horizon. Here lies a world-class alpine playground, offering some of the country’s most accessible and thrilling technical rock, ice, and mixed climbing.",
+    url: "#remarkables-trips",
   },
 };
   function initMap(container) {
