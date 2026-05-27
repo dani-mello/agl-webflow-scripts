@@ -16,6 +16,10 @@
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  const isFirefox =
+    typeof navigator !== "undefined" &&
+    /firefox/i.test(navigator.userAgent);
+
   function isMobileNow() {
     return !!(mm && mm.matches);
   }
@@ -108,7 +112,7 @@
         end: () => "+=" + scrollDistance(),
 
         pin: inner,
-        pinReparent: !mobile,
+        pinReparent: !mobile && !isFirefox,
         pinSpacing: true,
 
         scrub: prefersReduced ? false : true,
