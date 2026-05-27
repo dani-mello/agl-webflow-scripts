@@ -35,6 +35,7 @@
   let building = false;
   let lastBuildAt = 0;
   let lockRebuild = false;
+  let hasBuiltOnce = false;
 
   function viewW(view) {
     return Math.round(view.clientWidth || view.offsetWidth || 0);
@@ -58,8 +59,16 @@
 
   function softBuild(delayMs) {
     if (lockRebuild) return;
+
     clearTimeout(window.__hpin_softBuild_t);
-    window.__hpin_softBuild_t = setTimeout(build, delayMs || 0);
+    window.__hpin_softBuild_t = setTimeout(() => {
+      if (isFirefox && hasBuiltOnce) {
+        ScrollTrigger.refresh(true);
+        return;
+      }
+
+      build();
+    }, delayMs || 0);
   }
 
   function build() {
@@ -136,6 +145,7 @@
     ScrollTrigger.sort();
     ScrollTrigger.refresh(true);
 
+    hasBuiltOnce = true;
     building = false;
     window.__HPIN_READY__ = true;
   }
@@ -183,6 +193,7 @@
   }
 
   function hookResizeObserver() {
+    if (isFirefox) return;
     if (typeof ResizeObserver === "undefined") return;
 
     if (ro) ro.disconnect();
