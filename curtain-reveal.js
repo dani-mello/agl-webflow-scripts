@@ -12,11 +12,11 @@
       entries.forEach((e) => {
         if (e.isIntersecting) {
           e.target.classList.add("is-revealed");
-          io.unobserve(e.target); // reveal once
+          io.unobserve(e.target);
         }
       });
     },
-    { threshold: 0.8 } // tweak to taste
+    { threshold: 0.4 } 
   );
 
   items.forEach((el) => io.observe(el));
