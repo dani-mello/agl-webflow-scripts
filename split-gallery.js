@@ -248,6 +248,19 @@ gsap.registerPlugin(ScrollTrigger);
       return (p - hold) / (1 - hold);
     }
 
+    function setDesktopProgress(self) {
+      const y = yStart - naturalTravel * self.progress;
+      gsap.set(track, { y });
+      layoutTick();
+    }
+
+    function setMobileProgress(self) {
+      const p = mapProgress(self.progress);
+      const y = yStart - naturalTravel * p;
+      gsap.set(track, { y });
+      layoutTick();
+    }
+
     function createTriggers() {
       ScrollTrigger.matchMedia({
         "(min-width: 901px)": function () {
@@ -260,24 +273,8 @@ gsap.registerPlugin(ScrollTrigger);
             pin: true,
             anticipatePin: 1,
             invalidateOnRefresh: true,
-            onEnter() {
-              gsap.set(track, { y: yStart });
-              layoutTick();
-            },
-            onEnterBack() {
-              gsap.set(track, { y: yStart });
-              layoutTick();
-            },
-            onRefresh(self) {
-              const y = yStart - naturalTravel * self.progress;
-              gsap.set(track, { y });
-              layoutTick();
-            },
-            onUpdate(self) {
-              const y = yStart - naturalTravel * self.progress;
-              gsap.set(track, { y });
-              layoutTick();
-            }
+            onRefresh: setDesktopProgress,
+            onUpdate: setDesktopProgress
           });
         },
 
@@ -292,26 +289,8 @@ gsap.registerPlugin(ScrollTrigger);
             pinSpacing: true,
             anticipatePin: 1,
             invalidateOnRefresh: true,
-            onEnter() {
-              gsap.set(track, { y: yStart });
-              layoutTick();
-            },
-            onEnterBack() {
-              gsap.set(track, { y: yStart });
-              layoutTick();
-            },
-            onRefresh(self) {
-              const p = mapProgress(self.progress);
-              const y = yStart - naturalTravel * p;
-              gsap.set(track, { y });
-              layoutTick();
-            },
-            onUpdate(self) {
-              const p = mapProgress(self.progress);
-              const y = yStart - naturalTravel * p;
-              gsap.set(track, { y });
-              layoutTick();
-            }
+            onRefresh: setMobileProgress,
+            onUpdate: setMobileProgress
           });
         }
       });
@@ -357,11 +336,7 @@ gsap.registerPlugin(ScrollTrigger);
       layoutTick();
 
       createTriggers();
-
       ScrollTrigger.refresh();
-
-      gsap.set(track, { y: yStart });
-      layoutTick();
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
