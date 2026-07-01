@@ -1,5 +1,5 @@
 (function () {
-  console.log("✅ PAGE WIPE JS LOADED — debug v1", {
+  console.log("✅ PAGE WIPE JS LOADED — debug v2", {
   url: window.location.href,
   readyState: document.readyState,
   hasWebflow: !!window.Webflow,
