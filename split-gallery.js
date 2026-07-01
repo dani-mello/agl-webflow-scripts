@@ -182,52 +182,73 @@ gsap.registerPlugin(ScrollTrigger);
       normalizeSlideMedia(slide);
     });
 
-    function centerY() {
-      const r = mask.getBoundingClientRect();
-      return r.height ? r.top + r.height / 2 : window.innerHeight / 2;
+    function getMaskCenterLocal() {
+      const maskRect = mask.getBoundingClientRect();
+      const trackRect = track.getBoundingClientRect();
+      const maskCenterViewport = maskRect.top + maskRect.height / 2;
+      return maskCenterViewport - trackRect.top;
     }
 
-    function layoutTick() {
-      const cy = centerY();
-      const galleryH = mask.clientHeight || window.innerHeight;
+    function calculateLayout(trackY) {
+      const center = getMaskCenterLocal() - trackY;
+      const falloffPx = window.innerHeight * cfg.falloff;
+      const scales = new Array(slides.length).fill(1);
+      const tops = new Array(slides.length).fill(0);
 
-      const scales = slides.map((slide) => {
-        const rect = slide.getBoundingClientRect();
-        const mid = rect.top + rect.height / 2;
-        const d = Math.abs(mid - cy);
-        const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
-        return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
-      });
+      for (let pass = 0; pass < 4; pass++) {
+        let y = 0;
 
-      let y = 0;
+        for (let i = 0; i < slides.length; i++) {
+          tops[i] = y;
 
-      for (let i = 0; i < slides.length; i++) {
-        const s = scales[i];
-        slides[i].style.top = `${y}px`;
-        slides[i].style.transform = `translate3d(0,0,0) scale(${s})`;
-        slides[i].style.zIndex = String(1000 + Math.round(s * 1000));
-        y += baseH * s - cfg.eps;
+          const mid = y + (cardHpx * scales[i]) / 2;
+          const d = Math.abs(mid - center);
+          const norm = Math.min(1, d / falloffPx);
+
+          scales[i] = cfg.minScale + (1 - cfg.minScale) * (1 - norm);
+          y += baseH * scales[i] - cfg.eps;
+        }
       }
 
-      track.style.height = `${Math.max(y + cfg.eps, galleryH + 1)}px`;
+      let height = 0;
+      for (let i = 0; i < slides.length; i++) {
+        height = Math.max(height, tops[i] + baseH * scales[i]);
+      }
+
+      return {
+        tops,
+        scales,
+        height: Math.max(height + cfg.eps, mask.clientHeight + 1)
+      };
+    }
+
+    function applyLayout(trackY) {
+      const layout = calculateLayout(trackY);
+
+      gsap.set(track, { y: trackY });
+      track.style.height = `${layout.height}px`;
+
+      for (let i = 0; i < slides.length; i++) {
+        const s = layout.scales[i];
+
+        slides[i].style.top = `${layout.tops[i]}px`;
+        slides[i].style.transform = `translate3d(0,0,0) scale(${s})`;
+        slides[i].style.zIndex = String(1000 + Math.round(s * 1000));
+      }
     }
 
     function solveYForSlide(index) {
       let y = 0;
 
-      gsap.set(track, { y });
-      layoutTick();
+      for (let k = 0; k < 12; k++) {
+        applyLayout(y);
 
-      for (let k = 0; k < 10; k++) {
-        const cy = centerY();
-        const rect = slides[index].getBoundingClientRect();
-        const mid = rect.top + rect.height / 2;
-        const delta = cy - mid;
+        const layout = calculateLayout(y);
+        const center = getMaskCenterLocal() - y;
+        const mid = layout.tops[index] + (cardHpx * layout.scales[index]) / 2;
+        const delta = center - mid;
 
         y += delta;
-
-        gsap.set(track, { y });
-        layoutTick();
 
         if (Math.abs(delta) < 0.5) break;
       }
@@ -235,8 +256,7 @@ gsap.registerPlugin(ScrollTrigger);
       return y;
     }
 
-    gsap.set(track, { y: 0 });
-    layoutTick();
+    applyLayout(0);
 
     const yStart = solveYForSlide(0);
     const yEnd = solveYForSlide(slides.length - 1);
@@ -244,8 +264,7 @@ gsap.registerPlugin(ScrollTrigger);
     const naturalTravel = Math.max(yStart - yEnd, 0);
     const pinDistance = Math.ceil(naturalTravel * cfg.slowness);
 
-    gsap.set(track, { y: yStart });
-    layoutTick();
+    applyLayout(yStart);
 
     if (isSmall && mask.clientHeight < 50) return;
 
@@ -262,15 +281,13 @@ gsap.registerPlugin(ScrollTrigger);
 
     function setDesktopProgress(self) {
       const y = yStart - naturalTravel * self.progress;
-      gsap.set(track, { y });
-      layoutTick();
+      applyLayout(y);
     }
 
     function setMobileProgress(self) {
       const p = mapProgress(self.progress);
       const y = yStart - naturalTravel * p;
-      gsap.set(track, { y });
-      layoutTick();
+      applyLayout(y);
     }
 
     function createTriggers() {
@@ -284,7 +301,7 @@ gsap.registerPlugin(ScrollTrigger);
             scrub: true,
             pin: true,
             pinSpacing: true,
-            anticipatePin: 4,
+            anticipatePin: 2,
             invalidateOnRefresh: false,
             onRefresh: setDesktopProgress,
             onUpdate: setDesktopProgress
@@ -300,7 +317,7 @@ gsap.registerPlugin(ScrollTrigger);
             scrub: true,
             pin: media,
             pinSpacing: true,
-            anticipatePin: 4,
+            anticipatePin: 2,
             invalidateOnRefresh: false,
             onRefresh: setMobileProgress,
             onUpdate: setMobileProgress
@@ -345,9 +362,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     function revealGallery() {
-      gsap.set(track, { y: yStart });
-      layoutTick();
-
+      applyLayout(yStart);
       createTriggers();
 
       requestAnimationFrame(() => {
