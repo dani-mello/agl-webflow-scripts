@@ -40,6 +40,7 @@ gsap.registerPlugin(ScrollTrigger);
     if (!media || !mask || !track || slides.length < 2) return;
 
     section.classList.remove("is-ready");
+    clearTimeout(window.__splitGallerySafeRefreshTimer);
     killSplitGalleryTriggers();
 
     const imgEls = Array.from(section.querySelectorAll("img"));
@@ -53,7 +54,6 @@ gsap.registerPlugin(ScrollTrigger);
     const isSmall = window.innerWidth <= BREAKPOINT;
 
     const DESKTOP = {
-      cardWMode: "parent",
       cardWRemFallback: 50,
       cardHRem: 50,
       minScale: 0.5,
@@ -79,7 +79,8 @@ gsap.registerPlugin(ScrollTrigger);
       padding: 0,
       margin: 0,
       willChange: "transform",
-      width: "100%"
+      width: "100%",
+      force3D: true
     });
 
     const rootFont =
@@ -126,6 +127,7 @@ gsap.registerPlugin(ScrollTrigger);
       }
 
       const innerImg = imageEl ? imageEl.querySelector("img") : null;
+
       if (innerImg) {
         gsap.set(imageEl, {
           position: "absolute",
@@ -133,6 +135,7 @@ gsap.registerPlugin(ScrollTrigger);
           width: "100%",
           height: "100%"
         });
+
         gsap.set(innerImg, {
           position: "absolute",
           inset: 0,
@@ -142,6 +145,7 @@ gsap.registerPlugin(ScrollTrigger);
           objectPosition: "center",
           display: "block"
         });
+
         return;
       }
 
@@ -149,6 +153,7 @@ gsap.registerPlugin(ScrollTrigger);
         imageEl.style.backgroundSize = "cover";
         imageEl.style.backgroundPosition = "center";
         imageEl.style.backgroundRepeat = "no-repeat";
+
         gsap.set(imageEl, {
           position: "absolute",
           inset: 0,
@@ -170,7 +175,8 @@ gsap.registerPlugin(ScrollTrigger);
         display: "block",
         transformOrigin: "right top",
         willChange: "transform, top",
-        visibility: "inherit"
+        visibility: "inherit",
+        force3D: true
       });
 
       normalizeSlideMedia(slide);
@@ -194,10 +200,11 @@ gsap.registerPlugin(ScrollTrigger);
       });
 
       let y = 0;
+
       for (let i = 0; i < slides.length; i++) {
         const s = scales[i];
         slides[i].style.top = `${y}px`;
-        slides[i].style.transform = `scale(${s})`;
+        slides[i].style.transform = `translate3d(0,0,0) scale(${s})`;
         slides[i].style.zIndex = String(1000 + Math.round(s * 1000));
         y += baseH * s - cfg.eps;
       }
@@ -207,6 +214,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     function solveYForSlide(index) {
       let y = 0;
+
       gsap.set(track, { y });
       layoutTick();
 
@@ -215,6 +223,7 @@ gsap.registerPlugin(ScrollTrigger);
         const rect = slides[index].getBoundingClientRect();
         const mid = rect.top + rect.height / 2;
         const delta = cy - mid;
+
         y += delta;
 
         gsap.set(track, { y });
@@ -242,9 +251,12 @@ gsap.registerPlugin(ScrollTrigger);
 
     function mapProgress(p) {
       if (!isSmall) return p;
+
       const hold = cfg.startHold || 0;
+
       if (hold <= 0) return p;
       if (p <= hold) return 0;
+
       return (p - hold) / (1 - hold);
     }
 
@@ -271,8 +283,9 @@ gsap.registerPlugin(ScrollTrigger);
             end: "+=" + pinDistance,
             scrub: true,
             pin: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
+            pinSpacing: true,
+            anticipatePin: 4,
+            invalidateOnRefresh: false,
             onRefresh: setDesktopProgress,
             onUpdate: setDesktopProgress
           });
@@ -287,8 +300,8 @@ gsap.registerPlugin(ScrollTrigger);
             scrub: true,
             pin: media,
             pinSpacing: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
+            anticipatePin: 4,
+            invalidateOnRefresh: false,
             onRefresh: setMobileProgress,
             onUpdate: setMobileProgress
           });
@@ -336,12 +349,10 @@ gsap.registerPlugin(ScrollTrigger);
       layoutTick();
 
       createTriggers();
-      ScrollTrigger.refresh();
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           section.classList.add("is-ready");
-          ScrollTrigger.refresh();
         });
       });
     }
@@ -353,26 +364,6 @@ gsap.registerPlugin(ScrollTrigger);
       forcePreloadImage(firstImg),
       forcePreloadImage(secondImg)
     ]).then(revealGallery);
-
-    let pending = 0;
-
-    imgEls.forEach((img) => {
-      if (!img.complete) {
-        pending++;
-        img.addEventListener(
-          "load",
-          () => {
-            pending--;
-            if (pending === 0) {
-              window.safeRefreshSplitGallery(100);
-            }
-          },
-          { once: true }
-        );
-      }
-    });
-
-    window.safeRefreshSplitGallery(300);
   }
 
   function boot() {
@@ -388,8 +379,10 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   let t;
+
   window.addEventListener("resize", () => {
     clearTimeout(t);
+
     t = setTimeout(() => {
       boot();
     }, 200);
