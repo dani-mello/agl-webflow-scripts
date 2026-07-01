@@ -259,7 +259,7 @@ gsap.registerPlugin(ScrollTrigger);
       layoutTick();
     }
 
-        ScrollTrigger.matchMedia({
+    ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
           id: "splitGallery-desktop",
@@ -301,3 +301,26 @@ gsap.registerPlugin(ScrollTrigger);
       });
     });
   }
+
+  function boot() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(initSplitGallery);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
+  let t;
+
+  window.addEventListener("resize", () => {
+    clearTimeout(t);
+
+    t = setTimeout(() => {
+      boot();
+    }, 200);
+  });
+})();
