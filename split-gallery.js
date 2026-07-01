@@ -260,6 +260,14 @@ gsap.registerPlugin(ScrollTrigger);
             pin: true,
             anticipatePin: 1,
             invalidateOnRefresh: true,
+            onEnter() {
+              gsap.set(track, { y: yStart });
+              layoutTick();
+            },
+            onEnterBack() {
+              gsap.set(track, { y: yStart });
+              layoutTick();
+            },
             onRefresh(self) {
               const y = yStart - naturalTravel * self.progress;
               gsap.set(track, { y });
@@ -309,30 +317,67 @@ gsap.registerPlugin(ScrollTrigger);
       });
     }
 
+    function forcePreloadImage(img) {
+      return new Promise((resolve) => {
+        if (!img || img.tagName !== "IMG") {
+          resolve();
+          return;
+        }
+
+        img.loading = "eager";
+        img.fetchPriority = "high";
+        img.decoding = "async";
+
+        const src = img.currentSrc || img.src || img.getAttribute("src");
+        const srcset = img.getAttribute("srcset");
+        const sizes = img.getAttribute("sizes");
+
+        if (!src && !srcset) {
+          resolve();
+          return;
+        }
+
+        const preload = new Image();
+
+        preload.onload = () => resolve();
+        preload.onerror = () => resolve();
+
+        if (sizes) preload.sizes = sizes;
+        if (srcset) preload.srcset = srcset;
+        if (src) preload.src = src;
+
+        if (srcset) img.srcset = srcset;
+        if (sizes) img.sizes = sizes;
+        if (src) img.src = src;
+      });
+    }
+
     function revealGallery() {
       gsap.set(track, { y: yStart });
       layoutTick();
 
       createTriggers();
 
+      ScrollTrigger.refresh();
+
+      gsap.set(track, { y: yStart });
+      layoutTick();
+
       requestAnimationFrame(() => {
-        section.classList.add("is-ready");
-        window.safeRefreshSplitGallery(50);
+        requestAnimationFrame(() => {
+          section.classList.add("is-ready");
+          ScrollTrigger.refresh();
+        });
       });
     }
 
     const firstImg = section.querySelector(".c-split-gallery_image");
+    const secondImg = imgEls[1];
 
-    if (firstImg && firstImg.tagName === "IMG" && !firstImg.complete) {
-      if (firstImg.decode) {
-        firstImg.decode().catch(() => {}).then(revealGallery);
-      } else {
-        firstImg.addEventListener("load", revealGallery, { once: true });
-        firstImg.addEventListener("error", revealGallery, { once: true });
-      }
-    } else {
-      revealGallery();
-    }
+    Promise.all([
+      forcePreloadImage(firstImg),
+      forcePreloadImage(secondImg)
+    ]).then(revealGallery);
 
     let pending = 0;
 
