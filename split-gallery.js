@@ -21,7 +21,6 @@ gsap.registerPlugin(ScrollTrigger);
     window.scrollTo(0, scrollY);
   }
 
-  // Expose this so your accordion JS can call it after open/close
   window.safeRefreshSplitGallery = function (delay = 300) {
     clearTimeout(window.__splitGallerySafeRefreshTimer);
     window.__splitGallerySafeRefreshTimer = setTimeout(() => {
@@ -40,7 +39,16 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!media || !mask || !track || slides.length < 2) return;
 
+    section.classList.remove("is-ready");
     killSplitGalleryTriggers();
+
+    const imgEls = Array.from(section.querySelectorAll("img"));
+
+    imgEls.slice(0, 2).forEach((img) => {
+      img.loading = "eager";
+      img.fetchPriority = "high";
+      img.decoding = "async";
+    });
 
     const isSmall = window.innerWidth <= BREAKPOINT;
 
@@ -90,14 +98,14 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!isSmall) {
       const parentW = getParentWidthPx();
-      cardWpx = parentW || cfg.cardWRemFallback * rootFont;
-      cardHpx = cfg.cardHRem * rootFont;
+      cardWpx = parentW || DESKTOP.cardWRemFallback * rootFont;
+      cardHpx = DESKTOP.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
       const mW = mask.getBoundingClientRect().width || window.innerWidth;
       const mH = mask.getBoundingClientRect().height || window.innerHeight;
       cardWpx = Math.max(320, Math.round(mW));
-      cardHpx = Math.round(mH * (cfg.cardHvh / 100));
+      cardHpx = Math.round(mH * (MOBILE.cardHvh / 100));
       baseH = cardHpx;
     }
 
@@ -229,7 +237,6 @@ gsap.registerPlugin(ScrollTrigger);
 
     gsap.set(track, { y: yStart });
     layoutTick();
-    section.classList.add("is-ready");
 
     if (isSmall && mask.clientHeight < 50) return;
 
@@ -241,55 +248,92 @@ gsap.registerPlugin(ScrollTrigger);
       return (p - hold) / (1 - hold);
     }
 
-    ScrollTrigger.matchMedia({
-      "(min-width: 901px)": function () {
-        ScrollTrigger.create({
-          id: "splitGallery-desktop",
-          trigger: section,
-          start: "top top",
-          end: "+=" + pinDistance,
-          scrub: true,
-          pin: true,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          onUpdate(self) {
-            const y = yStart - naturalTravel * self.progress;
-            gsap.set(track, { y });
-            layoutTick();
-          }
-        });
-      },
+    function createTriggers() {
+      ScrollTrigger.matchMedia({
+        "(min-width: 901px)": function () {
+          ScrollTrigger.create({
+            id: "splitGallery-desktop",
+            trigger: section,
+            start: "top top",
+            end: "+=" + pinDistance,
+            scrub: true,
+            pin: true,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            onRefresh(self) {
+              const y = yStart - naturalTravel * self.progress;
+              gsap.set(track, { y });
+              layoutTick();
+            },
+            onUpdate(self) {
+              const y = yStart - naturalTravel * self.progress;
+              gsap.set(track, { y });
+              layoutTick();
+            }
+          });
+        },
 
-      "(max-width: 900px)": function () {
-        ScrollTrigger.create({
-          id: "splitGallery-mobile",
-          trigger: media,
-          start: "top top",
-          end: "+=" + pinDistance,
-          scrub: true,
-          pin: media,
-          pinSpacing: true,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          onEnter() {
-            gsap.set(track, { y: yStart });
-            layoutTick();
-          },
-          onEnterBack() {
-            gsap.set(track, { y: yStart });
-            layoutTick();
-          },
-          onUpdate(self) {
-            const p = mapProgress(self.progress);
-            const y = yStart - naturalTravel * p;
-            gsap.set(track, { y });
-            layoutTick();
-          }
-        });
+        "(max-width: 900px)": function () {
+          ScrollTrigger.create({
+            id: "splitGallery-mobile",
+            trigger: media,
+            start: "top top",
+            end: "+=" + pinDistance,
+            scrub: true,
+            pin: media,
+            pinSpacing: true,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            onEnter() {
+              gsap.set(track, { y: yStart });
+              layoutTick();
+            },
+            onEnterBack() {
+              gsap.set(track, { y: yStart });
+              layoutTick();
+            },
+            onRefresh(self) {
+              const p = mapProgress(self.progress);
+              const y = yStart - naturalTravel * p;
+              gsap.set(track, { y });
+              layoutTick();
+            },
+            onUpdate(self) {
+              const p = mapProgress(self.progress);
+              const y = yStart - naturalTravel * p;
+              gsap.set(track, { y });
+              layoutTick();
+            }
+          });
+        }
+      });
+    }
+
+    function revealGallery() {
+      gsap.set(track, { y: yStart });
+      layoutTick();
+
+      createTriggers();
+
+      requestAnimationFrame(() => {
+        section.classList.add("is-ready");
+        window.safeRefreshSplitGallery(50);
+      });
+    }
+
+    const firstImg = section.querySelector(".c-split-gallery_image");
+
+    if (firstImg && firstImg.tagName === "IMG" && !firstImg.complete) {
+      if (firstImg.decode) {
+        firstImg.decode().catch(() => {}).then(revealGallery);
+      } else {
+        firstImg.addEventListener("load", revealGallery, { once: true });
+        firstImg.addEventListener("error", revealGallery, { once: true });
       }
-    });
+    } else {
+      revealGallery();
+    }
 
-    const imgEls = Array.from(section.querySelectorAll("img"));
     let pending = 0;
 
     imgEls.forEach((img) => {
@@ -308,7 +352,7 @@ gsap.registerPlugin(ScrollTrigger);
       }
     });
 
-    window.safeRefreshSplitGallery(100);
+    window.safeRefreshSplitGallery(300);
   }
 
   function boot() {
