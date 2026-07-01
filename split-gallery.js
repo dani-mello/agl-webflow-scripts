@@ -162,7 +162,7 @@ gsap.registerPlugin(ScrollTrigger);
         display: "block",
         transformOrigin: "right top",
         willChange: "transform, top",
-        visibility: "visible"
+        visibility: "inherit"
       });
 
       normalizeSlideMedia(slide);
