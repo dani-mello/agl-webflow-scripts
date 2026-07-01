@@ -13,21 +13,6 @@ gsap.registerPlugin(ScrollTrigger);
     });
   }
 
-  function safeRefresh() {
-    if (!window.ScrollTrigger) return;
-
-    const scrollY = window.scrollY;
-    ScrollTrigger.refresh();
-    window.scrollTo(0, scrollY);
-  }
-
-  window.safeRefreshSplitGallery = function (delay = 300) {
-    clearTimeout(window.__splitGallerySafeRefreshTimer);
-    window.__splitGallerySafeRefreshTimer = setTimeout(() => {
-      safeRefresh();
-    }, delay);
-  };
-
   function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
@@ -40,7 +25,6 @@ gsap.registerPlugin(ScrollTrigger);
     if (!media || !mask || !track || slides.length < 2) return;
 
     section.classList.remove("is-ready");
-    clearTimeout(window.__splitGallerySafeRefreshTimer);
     killSplitGalleryTriggers();
 
     const imgEls = Array.from(section.querySelectorAll("img"));
@@ -79,8 +63,7 @@ gsap.registerPlugin(ScrollTrigger);
       padding: 0,
       margin: 0,
       willChange: "transform",
-      width: "100%",
-      force3D: true
+      width: "100%"
     });
 
     const rootFont =
@@ -95,18 +78,20 @@ gsap.registerPlugin(ScrollTrigger);
       return Math.max(320, Math.round(w));
     }
 
-    let cardWpx, cardHpx, baseH;
+    let cardWpx;
+    let cardHpx;
+    let baseH;
 
     if (!isSmall) {
       const parentW = getParentWidthPx();
-      cardWpx = parentW || DESKTOP.cardWRemFallback * rootFont;
-      cardHpx = DESKTOP.cardHRem * rootFont;
+      cardWpx = parentW || cfg.cardWRemFallback * rootFont;
+      cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
       const mW = mask.getBoundingClientRect().width || window.innerWidth;
       const mH = mask.getBoundingClientRect().height || window.innerHeight;
       cardWpx = Math.max(320, Math.round(mW));
-      cardHpx = Math.round(mH * (MOBILE.cardHvh / 100));
+      cardHpx = Math.round(mH * (cfg.cardHvh / 100));
       baseH = cardHpx;
     }
 
@@ -175,80 +160,60 @@ gsap.registerPlugin(ScrollTrigger);
         display: "block",
         transformOrigin: "right top",
         willChange: "transform, top",
-        visibility: "inherit",
-        force3D: true
+        visibility: "inherit"
       });
 
       normalizeSlideMedia(slide);
     });
 
-    function getMaskCenterLocal() {
-      const maskRect = mask.getBoundingClientRect();
-      const trackRect = track.getBoundingClientRect();
-      const maskCenterViewport = maskRect.top + maskRect.height / 2;
-      return maskCenterViewport - trackRect.top;
+    function centerY() {
+      const r = mask.getBoundingClientRect();
+      return r.height ? r.top + r.height / 2 : window.innerHeight / 2;
     }
 
-    function calculateLayout(trackY) {
-      const center = getMaskCenterLocal() - trackY;
-      const falloffPx = window.innerHeight * cfg.falloff;
-      const scales = new Array(slides.length).fill(1);
-      const tops = new Array(slides.length).fill(0);
+    function layoutTick() {
+      const cy = centerY();
+      const galleryH = mask.clientHeight || window.innerHeight;
 
-      for (let pass = 0; pass < 4; pass++) {
-        let y = 0;
+      const scales = slides.map((slide) => {
+        const rect = slide.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        const d = Math.abs(mid - cy);
+        const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
+        return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
+      });
 
-        for (let i = 0; i < slides.length; i++) {
-          tops[i] = y;
-
-          const mid = y + (cardHpx * scales[i]) / 2;
-          const d = Math.abs(mid - center);
-          const norm = Math.min(1, d / falloffPx);
-
-          scales[i] = cfg.minScale + (1 - cfg.minScale) * (1 - norm);
-          y += baseH * scales[i] - cfg.eps;
-        }
-      }
-
-      let height = 0;
-      for (let i = 0; i < slides.length; i++) {
-        height = Math.max(height, tops[i] + baseH * scales[i]);
-      }
-
-      return {
-        tops,
-        scales,
-        height: Math.max(height + cfg.eps, mask.clientHeight + 1)
-      };
-    }
-
-    function applyLayout(trackY) {
-      const layout = calculateLayout(trackY);
-
-      gsap.set(track, { y: trackY });
-      track.style.height = `${layout.height}px`;
+      let y = 0;
 
       for (let i = 0; i < slides.length; i++) {
-        const s = layout.scales[i];
+        const s = scales[i];
 
-        slides[i].style.top = `${layout.tops[i]}px`;
-        slides[i].style.transform = `translate3d(0,0,0) scale(${s})`;
+        slides[i].style.top = `${y}px`;
+        slides[i].style.transform = `scale(${s})`;
         slides[i].style.zIndex = String(1000 + Math.round(s * 1000));
+
+        y += baseH * s - cfg.eps;
       }
+
+      track.style.height = `${Math.max(y + cfg.eps, galleryH + 1)}px`;
     }
 
     function solveYForSlide(index) {
       let y = 0;
 
-      for (let k = 0; k < 12; k++) {
-        applyLayout(y);
+      gsap.set(track, { y });
+      layoutTick();
 
-        const layout = calculateLayout(y);
-        const center = getMaskCenterLocal() - y;
-        const mid = layout.tops[index] + (cardHpx * layout.scales[index]) / 2;
-        const delta = center - mid;
+      for (let k = 0; k < 10; k++) {
+        const cy = centerY();
+        const rect = slides[index].getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        const delta = cy - mid;
 
         y += delta;
+
+        gsap.set(track, { y });
+        layoutTick();
 
         if (Math.abs(delta) < 0.5) break;
       }
@@ -256,7 +221,8 @@ gsap.registerPlugin(ScrollTrigger);
       return y;
     }
 
-    applyLayout(0);
+    gsap.set(track, { y: 0 });
+    layoutTick();
 
     const yStart = solveYForSlide(0);
     const yEnd = solveYForSlide(slides.length - 1);
@@ -264,7 +230,8 @@ gsap.registerPlugin(ScrollTrigger);
     const naturalTravel = Math.max(yStart - yEnd, 0);
     const pinDistance = Math.ceil(naturalTravel * cfg.slowness);
 
-    applyLayout(yStart);
+    gsap.set(track, { y: yStart });
+    layoutTick();
 
     if (isSmall && mask.clientHeight < 50) return;
 
@@ -281,104 +248,57 @@ gsap.registerPlugin(ScrollTrigger);
 
     function setDesktopProgress(self) {
       const y = yStart - naturalTravel * self.progress;
-      applyLayout(y);
+      gsap.set(track, { y });
+      layoutTick();
     }
 
     function setMobileProgress(self) {
       const p = mapProgress(self.progress);
       const y = yStart - naturalTravel * p;
-      applyLayout(y);
+      gsap.set(track, { y });
+      layoutTick();
     }
 
-    function createTriggers() {
-      ScrollTrigger.matchMedia({
-        "(min-width: 901px)": function () {
-          ScrollTrigger.create({
-            id: "splitGallery-desktop",
-            trigger: section,
-            start: "top top",
-            end: "+=" + pinDistance,
-            scrub: true,
-            pin: true,
-            pinSpacing: true,
-            anticipatePin: 2,
-            invalidateOnRefresh: false,
-            onRefresh: setDesktopProgress,
-            onUpdate: setDesktopProgress
-          });
-        },
-
-        "(max-width: 900px)": function () {
-          ScrollTrigger.create({
-            id: "splitGallery-mobile",
-            trigger: media,
-            start: "top top",
-            end: "+=" + pinDistance,
-            scrub: true,
-            pin: media,
-            pinSpacing: true,
-            anticipatePin: 2,
-            invalidateOnRefresh: false,
-            onRefresh: setMobileProgress,
-            onUpdate: setMobileProgress
-          });
-        }
-      });
-    }
-
-    function forcePreloadImage(img) {
-      return new Promise((resolve) => {
-        if (!img || img.tagName !== "IMG") {
-          resolve();
-          return;
-        }
-
-        img.loading = "eager";
-        img.fetchPriority = "high";
-        img.decoding = "async";
-
-        const src = img.currentSrc || img.src || img.getAttribute("src");
-        const srcset = img.getAttribute("srcset");
-        const sizes = img.getAttribute("sizes");
-
-        if (!src && !srcset) {
-          resolve();
-          return;
-        }
-
-        const preload = new Image();
-
-        preload.onload = () => resolve();
-        preload.onerror = () => resolve();
-
-        if (sizes) preload.sizes = sizes;
-        if (srcset) preload.srcset = srcset;
-        if (src) preload.src = src;
-
-        if (srcset) img.srcset = srcset;
-        if (sizes) img.sizes = sizes;
-        if (src) img.src = src;
-      });
-    }
-
-    function revealGallery() {
-      applyLayout(yStart);
-      createTriggers();
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          section.classList.add("is-ready");
+    ScrollTrigger.matchMedia({
+      "(min-width: 901px)": function () {
+        ScrollTrigger.create({
+          id: "splitGallery-desktop",
+          trigger: section,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: true,
+          pinSpacing: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          onRefresh: setDesktopProgress,
+          onUpdate: setDesktopProgress
         });
+      },
+
+      "(max-width: 900px)": function () {
+        ScrollTrigger.create({
+          id: "splitGallery-mobile",
+          trigger: media,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: media,
+          pinSpacing: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          onRefresh: setMobileProgress,
+          onUpdate: setMobileProgress
+        });
+      }
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        section.classList.add("is-ready");
+        ScrollTrigger.refresh();
       });
-    }
-
-    const firstImg = section.querySelector(".c-split-gallery_image");
-    const secondImg = imgEls[1];
-
-    Promise.all([
-      forcePreloadImage(firstImg),
-      forcePreloadImage(secondImg)
-    ]).then(revealGallery);
+    });
   }
 
   function boot() {
