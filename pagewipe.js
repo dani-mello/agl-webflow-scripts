@@ -1,4 +1,15 @@
 (function () {
+  console.log("✅ PAGE WIPE JS LOADED — debug v1", {
+  url: window.location.href,
+  readyState: document.readyState,
+  hasWebflow: !!window.Webflow,
+  hasWebflowEnv: !!(window.Webflow && typeof Webflow.env === "function"),
+  designMode:
+    !!(window.Webflow && typeof Webflow.env === "function" && Webflow.env("design")),
+  editorMode:
+    !!(window.Webflow && typeof Webflow.env === "function" && Webflow.env("editor")),
+  hasGSAP: !!window.gsap
+});
   // Do not run inside Webflow Designer or Editor
   if (
     window.Webflow &&
