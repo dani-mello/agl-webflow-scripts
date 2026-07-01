@@ -229,6 +229,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     gsap.set(track, { y: yStart });
     layoutTick();
+    section.classList.add("is-ready");
 
     if (isSmall && mask.clientHeight < 50) return;
 
