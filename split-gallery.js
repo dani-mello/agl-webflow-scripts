@@ -13,6 +13,27 @@ gsap.registerPlugin(ScrollTrigger);
     });
   }
 
+  function safeRefresh() {
+    if (!window.ScrollTrigger) return;
+
+    const scrollY = window.scrollY;
+
+    ScrollTrigger.refresh();
+
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+    });
+  }
+
+  // Expose this so your accordion JS can call it after open/close
+  window.safeRefreshSplitGallery = function (delay = 300) {
+    clearTimeout(window.__splitGallerySafeRefreshTimer);
+
+    window.__splitGallerySafeRefreshTimer = setTimeout(() => {
+      safeRefresh();
+    }, delay);
+  };
+
   function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
@@ -38,6 +59,7 @@ gsap.registerPlugin(ScrollTrigger);
     const isSmall = window.innerWidth <= BREAKPOINT;
 
     const DESKTOP = {
+      cardWMode: "parent",
       cardWRemFallback: 50,
       cardHRem: 50,
       minScale: 0.5,
@@ -58,6 +80,7 @@ gsap.registerPlugin(ScrollTrigger);
     const cfg = isSmall ? MOBILE : DESKTOP;
 
     gsap.set(track, { clearProps: "transform" });
+
     gsap.set(track, {
       position: "relative",
       padding: 0,
@@ -75,6 +98,7 @@ gsap.registerPlugin(ScrollTrigger);
       const w3 = window.innerWidth;
 
       const w = w1 && w1 > 10 ? w1 : w2 && w2 > 10 ? w2 : w3;
+
       return Math.max(320, Math.round(w));
     }
 
@@ -84,12 +108,14 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!isSmall) {
       const parentW = getParentWidthPx();
+
       cardWpx = parentW || cfg.cardWRemFallback * rootFont;
       cardHpx = cfg.cardHRem * rootFont;
       baseH = cardHpx;
     } else {
       const mW = mask.getBoundingClientRect().width || window.innerWidth;
       const mH = mask.getBoundingClientRect().height || window.innerHeight;
+
       cardWpx = Math.max(320, Math.round(mW));
       cardHpx = Math.round(mH * (cfg.cardHvh / 100));
       baseH = cardHpx;
@@ -108,6 +134,7 @@ gsap.registerPlugin(ScrollTrigger);
           objectPosition: "center",
           display: "block"
         });
+
         return;
       }
 
@@ -168,6 +195,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     function centerY() {
       const r = mask.getBoundingClientRect();
+
       return r.height ? r.top + r.height / 2 : window.innerHeight / 2;
     }
 
@@ -180,6 +208,7 @@ gsap.registerPlugin(ScrollTrigger);
         const mid = rect.top + rect.height / 2;
         const d = Math.abs(mid - cy);
         const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
+
         return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
       });
 
@@ -228,12 +257,17 @@ gsap.registerPlugin(ScrollTrigger);
     const yEnd = solveYForSlide(slides.length - 1);
 
     const naturalTravel = Math.max(yStart - yEnd, 0);
-    const pinDistance = Math.ceil(naturalTravel * cfg.slowness);
+    const pinDistance = Math.max(1, Math.ceil(naturalTravel * cfg.slowness));
 
     gsap.set(track, { y: yStart });
     layoutTick();
 
-    if (isSmall && mask.clientHeight < 50) return;
+    section.classList.add("is-ready");
+
+    if (isSmall && mask.clientHeight < 50) {
+      window.safeRefreshSplitGallery(100);
+      return;
+    }
 
     function mapProgress(p) {
       if (!isSmall) return p;
@@ -248,6 +282,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     function setDesktopProgress(self) {
       const y = yStart - naturalTravel * self.progress;
+
       gsap.set(track, { y });
       layoutTick();
     }
@@ -255,11 +290,12 @@ gsap.registerPlugin(ScrollTrigger);
     function setMobileProgress(self) {
       const p = mapProgress(self.progress);
       const y = yStart - naturalTravel * p;
+
       gsap.set(track, { y });
       layoutTick();
     }
 
-        ScrollTrigger.matchMedia({
+    ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
           id: "splitGallery-desktop",
@@ -287,17 +323,66 @@ gsap.registerPlugin(ScrollTrigger);
           pinSpacing: true,
           anticipatePin: 1,
           invalidateOnRefresh: true,
+          onEnter() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
+          onEnterBack() {
+            gsap.set(track, { y: yStart });
+            layoutTick();
+          },
           onRefresh: setMobileProgress,
           onUpdate: setMobileProgress
         });
       }
     });
 
-    requestAnimationFrame(() => {
-      section.classList.add("is-ready");
+    let pending = 0;
 
+    imgEls.forEach((img) => {
+      if (!img.complete) {
+        pending++;
+
+        img.addEventListener(
+          "load",
+          () => {
+            pending--;
+
+            if (pending === 0) {
+              window.safeRefreshSplitGallery(100);
+            }
+          },
+          { once: true }
+        );
+      }
+    });
+
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        ScrollTrigger.refresh();
+        window.safeRefreshSplitGallery(100);
       });
     });
   }
+
+  function boot() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(initSplitGallery);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
+  let t;
+
+  window.addEventListener("resize", () => {
+    clearTimeout(t);
+
+    t = setTimeout(() => {
+      boot();
+    }, 200);
+  });
+})();
