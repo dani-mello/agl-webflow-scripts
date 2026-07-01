@@ -1,4 +1,4 @@
-(function () {
+/* (function () {
   // Do not run inside Webflow Designer or Editor
   if (
     window.Webflow &&
