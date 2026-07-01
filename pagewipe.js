@@ -1,7 +1,3 @@
-
-/*
-PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
-
 (function () {
   // Do not run inside Webflow Designer or Editor
   if (
@@ -22,7 +18,6 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
   const cfg = {
     root: ".c-pagewipe",
 
-    // Fast cover, smooth reveal
     coverDur: 0.26,
     revealDur: 0.55,
     staggerEach: 0.06,
@@ -30,15 +25,12 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
     easeCover: "power3.in",
     easeReveal: "power3.out",
 
-    // Click ignore system
     ignoreAttr: "data-pagewipe-ignore",
     ignoreSelectors: [
-      // In-page scroll UI / bottom navs
       ".c-bottom-nav",
       ".c-trip-bottom-nav",
       ".c-trip-bottom-nav_inner",
 
-      // Inline gallery UI
       ".c-inline-gallery",
       ".c-inline-gallery_arrow",
       ".c-inline-gallery_btn",
@@ -52,17 +44,14 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
     window.dispatchEvent(new CustomEvent("agl:pageRevealed"));
   }
 
-  function getPanels() {
+  function createWipe() {
     let root = document.querySelector(cfg.root);
 
-    // Create the wipe element only on the live/published site
     if (!root) {
       root = document.createElement("div");
       root.className = "c-pagewipe";
       root.setAttribute("aria-hidden", "true");
 
-      // Order matters:
-      // gold is behind, dark is on top
       root.innerHTML = `
         <div class="c-pagewipe_panel c-pagewipe_panel--gold"></div>
         <div class="c-pagewipe_panel c-pagewipe_panel--dark"></div>
@@ -74,41 +63,62 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
 
-    const panels = [gold, dark].filter(Boolean);
-    return panels.length ? panels : null;
+    return {
+      root,
+      panels: [gold, dark].filter(Boolean)
+    };
   }
 
-  // States
-  const setCovered = (panels) => gsap.set(panels, { xPercent: 0 });
-  const setOffRight = (panels) => gsap.set(panels, { xPercent: 105 });
+  function forceHide(wipe) {
+    if (!wipe || !wipe.panels || !wipe.panels.length) return;
 
-  // Cover: gold first, then dark
+    if (window.gsap) {
+      gsap.killTweensOf(wipe.panels);
+      gsap.set(wipe.panels, { xPercent: 105 });
+    } else {
+      wipe.panels.forEach((panel) => {
+        panel.style.transform = "translateX(105%)";
+      });
+    }
+
+    dispatchRevealed();
+  }
+
+  function setCovered(panels) {
+    gsap.set(panels, { xPercent: 0 });
+  }
+
+  function setOffRight(panels) {
+    gsap.set(panels, { xPercent: 105 });
+  }
+
   function coverFromRight(panels, onComplete) {
     gsap.to(panels, {
       xPercent: 0,
       duration: cfg.coverDur,
       ease: cfg.easeCover,
       stagger: { each: cfg.staggerEach, from: "start" },
+      overwrite: true,
       onComplete
     });
   }
 
-  // Reveal: dark leaves first, then gold
   function revealToLeft(panels, onComplete) {
     gsap.to(panels, {
       xPercent: -105,
       duration: cfg.revealDur,
       ease: cfg.easeReveal,
       stagger: { each: cfg.staggerEach, from: "end" },
+      overwrite: true,
       onComplete
     });
   }
 
   function isIgnoredClick(e) {
-    // Explicit opt-out for one-off buttons
+    if (!e.target || !e.target.closest) return true;
+
     if (e.target.closest(`[${cfg.ignoreAttr}]`)) return true;
 
-    // Ignore UI areas like inline gallery + bottom nav
     if (cfg.ignoreSelectors && e.target.closest(cfg.ignoreSelectors)) {
       return true;
     }
@@ -124,7 +134,6 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
 
     const href = a.getAttribute("href") || "";
 
-    // Ignore in-page scroll links
     if (href === "#" || href.startsWith("#")) return false;
     if (a.hasAttribute("data-scroll-to")) return false;
 
@@ -136,43 +145,52 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
       return false;
     }
 
-    // Ignore mailto, tel, javascript, etc.
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-
-    // Same origin only
     if (url.origin !== window.location.origin) return false;
 
-    // Ignore same-page anchor links
     if (url.pathname === window.location.pathname && url.hash) return false;
 
     return true;
   }
 
   function init() {
-    if (!window.gsap) return;
+    if (!document.body) {
+      window.requestAnimationFrame(init);
+      return;
+    }
 
-    const panels = getPanels();
-    if (!panels) return;
+    const wipe = createWipe();
 
-    document.documentElement.classList.add("has-pagewipe-ready");
-
-    if (prefersReduced) {
-      setOffRight(panels);
+    if (!wipe.panels.length) {
       dispatchRevealed();
       return;
     }
 
-    // PAGE LOAD:
-    // Start covered, then reveal immediately
-    setCovered(panels);
+    document.documentElement.classList.add("has-pagewipe-ready");
 
-    revealToLeft(panels, () => {
-      setOffRight(panels);
+    // If GSAP does not exist for some reason, do not cover the site.
+    if (!window.gsap || prefersReduced) {
+      forceHide(wipe);
+      return;
+    }
+
+    // Safety net: if anything gets stuck, force the wipe away.
+    const revealFallback = window.setTimeout(() => {
+      forceHide(wipe);
+    }, 1800);
+
+    // PAGE LOAD:
+    // Start covered, reveal immediately.
+    setCovered(wipe.panels);
+
+    revealToLeft(wipe.panels, () => {
+      window.clearTimeout(revealFallback);
+      setOffRight(wipe.panels);
       dispatchRevealed();
     });
 
     // CLICK:
-    // Cover fast, then navigate
+    // Cover fast, then navigate.
     document.addEventListener(
       "click",
       (e) => {
@@ -186,9 +204,9 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
 
         const href = a.href;
 
-        setOffRight(panels);
+        setOffRight(wipe.panels);
 
-        coverFromRight(panels, () => {
+        coverFromRight(wipe.panels, () => {
           window.location.href = href;
         });
       },
@@ -199,10 +217,15 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
 
-      setCovered(panels);
+      const bfcacheFallback = window.setTimeout(() => {
+        forceHide(wipe);
+      }, 1800);
 
-      revealToLeft(panels, () => {
-        setOffRight(panels);
+      setCovered(wipe.panels);
+
+      revealToLeft(wipe.panels, () => {
+        window.clearTimeout(bfcacheFallback);
+        setOffRight(wipe.panels);
         dispatchRevealed();
       });
     });
@@ -214,5 +237,3 @@ PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
     init();
   }
 })();
-
-*/
