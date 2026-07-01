@@ -1,5 +1,13 @@
-
 (function () {
+  // Do not run inside Webflow Designer or Editor
+  if (
+    window.Webflow &&
+    typeof Webflow.env === "function" &&
+    (Webflow.env("design") || Webflow.env("editor"))
+  ) {
+    return;
+  }
+
   if (window.__pageWipeInit) return;
   window.__pageWipeInit = true;
 
@@ -10,7 +18,7 @@
   const cfg = {
     root: ".c-pagewipe",
 
-    // Fast cover, smooth reveal (no bounce)
+    // Fast cover, smooth reveal
     coverDur: 0.26,
     revealDur: 0.55,
     staggerEach: 0.06,
@@ -21,12 +29,12 @@
     // Click ignore system
     ignoreAttr: "data-pagewipe-ignore",
     ignoreSelectors: [
-      // Your in-page scroll UI / bottom navs (add more if needed)
+      // In-page scroll UI / bottom navs
       ".c-bottom-nav",
       ".c-trip-bottom-nav",
       ".c-trip-bottom-nav_inner",
 
-      // Inline gallery UI (add your exact arrow classes if different)
+      // Inline gallery UI
       ".c-inline-gallery",
       ".c-inline-gallery_arrow",
       ".c-inline-gallery_btn",
@@ -41,12 +49,27 @@
   }
 
   function getPanels() {
-    const root = document.querySelector(cfg.root);
-    if (!root) return null;
+    let root = document.querySelector(cfg.root);
 
-    // Order is important: gold behind, dark on top
+    // Create the wipe element only on the live/published site
+    if (!root) {
+      root = document.createElement("div");
+      root.className = "c-pagewipe";
+      root.setAttribute("aria-hidden", "true");
+
+      // Order matters:
+      // gold is behind, dark is on top
+      root.innerHTML = `
+        <div class="c-pagewipe_panel c-pagewipe_panel--gold"></div>
+        <div class="c-pagewipe_panel c-pagewipe_panel--dark"></div>
+      `;
+
+      document.body.appendChild(root);
+    }
+
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
+
     const panels = [gold, dark].filter(Boolean);
     return panels.length ? panels : null;
   }
@@ -55,8 +78,7 @@
   const setCovered = (panels) => gsap.set(panels, { xPercent: 0 });
   const setOffRight = (panels) => gsap.set(panels, { xPercent: 105 });
 
-  // Cover: gold then dark (dark arrives slightly after = still fine, but subtle)
-  // Reveal: reverse stagger so DARK leaves first -> gold becomes visible
+  // Cover: gold first, then dark
   function coverFromRight(panels, onComplete) {
     gsap.to(panels, {
       xPercent: 0,
@@ -67,47 +89,57 @@
     });
   }
 
+  // Reveal: dark leaves first, then gold
   function revealToLeft(panels, onComplete) {
     gsap.to(panels, {
       xPercent: -105,
       duration: cfg.revealDur,
       ease: cfg.easeReveal,
-      // ✅ KEY FIX: dark (last / on top) moves first
       stagger: { each: cfg.staggerEach, from: "end" },
       onComplete
     });
   }
 
   function isIgnoredClick(e) {
-    // Explicit opt-out (best for one-off buttons)
+    // Explicit opt-out for one-off buttons
     if (e.target.closest(`[${cfg.ignoreAttr}]`)) return true;
 
     // Ignore UI areas like inline gallery + bottom nav
-    if (cfg.ignoreSelectors && e.target.closest(cfg.ignoreSelectors)) return true;
+    if (cfg.ignoreSelectors && e.target.closest(cfg.ignoreSelectors)) {
+      return true;
+    }
 
     return false;
   }
 
   function shouldInterceptLink(a) {
     if (!a || !a.href) return false;
+
     if (a.target && a.target !== "" && a.target !== "_self") return false;
     if (a.hasAttribute("download")) return false;
 
-    // Ignore "scroll within page" patterns
     const href = a.getAttribute("href") || "";
+
+    // Ignore in-page scroll links
     if (href === "#" || href.startsWith("#")) return false;
     if (a.hasAttribute("data-scroll-to")) return false;
 
-    const url = new URL(a.href, window.location.href);
+    let url;
 
-    // same origin only
+    try {
+      url = new URL(a.href, window.location.href);
+    } catch (err) {
+      return false;
+    }
+
+    // Ignore mailto, tel, javascript, etc.
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+
+    // Same origin only
     if (url.origin !== window.location.origin) return false;
 
-    // allow in-page anchors
+    // Ignore same-page anchor links
     if (url.pathname === window.location.pathname && url.hash) return false;
-
-    // ignore mailto/tel
-    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
 
     return true;
   }
@@ -126,14 +158,17 @@
       return;
     }
 
-    // PAGE LOAD: start covered (CSS should do this too), then reveal immediately
+    // PAGE LOAD:
+    // Start covered, then reveal immediately
     setCovered(panels);
+
     revealToLeft(panels, () => {
       setOffRight(panels);
       dispatchRevealed();
     });
 
-    // CLICK: cover fast, then navigate
+    // CLICK:
+    // Cover fast, then navigate
     document.addEventListener(
       "click",
       (e) => {
@@ -144,9 +179,11 @@
         if (!shouldInterceptLink(a)) return;
 
         e.preventDefault();
+
         const href = a.href;
 
         setOffRight(panels);
+
         coverFromRight(panels, () => {
           window.location.href = href;
         });
@@ -154,11 +191,12 @@
       true
     );
 
-    // Back/forward cache
+    // Back/forward cache fix
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
 
       setCovered(panels);
+
       revealToLeft(panels, () => {
         setOffRight(panels);
         dispatchRevealed();
