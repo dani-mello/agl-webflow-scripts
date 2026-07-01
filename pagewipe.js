@@ -11,10 +11,6 @@
   if (window.__pageWipeInit) return;
   window.__pageWipeInit = true;
 
-  const prefersReduced =
-    window.matchMedia &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
   const cfg = {
     root: ".c-pagewipe",
 
@@ -38,6 +34,10 @@
       ".swiper-button-prev"
     ].join(",")
   };
+
+  const prefersReduced =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function dispatchRevealed() {
     window.__aglPageRevealed = true;
@@ -63,23 +63,13 @@
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
 
-    return {
-      root,
-      panels: [gold, dark].filter(Boolean)
-    };
+    return [gold, dark].filter(Boolean);
   }
 
-  function forceHide(wipe) {
-    if (!wipe || !wipe.panels || !wipe.panels.length) return;
-
-    if (window.gsap) {
-      gsap.killTweensOf(wipe.panels);
-      gsap.set(wipe.panels, { xPercent: 105 });
-    } else {
-      wipe.panels.forEach((panel) => {
-        panel.style.transform = "translateX(105%)";
-      });
-    }
+  function hardHide(panels) {
+    panels.forEach((panel) => {
+      panel.style.transform = "translateX(105%)";
+    });
 
     dispatchRevealed();
   }
@@ -153,44 +143,35 @@
     return true;
   }
 
-  function init() {
+  function initPageWipe() {
     if (!document.body) {
-      window.requestAnimationFrame(init);
+      requestAnimationFrame(initPageWipe);
       return;
     }
 
-    const wipe = createWipe();
+    const panels = createWipe();
 
-    if (!wipe.panels.length) {
+    if (!panels.length) {
       dispatchRevealed();
       return;
     }
 
     document.documentElement.classList.add("has-pagewipe-ready");
 
-    // If GSAP does not exist for some reason, do not cover the site.
-    if (!window.gsap || prefersReduced) {
-      forceHide(wipe);
+    if (prefersReduced || !window.gsap) {
+      hardHide(panels);
       return;
     }
 
-    // Safety net: if anything gets stuck, force the wipe away.
-    const revealFallback = window.setTimeout(() => {
-      forceHide(wipe);
-    }, 1800);
+    // PAGE LOAD
+    setCovered(panels);
 
-    // PAGE LOAD:
-    // Start covered, reveal immediately.
-    setCovered(wipe.panels);
-
-    revealToLeft(wipe.panels, () => {
-      window.clearTimeout(revealFallback);
-      setOffRight(wipe.panels);
+    revealToLeft(panels, () => {
+      setOffRight(panels);
       dispatchRevealed();
     });
 
-    // CLICK:
-    // Cover fast, then navigate.
+    // PAGE EXIT
     document.addEventListener(
       "click",
       (e) => {
@@ -204,36 +185,50 @@
 
         const href = a.href;
 
-        setOffRight(wipe.panels);
+        setOffRight(panels);
 
-        coverFromRight(wipe.panels, () => {
+        coverFromRight(panels, () => {
           window.location.href = href;
         });
       },
       true
     );
 
-    // Back/forward cache fix
+    // BACK / FORWARD CACHE
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
 
-      const bfcacheFallback = window.setTimeout(() => {
-        forceHide(wipe);
-      }, 1800);
+      setCovered(panels);
 
-      setCovered(wipe.panels);
-
-      revealToLeft(wipe.panels, () => {
-        window.clearTimeout(bfcacheFallback);
-        setOffRight(wipe.panels);
+      revealToLeft(panels, () => {
+        setOffRight(panels);
         dispatchRevealed();
       });
     });
   }
 
+  function waitForGSAP(attemptsLeft) {
+    if (window.gsap) {
+      initPageWipe();
+      return;
+    }
+
+    if (attemptsLeft <= 0) {
+      // GSAP did not load in time. Do not block the site.
+      dispatchRevealed();
+      return;
+    }
+
+    setTimeout(() => {
+      waitForGSAP(attemptsLeft - 1);
+    }, 50);
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => {
+      waitForGSAP(40);
+    });
   } else {
-    init();
+    waitForGSAP(40);
   }
 })();
