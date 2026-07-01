@@ -10,14 +10,28 @@
     !!(window.Webflow && typeof Webflow.env === "function" && Webflow.env("editor")),
   hasGSAP: !!window.gsap
 });
-  // Do not run inside Webflow Designer or Editor
-  if (
-    window.Webflow &&
-    typeof Webflow.env === "function" &&
-    (Webflow.env("design") || Webflow.env("editor"))
-  ) {
-    return;
-  }
+ 
+ // Do not run inside Webflow Designer.
+// Also avoid running inside the Webflow Editor UI.
+const isWebflowDesigner =
+  window.Webflow &&
+  typeof Webflow.env === "function" &&
+  Webflow.env("design");
+
+const isWebflowEditor =
+  document.documentElement.classList.contains("w-editor") ||
+  document.body.classList.contains("w-editor") ||
+  window.location.search.includes("edit");
+
+if (isWebflowDesigner || isWebflowEditor) {
+  console.warn("⛔ PAGE WIPE STOPPED — Webflow Designer/Editor detected", {
+    isWebflowDesigner,
+    isWebflowEditor
+  });
+  return;
+}
+
+console.log("🚀 PAGE WIPE PASSED WEBFLOW CHECK");
 
   if (window.__pageWipeInit) return;
   window.__pageWipeInit = true;
