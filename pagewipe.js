@@ -1,3 +1,7 @@
+
+/*
+PASTE / KEEP THE WHOLE PAGE WIPE JS IN HERE FOR NOW
+
 (function () {
   // Do not run inside Webflow Designer or Editor
   if (
@@ -210,3 +214,5 @@
     init();
   }
 })();
+
+*/
