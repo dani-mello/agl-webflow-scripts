@@ -16,13 +16,9 @@ gsap.registerPlugin(ScrollTrigger);
   function safeRefresh() {
     if (!window.ScrollTrigger) return;
 
-    const scrollY = window.scrollY;
-
-    ScrollTrigger.refresh();
-
-    requestAnimationFrame(() => {
-      window.scrollTo(0, scrollY);
-    });
+    // Let ScrollTrigger handle pin spacing naturally.
+    // This avoids forcing the old scroll position back during refresh.
+    ScrollTrigger.refresh(true);
   }
 
   // Expose this so your accordion JS can call it after open/close
@@ -30,7 +26,20 @@ gsap.registerPlugin(ScrollTrigger);
     clearTimeout(window.__splitGallerySafeRefreshTimer);
 
     window.__splitGallerySafeRefreshTimer = setTimeout(() => {
-      safeRefresh();
+      const y1 = window.scrollY;
+
+      requestAnimationFrame(() => {
+        const y2 = window.scrollY;
+
+        // If the user is actively scrolling, wait a bit before refreshing.
+        // This helps avoid the first-load jump.
+        if (Math.abs(y2 - y1) > 2) {
+          window.safeRefreshSplitGallery(180);
+          return;
+        }
+
+        safeRefresh();
+      });
     }, delay);
   };
 
@@ -265,7 +274,7 @@ gsap.registerPlugin(ScrollTrigger);
     section.classList.add("is-ready");
 
     if (isSmall && mask.clientHeight < 50) {
-      window.safeRefreshSplitGallery(100);
+      window.safeRefreshSplitGallery(450);
       return;
     }
 
@@ -349,7 +358,7 @@ gsap.registerPlugin(ScrollTrigger);
             pending--;
 
             if (pending === 0) {
-              window.safeRefreshSplitGallery(100);
+              window.safeRefreshSplitGallery(300);
             }
           },
           { once: true }
@@ -359,7 +368,7 @@ gsap.registerPlugin(ScrollTrigger);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        window.safeRefreshSplitGallery(100);
+        window.safeRefreshSplitGallery(450);
       });
     });
   }
