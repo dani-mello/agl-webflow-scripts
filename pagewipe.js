@@ -1,50 +1,44 @@
 (function () {
-  console.log("✅ PAGE WIPE JS LOADED — debug v2", {
-  url: window.location.href,
-  readyState: document.readyState,
-  hasWebflow: !!window.Webflow,
-  hasWebflowEnv: !!(window.Webflow && typeof Webflow.env === "function"),
-  designMode:
-    !!(window.Webflow && typeof Webflow.env === "function" && Webflow.env("design")),
-  editorMode:
-    !!(window.Webflow && typeof Webflow.env === "function" && Webflow.env("editor")),
-  hasGSAP: !!window.gsap
-});
- 
- // Do not run inside Webflow Designer.
-// Also avoid running inside the Webflow Editor UI.
-const isWebflowDesigner =
-  window.Webflow &&
-  typeof Webflow.env === "function" &&
-  Webflow.env("design");
+  console.log("✅ PAGE WIPE JS LOADED — debug v3");
 
-const isWebflowEditor =
-  document.documentElement.classList.contains("w-editor") ||
-  document.body.classList.contains("w-editor") ||
-  window.location.search.includes("edit");
+  // Do not run inside Webflow Designer.
+  // Also avoid running inside the Webflow Editor UI.
+  const isWebflowDesigner =
+    window.Webflow &&
+    typeof Webflow.env === "function" &&
+    Webflow.env("design");
 
-if (isWebflowDesigner || isWebflowEditor) {
-  console.warn("⛔ PAGE WIPE STOPPED — Webflow Designer/Editor detected", {
-    isWebflowDesigner,
-    isWebflowEditor
-  });
-  return;
-}
+  const isWebflowEditor =
+    document.documentElement.classList.contains("w-editor") ||
+    document.body.classList.contains("w-editor") ||
+    window.location.search.includes("edit");
 
-console.log("🚀 PAGE WIPE PASSED WEBFLOW CHECK");
+  if (isWebflowDesigner || isWebflowEditor) {
+    console.warn("⛔ PAGE WIPE STOPPED — Webflow Designer/Editor detected", {
+      isWebflowDesigner,
+      isWebflowEditor
+    });
+    return;
+  }
 
-  if (window.__pageWipeInit) return;
+  if (window.__pageWipeInit) {
+    console.warn("⛔ PAGE WIPE STOPPED — already initialised");
+    return;
+  }
+
   window.__pageWipeInit = true;
 
+  const prefersReduced =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const cfg = {
-    root: ".c-pagewipe",
+    coverDur: 350,
+    revealDur: 850,
+    staggerEach: 80,
 
-    coverDur: 0.26,
-    revealDur: 0.55,
-    staggerEach: 0.06,
-
-    easeCover: "power3.in",
-    easeReveal: "power3.out",
+    easeCover: "cubic-bezier(0.76, 0, 0.24, 1)",
+    easeReveal: "cubic-bezier(0.22, 1, 0.36, 1)",
 
     ignoreAttr: "data-pagewipe-ignore",
     ignoreSelectors: [
@@ -60,17 +54,14 @@ console.log("🚀 PAGE WIPE PASSED WEBFLOW CHECK");
     ].join(",")
   };
 
-  const prefersReduced =
-    window.matchMedia &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
   function dispatchRevealed() {
     window.__aglPageRevealed = true;
     window.dispatchEvent(new CustomEvent("agl:pageRevealed"));
+    console.log("✅ PAGE WIPE REVEALED EVENT FIRED");
   }
 
   function createWipe() {
-    let root = document.querySelector(cfg.root);
+    let root = document.querySelector(".c-pagewipe");
 
     if (!root) {
       root = document.createElement("div");
@@ -85,48 +76,116 @@ console.log("🚀 PAGE WIPE PASSED WEBFLOW CHECK");
       document.body.appendChild(root);
     }
 
+    // Move it to the very end of the body so it sits above everything.
+    document.body.appendChild(root);
+
     const gold = root.querySelector(".c-pagewipe_panel--gold");
     const dark = root.querySelector(".c-pagewipe_panel--dark");
 
-    return [gold, dark].filter(Boolean);
+    // Critical root styles — inline so we do not depend on Webflow/CSS loading order.
+    Object.assign(root.style, {
+      position: "fixed",
+      top: "0",
+      right: "0",
+      bottom: "0",
+      left: "0",
+      width: "100vw",
+      height: "100vh",
+      zIndex: "2147483647",
+      pointerEvents: "none",
+      overflow: "hidden",
+      display: "block",
+      opacity: "1",
+      visibility: "visible"
+    });
+
+    // Critical panel styles.
+    [gold, dark].forEach((panel, index) => {
+      if (!panel) return;
+
+      Object.assign(panel.style, {
+        position: "absolute",
+        top: "0",
+        right: "0",
+        bottom: "0",
+        left: "0",
+        width: "100%",
+        height: "100%",
+        display: "block",
+        opacity: "1",
+        visibility: "visible",
+        willChange: "transform",
+        transform: "translateX(0%)",
+        background: index === 0 ? "#fcb124" : "#191919"
+      });
+    });
+
+    const wipe = {
+      root,
+      gold,
+      dark,
+      panels: [gold, dark].filter(Boolean)
+    };
+
+    console.log("🧱 PAGE WIPE CREATED", {
+      root,
+      panelCount: wipe.panels.length
+    });
+
+    return wipe;
   }
 
-  function hardHide(panels) {
+  function setInstant(panels, xPercent) {
     panels.forEach((panel) => {
-      panel.style.transform = "translateX(105%)";
-    });
-
-    dispatchRevealed();
-  }
-
-  function setCovered(panels) {
-    gsap.set(panels, { xPercent: 0 });
-  }
-
-  function setOffRight(panels) {
-    gsap.set(panels, { xPercent: 105 });
-  }
-
-  function coverFromRight(panels, onComplete) {
-    gsap.to(panels, {
-      xPercent: 0,
-      duration: cfg.coverDur,
-      ease: cfg.easeCover,
-      stagger: { each: cfg.staggerEach, from: "start" },
-      overwrite: true,
-      onComplete
+      panel.style.transition = "none";
+      panel.style.transitionDelay = "0ms";
+      panel.style.transform = `translateX(${xPercent}%)`;
     });
   }
 
-  function revealToLeft(panels, onComplete) {
-    gsap.to(panels, {
-      xPercent: -105,
-      duration: cfg.revealDur,
-      ease: cfg.easeReveal,
-      stagger: { each: cfg.staggerEach, from: "end" },
-      overwrite: true,
-      onComplete
-    });
+  function animatePanel(panel, xPercent, duration, ease, delay) {
+    if (!panel) return;
+
+    panel.style.transitionProperty = "transform";
+    panel.style.transitionDuration = `${duration}ms`;
+    panel.style.transitionTimingFunction = ease;
+    panel.style.transitionDelay = `${delay}ms`;
+    panel.style.transform = `translateX(${xPercent}%)`;
+  }
+
+  function revealToLeft(wipe, onComplete) {
+    const { gold, dark } = wipe;
+
+    console.log("👋 PAGE WIPE REVEAL STARTED");
+
+    // Dark leaves first, then gold.
+    animatePanel(dark, -105, cfg.revealDur, cfg.easeReveal, 0);
+    animatePanel(gold, -105, cfg.revealDur, cfg.easeReveal, cfg.staggerEach);
+
+    window.setTimeout(() => {
+      setInstant(wipe.panels, 105);
+      if (onComplete) onComplete();
+    }, cfg.revealDur + cfg.staggerEach + 80);
+  }
+
+  function coverFromRight(wipe, onComplete) {
+    const { gold, dark } = wipe;
+
+    console.log("👉 PAGE WIPE COVER STARTED");
+
+    // Start both panels off-screen to the right.
+    setInstant(wipe.panels, 105);
+
+    // Force browser to register the off-screen position before animating.
+    wipe.root.offsetHeight;
+
+    // Gold covers first, dark follows.
+    animatePanel(gold, 0, cfg.coverDur, cfg.easeCover, 0);
+    animatePanel(dark, 0, cfg.coverDur, cfg.easeCover, cfg.staggerEach);
+
+    window.setTimeout(() => {
+      if (onComplete) onComplete();
+    }, cfg.coverDur + cfg.staggerEach + 80);
   }
 
   function isIgnoredClick(e) {
@@ -163,40 +222,49 @@ console.log("🚀 PAGE WIPE PASSED WEBFLOW CHECK");
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
     if (url.origin !== window.location.origin) return false;
 
+    // Ignore same-page anchor links.
     if (url.pathname === window.location.pathname && url.hash) return false;
 
     return true;
   }
 
-  function initPageWipe() {
+  function init() {
     if (!document.body) {
-      requestAnimationFrame(initPageWipe);
+      window.requestAnimationFrame(init);
       return;
     }
 
-    const panels = createWipe();
+    console.log("🚀 PAGE WIPE INIT RUNNING");
 
-    if (!panels.length) {
+    const wipe = createWipe();
+
+    if (!wipe.panels.length) {
       dispatchRevealed();
       return;
     }
 
     document.documentElement.classList.add("has-pagewipe-ready");
 
-    if (prefersReduced || !window.gsap) {
-      hardHide(panels);
+    if (prefersReduced) {
+      setInstant(wipe.panels, 105);
+      dispatchRevealed();
       return;
     }
 
-    // PAGE LOAD
-    setCovered(panels);
+    // PAGE LOAD:
+    // Start covered.
+    setInstant(wipe.panels, 0);
 
-    revealToLeft(panels, () => {
-      setOffRight(panels);
-      dispatchRevealed();
+    // Wait two frames so the browser paints the covered state.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        revealToLeft(wipe, () => {
+          dispatchRevealed();
+        });
+      });
     });
 
-    // PAGE EXIT
+    // PAGE EXIT:
     document.addEventListener(
       "click",
       (e) => {
@@ -210,51 +278,32 @@ console.log("🚀 PAGE WIPE PASSED WEBFLOW CHECK");
 
         const href = a.href;
 
-        setOffRight(panels);
-
-        coverFromRight(panels, () => {
+        coverFromRight(wipe, () => {
           window.location.href = href;
         });
       },
       true
     );
 
-    // BACK / FORWARD CACHE
+    // Back/forward cache.
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
 
-      setCovered(panels);
+      setInstant(wipe.panels, 0);
 
-      revealToLeft(panels, () => {
-        setOffRight(panels);
-        dispatchRevealed();
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          revealToLeft(wipe, () => {
+            dispatchRevealed();
+          });
+        });
       });
     });
   }
 
-  function waitForGSAP(attemptsLeft) {
-    if (window.gsap) {
-      initPageWipe();
-      return;
-    }
-
-    if (attemptsLeft <= 0) {
-      // GSAP did not load in time. Do not block the site.
-      dispatchRevealed();
-      return;
-    }
-
-    setTimeout(() => {
-      waitForGSAP(attemptsLeft - 1);
-    }, 50);
-  }
-
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      waitForGSAP(40);
-    });
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    waitForGSAP(40);
+    init();
   }
 })();
-
