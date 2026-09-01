@@ -22,7 +22,7 @@ gsap.registerPlugin(ScrollTrigger);
 
   // --------------------------------------------------
   // Safe refresh
-  // Used externally by accordion / dynamic content
+  // Can be called externally after accordion/layout changes
   // --------------------------------------------------
   function safeRefresh() {
     if (!window.ScrollTrigger) return;
@@ -40,8 +40,7 @@ gsap.registerPlugin(ScrollTrigger);
       requestAnimationFrame(() => {
         const y2 = window.scrollY;
 
-        // User is actively scrolling.
-        // Wait until scroll settles before refreshing.
+        // If user is actively scrolling, wait until scrolling settles.
         if (Math.abs(y2 - y1) > 2) {
           window.safeRefreshSplitGallery(180);
           return;
@@ -53,11 +52,10 @@ gsap.registerPlugin(ScrollTrigger);
   };
 
   // --------------------------------------------------
-  // Main init
+  // Main gallery init
   // --------------------------------------------------
   function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
-
     if (!section) return;
 
     const media = section.querySelector(".c-split-gallery_media");
@@ -70,7 +68,6 @@ gsap.registerPlugin(ScrollTrigger);
 
     if (!media || !mask || !track || slides.length < 2) return;
 
-    // Prevent duplicate init
     section.classList.remove("is-ready");
 
     killSplitGalleryTriggers();
@@ -80,8 +77,6 @@ gsap.registerPlugin(ScrollTrigger);
     // --------------------------------------------------
     const imgEls = Array.from(section.querySelectorAll("img"));
 
-    // Prioritise first images without triggering
-    // additional ScrollTrigger refreshes later.
     imgEls.slice(0, 2).forEach((img) => {
       img.loading = "eager";
       img.fetchPriority = "high";
@@ -135,7 +130,7 @@ gsap.registerPlugin(ScrollTrigger);
       ) || 16;
 
     // --------------------------------------------------
-    // Measurements
+    // Width measurements
     // --------------------------------------------------
     function getParentWidthPx() {
       const w1 = mask.getBoundingClientRect().width;
@@ -163,7 +158,8 @@ gsap.registerPlugin(ScrollTrigger);
         parentW ||
         cfg.cardWRemFallback * rootFont;
 
-      cardHpx = cfg.cardHRem * rootFont;
+      cardHpx =
+        cfg.cardHRem * rootFont;
 
       baseH = cardHpx;
     } else {
@@ -175,28 +171,34 @@ gsap.registerPlugin(ScrollTrigger);
         mask.getBoundingClientRect().height ||
         window.innerHeight;
 
-      cardWpx = Math.max(
-        320,
-        Math.round(mW)
-      );
+      cardWpx =
+        Math.max(
+          320,
+          Math.round(mW)
+        );
 
-      cardHpx = Math.round(
-        mH * (cfg.cardHvh / 100)
-      );
+      cardHpx =
+        Math.round(
+          mH *
+          (cfg.cardHvh / 100)
+        );
 
       baseH = cardHpx;
     }
 
     // --------------------------------------------------
-    // Normalise slide images
+    // Normalise slide media
     // --------------------------------------------------
     function normalizeSlideMedia(slide) {
       const imageEl =
         slide.querySelector(".c-split-gallery_image") ||
         slide;
 
-      // Image itself has the class
-      if (imageEl && imageEl.tagName === "IMG") {
+      // Image element itself
+      if (
+        imageEl &&
+        imageEl.tagName === "IMG"
+      ) {
         gsap.set(imageEl, {
           position: "absolute",
           inset: 0,
@@ -210,7 +212,7 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Wrapper containing image
+      // Wrapper containing an image
       const innerImg =
         imageEl
           ? imageEl.querySelector("img")
@@ -274,16 +276,20 @@ gsap.registerPlugin(ScrollTrigger);
     });
 
     // --------------------------------------------------
-    // Layout engine
+    // IMPORTANT:
+    // Gallery centre is locked to viewport centre.
+    //
+    // Do NOT calculate this using mask.getBoundingClientRect().
+    // The mask position changes when ScrollTrigger releases
+    // the pin and was causing the large jump at the end.
     // --------------------------------------------------
     function centerY() {
-      const r = mask.getBoundingClientRect();
-
-      return r.height
-        ? r.top + r.height / 2
-        : window.innerHeight / 2;
+      return window.innerHeight / 2;
     }
 
+    // --------------------------------------------------
+    // Layout engine
+    // --------------------------------------------------
     function layoutTick() {
       const cy = centerY();
 
@@ -306,16 +312,16 @@ gsap.registerPlugin(ScrollTrigger);
           Math.min(
             1,
             d /
-              (
-                window.innerHeight *
-                cfg.falloff
-              )
+            (
+              window.innerHeight *
+              cfg.falloff
+            )
           );
 
         return (
           cfg.minScale +
           (1 - cfg.minScale) *
-            (1 - norm)
+          (1 - norm)
         );
       });
 
@@ -337,7 +343,7 @@ gsap.registerPlugin(ScrollTrigger);
         slides[i].style.zIndex =
           String(
             1000 +
-              Math.round(s * 1000)
+            Math.round(s * 1000)
           );
 
         y +=
@@ -353,7 +359,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Find track Y required to centre a slide
+    // Find Y position required to centre a slide
     // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
@@ -391,7 +397,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Initial positions
+    // Initial positioning
     // --------------------------------------------------
     gsap.set(track, { y: 0 });
 
@@ -439,7 +445,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Progress mapping
+    // Mobile progress mapping
     // --------------------------------------------------
     function mapProgress(p) {
       if (!isSmall) return p;
@@ -449,7 +455,9 @@ gsap.registerPlugin(ScrollTrigger);
 
       if (hold <= 0) return p;
 
-      if (p <= hold) return 0;
+      if (p <= hold) {
+        return 0;
+      }
 
       return (
         (p - hold) /
@@ -457,27 +465,52 @@ gsap.registerPlugin(ScrollTrigger);
       );
     }
 
+    // --------------------------------------------------
+    // Desktop position
+    //
+    // Explicitly force exact start/end positions so
+    // release of pin can't create a fractional jump.
+    // --------------------------------------------------
     function setDesktopProgress(self) {
-      const y =
-        yStart -
-        naturalTravel *
+      let y;
+
+      if (self.progress >= 0.9999) {
+        y = yEnd;
+      } else if (self.progress <= 0.0001) {
+        y = yStart;
+      } else {
+        y =
+          yStart -
+          naturalTravel *
           self.progress;
+      }
 
       gsap.set(track, { y });
 
       layoutTick();
     }
 
+    // --------------------------------------------------
+    // Mobile position
+    // --------------------------------------------------
     function setMobileProgress(self) {
       const p =
         mapProgress(
           self.progress
         );
 
-      const y =
-        yStart -
-        naturalTravel *
+      let y;
+
+      if (self.progress >= 0.9999) {
+        y = yEnd;
+      } else if (self.progress <= 0.0001) {
+        y = yStart;
+      } else {
+        y =
+          yStart -
+          naturalTravel *
           p;
+      }
 
       gsap.set(track, { y });
 
@@ -486,8 +519,9 @@ gsap.registerPlugin(ScrollTrigger);
 
     // --------------------------------------------------
     // ScrollTriggers
-    // Hero has priority 100.
-    // Gallery deliberately gets lower priority.
+    //
+    // Hero priority = 100
+    // Gallery priority = -10
     // --------------------------------------------------
     ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
@@ -511,9 +545,39 @@ gsap.registerPlugin(ScrollTrigger);
 
           invalidateOnRefresh: true,
 
-          // IMPORTANT:
-          // Hero should calculate first.
           refreshPriority: -10,
+
+          onEnter() {
+            gsap.set(track, {
+              y: yStart
+            });
+
+            layoutTick();
+          },
+
+          onEnterBack() {
+            gsap.set(track, {
+              y: yEnd
+            });
+
+            layoutTick();
+          },
+
+          onLeave() {
+            gsap.set(track, {
+              y: yEnd
+            });
+
+            layoutTick();
+          },
+
+          onLeaveBack() {
+            gsap.set(track, {
+              y: yStart
+            });
+
+            layoutTick();
+          },
 
           onRefresh:
             setDesktopProgress,
@@ -544,8 +608,6 @@ gsap.registerPlugin(ScrollTrigger);
 
           invalidateOnRefresh: true,
 
-          // IMPORTANT:
-          // Hero should calculate first.
           refreshPriority: -10,
 
           onEnter() {
@@ -557,6 +619,22 @@ gsap.registerPlugin(ScrollTrigger);
           },
 
           onEnterBack() {
+            gsap.set(track, {
+              y: yEnd
+            });
+
+            layoutTick();
+          },
+
+          onLeave() {
+            gsap.set(track, {
+              y: yEnd
+            });
+
+            layoutTick();
+          },
+
+          onLeaveBack() {
             gsap.set(track, {
               y: yStart
             });
@@ -577,12 +655,12 @@ gsap.registerPlugin(ScrollTrigger);
   // --------------------------------------------------
   // Boot
   //
-  // On trip pages:
-  // initialise normally.
+  // Trip pages:
+  // Gallery can initialise immediately.
   //
-  // On home:
-  // wait for Hero Split Stack to complete its first
-  // measurement + refresh before creating gallery pin.
+  // Home:
+  // Wait until Hero Split Stack has completed its
+  // first measurement / refresh.
   // --------------------------------------------------
   function boot() {
     const hasHeroPin =
@@ -593,18 +671,14 @@ gsap.registerPlugin(ScrollTrigger);
         requestAnimationFrame(() => {
           initSplitGallery();
 
-          // Hero = priority 100
-          // Gallery = priority -10
           ScrollTrigger.sort();
 
-          // One controlled refresh after both
-          // structures exist.
           ScrollTrigger.refresh(true);
         });
       });
     }
 
-    // Trip page / no hero
+    // No hero = trip page
     if (
       !hasHeroPin ||
       window.__HERO_READY__
@@ -614,7 +688,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // Home page:
-    // wait for Hero Split Stack.
+    // wait for hero to become ready.
     let tries = 0;
 
     const wait =
