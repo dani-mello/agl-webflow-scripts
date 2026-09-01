@@ -611,9 +611,9 @@ gsap.registerPlugin(ScrollTrigger);
           pinSpacing: true,
 
           anticipatePin: 1,
-
+          pinReparent: true,
           invalidateOnRefresh: true,
-
+           
           refreshPriority: -10,
 
           onRefresh:
