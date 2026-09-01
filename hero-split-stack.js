@@ -108,6 +108,7 @@ Chrome / Safari / Firefox
     scrub: 1.2,
     anticipatePin: 1,
     invalidateOnRefresh: true,
+    refreshPriority: 100,
     animation: tl
   });
 
