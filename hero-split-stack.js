@@ -145,7 +145,7 @@ Chrome / Safari / Firefox
     end: "+=4200",
 
     pin: true,
-    pinSpacing: false,
+    pinSpacing: "margin",
 
     scrub: 1.2,
 
