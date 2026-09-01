@@ -577,33 +577,20 @@ gsap.registerPlugin(ScrollTrigger);
     ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
-          id: "splitGallery-desktop",
-
-          trigger: section,
-
-          start: "top top",
-
-          end:
-            "+=" +
-            pinDistance,
-
-          scrub: true,
-
-          pin: true,
-          pinSpacing: true,
-
-          anticipatePin: 1,
-
-          invalidateOnRefresh: true,
-
-          refreshPriority: -10,
-
-          onRefresh:
-            setDesktopProgress,
-
-          onUpdate:
-            setDesktopProgress
-        });
+  id: "splitGallery-desktop",
+  trigger: section,
+  start: "top top",
+  end: "+=" + pinDistance,
+  scrub: true,
+  pin: true,
+  pinSpacing: true,
+  pinReparent: true,
+  anticipatePin: 1,
+  invalidateOnRefresh: true,
+  refreshPriority: -10,
+  onRefresh: setDesktopProgress,
+  onUpdate: setDesktopProgress
+});
       },
 
       "(max-width: 900px)": function () {
