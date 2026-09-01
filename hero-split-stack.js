@@ -150,7 +150,6 @@ Chrome / Safari / Firefox
 
     anticipatePin: 1,
 
-    invalidateOnRefresh: true,
 
     // Hero must be measured before downstream pins.
     refreshPriority: 100,
