@@ -1,27 +1,36 @@
 // split-gallery.js
 // Requires GSAP + ScrollTrigger loaded BEFORE this script.
+
 gsap.registerPlugin(ScrollTrigger);
 
 (function () {
   const BREAKPOINT = 900;
 
+  // --------------------------------------------------
+  // Kill existing Split Gallery ScrollTriggers
+  // --------------------------------------------------
   function killSplitGalleryTriggers() {
     ScrollTrigger.getAll().forEach((st) => {
-      if (st?.vars?.id && String(st.vars.id).startsWith("splitGallery")) {
-        st.kill();
+      if (
+        st?.vars?.id &&
+        String(st.vars.id).startsWith("splitGallery")
+      ) {
+        st.kill(true);
       }
     });
   }
 
+  // --------------------------------------------------
+  // Safe refresh
+  // Can be called externally after accordion/layout changes
+  // --------------------------------------------------
   function safeRefresh() {
     if (!window.ScrollTrigger) return;
 
-    // Let ScrollTrigger handle pin spacing naturally.
-    // This avoids forcing the old scroll position back during refresh.
+    ScrollTrigger.sort();
     ScrollTrigger.refresh(true);
   }
 
-  // Expose this so your accordion JS can call it after open/close
   window.safeRefreshSplitGallery = function (delay = 300) {
     clearTimeout(window.__splitGallerySafeRefreshTimer);
 
@@ -31,8 +40,6 @@ gsap.registerPlugin(ScrollTrigger);
       requestAnimationFrame(() => {
         const y2 = window.scrollY;
 
-        // If the user is actively scrolling, wait a bit before refreshing.
-        // This helps avoid the first-load jump.
         if (Math.abs(y2 - y1) > 2) {
           window.safeRefreshSplitGallery(180);
           return;
@@ -43,6 +50,9 @@ gsap.registerPlugin(ScrollTrigger);
     }, delay);
   };
 
+  // --------------------------------------------------
+  // Main init
+  // --------------------------------------------------
   function initSplitGallery() {
     const section = document.querySelector(".c-split-gallery");
     if (!section) return;
@@ -50,13 +60,20 @@ gsap.registerPlugin(ScrollTrigger);
     const media = section.querySelector(".c-split-gallery_media");
     const mask = section.querySelector(".c-split-gallery_mask");
     const track = section.querySelector(".c-split-gallery_track");
-    const slides = Array.from(section.querySelectorAll(".c-split-gallery_slide"));
+
+    const slides = Array.from(
+      section.querySelectorAll(".c-split-gallery_slide")
+    );
 
     if (!media || !mask || !track || slides.length < 2) return;
 
     section.classList.remove("is-ready");
+
     killSplitGalleryTriggers();
 
+    // --------------------------------------------------
+    // Images
+    // --------------------------------------------------
     const imgEls = Array.from(section.querySelectorAll("img"));
 
     imgEls.slice(0, 2).forEach((img) => {
@@ -67,8 +84,10 @@ gsap.registerPlugin(ScrollTrigger);
 
     const isSmall = window.innerWidth <= BREAKPOINT;
 
+    // --------------------------------------------------
+    // Config
+    // --------------------------------------------------
     const DESKTOP = {
-      cardWMode: "parent",
       cardWRemFallback: 50,
       cardHRem: 50,
       minScale: 0.5,
@@ -88,25 +107,40 @@ gsap.registerPlugin(ScrollTrigger);
 
     const cfg = isSmall ? MOBILE : DESKTOP;
 
-    gsap.set(track, { clearProps: "transform" });
+    // --------------------------------------------------
+    // Track setup
+    // --------------------------------------------------
+    gsap.set(track, {
+      clearProps: "transform"
+    });
 
     gsap.set(track, {
       position: "relative",
       padding: 0,
       margin: 0,
-      willChange: "transform",
-      width: "100%"
+      width: "100%",
+      willChange: "transform"
     });
 
     const rootFont =
-      parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      parseFloat(
+        getComputedStyle(document.documentElement).fontSize
+      ) || 16;
 
+    // --------------------------------------------------
+    // Measurements
+    // --------------------------------------------------
     function getParentWidthPx() {
       const w1 = mask.getBoundingClientRect().width;
       const w2 = section.getBoundingClientRect().width;
       const w3 = window.innerWidth;
 
-      const w = w1 && w1 > 10 ? w1 : w2 && w2 > 10 ? w2 : w3;
+      const w =
+        w1 && w1 > 10
+          ? w1
+          : w2 && w2 > 10
+          ? w2
+          : w3;
 
       return Math.max(320, Math.round(w));
     }
@@ -118,22 +152,50 @@ gsap.registerPlugin(ScrollTrigger);
     if (!isSmall) {
       const parentW = getParentWidthPx();
 
-      cardWpx = parentW || cfg.cardWRemFallback * rootFont;
-      cardHpx = cfg.cardHRem * rootFont;
+      cardWpx =
+        parentW ||
+        cfg.cardWRemFallback * rootFont;
+
+      cardHpx =
+        cfg.cardHRem * rootFont;
+
       baseH = cardHpx;
     } else {
-      const mW = mask.getBoundingClientRect().width || window.innerWidth;
-      const mH = mask.getBoundingClientRect().height || window.innerHeight;
+      const mW =
+        mask.getBoundingClientRect().width ||
+        window.innerWidth;
 
-      cardWpx = Math.max(320, Math.round(mW));
-      cardHpx = Math.round(mH * (cfg.cardHvh / 100));
+      const mH =
+        mask.getBoundingClientRect().height ||
+        window.innerHeight;
+
+      cardWpx =
+        Math.max(
+          320,
+          Math.round(mW)
+        );
+
+      cardHpx =
+        Math.round(
+          mH *
+          (cfg.cardHvh / 100)
+        );
+
       baseH = cardHpx;
     }
 
+    // --------------------------------------------------
+    // Normalise slide media
+    // --------------------------------------------------
     function normalizeSlideMedia(slide) {
-      const imageEl = slide.querySelector(".c-split-gallery_image") || slide;
+      const imageEl =
+        slide.querySelector(".c-split-gallery_image") ||
+        slide;
 
-      if (imageEl && imageEl.tagName === "IMG") {
+      if (
+        imageEl &&
+        imageEl.tagName === "IMG"
+      ) {
         gsap.set(imageEl, {
           position: "absolute",
           inset: 0,
@@ -147,7 +209,10 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      const innerImg = imageEl ? imageEl.querySelector("img") : null;
+      const innerImg =
+        imageEl
+          ? imageEl.querySelector("img")
+          : null;
 
       if (innerImg) {
         gsap.set(imageEl, {
@@ -184,6 +249,9 @@ gsap.registerPlugin(ScrollTrigger);
       }
     }
 
+    // --------------------------------------------------
+    // Slide setup
+    // --------------------------------------------------
     slides.forEach((slide) => {
       gsap.set(slide, {
         position: "absolute",
@@ -202,108 +270,290 @@ gsap.registerPlugin(ScrollTrigger);
       normalizeSlideMedia(slide);
     });
 
+    // --------------------------------------------------
+    // Original centre maths
+    // --------------------------------------------------
     function centerY() {
       const r = mask.getBoundingClientRect();
 
-      return r.height ? r.top + r.height / 2 : window.innerHeight / 2;
+      return r.height
+        ? r.top + r.height / 2
+        : window.innerHeight / 2;
     }
 
+    // --------------------------------------------------
+    // Track height
+    // --------------------------------------------------
+    let lockedTrackHeight = null;
+    let lastCalculatedHeight = 0;
+
+    // --------------------------------------------------
+    // Layout engine
+    // --------------------------------------------------
     function layoutTick() {
       const cy = centerY();
-      const galleryH = mask.clientHeight || window.innerHeight;
+
+      const galleryH =
+        mask.clientHeight ||
+        window.innerHeight;
 
       const scales = slides.map((slide) => {
         const rect = slide.getBoundingClientRect();
-        const mid = rect.top + rect.height / 2;
-        const d = Math.abs(mid - cy);
-        const norm = Math.min(1, d / (window.innerHeight * cfg.falloff));
 
-        return cfg.minScale + (1 - cfg.minScale) * (1 - norm);
+        const mid =
+          rect.top +
+          rect.height / 2;
+
+        const d =
+          Math.abs(mid - cy);
+
+        const norm =
+          Math.min(
+            1,
+            d /
+            (
+              window.innerHeight *
+              cfg.falloff
+            )
+          );
+
+        return (
+          cfg.minScale +
+          (1 - cfg.minScale) *
+          (1 - norm)
+        );
       });
 
       let y = 0;
 
-      for (let i = 0; i < slides.length; i++) {
+      for (
+        let i = 0;
+        i < slides.length;
+        i++
+      ) {
         const s = scales[i];
 
-        slides[i].style.top = `${y}px`;
-        slides[i].style.transform = `scale(${s})`;
-        slides[i].style.zIndex = String(1000 + Math.round(s * 1000));
+        slides[i].style.top =
+          `${y}px`;
 
-        y += baseH * s - cfg.eps;
+        slides[i].style.transform =
+          `scale(${s})`;
+
+        slides[i].style.zIndex =
+          String(
+            1000 +
+            Math.round(s * 1000)
+          );
+
+        y +=
+          baseH * s -
+          cfg.eps;
       }
 
-      track.style.height = `${Math.max(y + cfg.eps, galleryH + 1)}px`;
+      const calculatedHeight =
+        Math.max(
+          y + cfg.eps,
+          galleryH + 1
+        );
+
+      lastCalculatedHeight =
+        calculatedHeight;
+
+      track.style.height =
+        `${
+          lockedTrackHeight !== null
+            ? lockedTrackHeight
+            : calculatedHeight
+        }px`;
     }
 
+    // --------------------------------------------------
+    // Find Y required to centre a slide
+    // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
 
       gsap.set(track, { y });
+
       layoutTick();
 
       for (let k = 0; k < 10; k++) {
         const cy = centerY();
-        const rect = slides[index].getBoundingClientRect();
-        const mid = rect.top + rect.height / 2;
-        const delta = cy - mid;
+
+        const rect =
+          slides[index]
+            .getBoundingClientRect();
+
+        const mid =
+          rect.top +
+          rect.height / 2;
+
+        const delta =
+          cy - mid;
 
         y += delta;
 
         gsap.set(track, { y });
+
         layoutTick();
 
-        if (Math.abs(delta) < 0.5) break;
+        if (Math.abs(delta) < 0.5) {
+          break;
+        }
       }
 
       return y;
     }
 
-    gsap.set(track, { y: 0 });
+    // --------------------------------------------------
+    // Initial calculations
+    // --------------------------------------------------
+    gsap.set(track, {
+      y: 0
+    });
+
     layoutTick();
 
-    const yStart = solveYForSlide(0);
-    const yEnd = solveYForSlide(slides.length - 1);
+    const yStart =
+      solveYForSlide(0);
 
-    const naturalTravel = Math.max(yStart - yEnd, 0);
-    const pinDistance = Math.max(1, Math.ceil(naturalTravel * cfg.slowness));
+    const yEnd =
+      solveYForSlide(
+        slides.length - 1
+      );
 
-    gsap.set(track, { y: yStart });
+    const naturalTravel =
+      Math.max(
+        yStart - yEnd,
+        0
+      );
+
+    const pinDistance =
+      Math.max(
+        1,
+        Math.ceil(
+          naturalTravel *
+          cfg.slowness
+        )
+      );
+
+    // --------------------------------------------------
+    // Find max track height and lock it
+    // --------------------------------------------------
+    let maxTrackHeight = 0;
+
+    const SAMPLE_COUNT = 20;
+
+    for (
+      let i = 0;
+      i <= SAMPLE_COUNT;
+      i++
+    ) {
+      const p =
+        i / SAMPLE_COUNT;
+
+      const y =
+        yStart -
+        naturalTravel * p;
+
+      gsap.set(track, {
+        y
+      });
+
+      layoutTick();
+
+      maxTrackHeight =
+        Math.max(
+          maxTrackHeight,
+          lastCalculatedHeight
+        );
+    }
+
+    lockedTrackHeight =
+      Math.ceil(maxTrackHeight + 2);
+
+    // Restore start state
+    gsap.set(track, {
+      y: yStart
+    });
+
     layoutTick();
 
     section.classList.add("is-ready");
 
-    if (isSmall && mask.clientHeight < 50) {
-      window.safeRefreshSplitGallery(450);
+    // --------------------------------------------------
+    // Mobile safety
+    // --------------------------------------------------
+    if (
+      isSmall &&
+      mask.clientHeight < 50
+    ) {
       return;
     }
 
+    // --------------------------------------------------
+    // Progress mapping
+    // --------------------------------------------------
     function mapProgress(p) {
       if (!isSmall) return p;
 
-      const hold = cfg.startHold || 0;
+      const hold =
+        cfg.startHold || 0;
 
-      if (hold <= 0) return p;
-      if (p <= hold) return 0;
+      if (hold <= 0) {
+        return p;
+      }
 
-      return (p - hold) / (1 - hold);
+      if (p <= hold) {
+        return 0;
+      }
+
+      return (
+        (p - hold) /
+        (1 - hold)
+      );
     }
 
+    // --------------------------------------------------
+    // Desktop progress
+    // --------------------------------------------------
     function setDesktopProgress(self) {
-      const y = yStart - naturalTravel * self.progress;
+      const y =
+        yStart -
+        naturalTravel *
+        self.progress;
 
-      gsap.set(track, { y });
+      gsap.set(track, {
+        y
+      });
+
       layoutTick();
     }
 
+    // --------------------------------------------------
+    // Mobile progress
+    // --------------------------------------------------
     function setMobileProgress(self) {
-      const p = mapProgress(self.progress);
-      const y = yStart - naturalTravel * p;
+      const p =
+        mapProgress(
+          self.progress
+        );
 
-      gsap.set(track, { y });
+      const y =
+        yStart -
+        naturalTravel *
+        p;
+
+      gsap.set(track, {
+        y
+      });
+
       layoutTick();
     }
 
+    // --------------------------------------------------
+    // ScrollTriggers
+    // --------------------------------------------------
     ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
@@ -316,6 +566,7 @@ gsap.registerPlugin(ScrollTrigger);
           pinSpacing: true,
           anticipatePin: 1,
           invalidateOnRefresh: true,
+          refreshPriority: -10,
           onRefresh: setDesktopProgress,
           onUpdate: setDesktopProgress
         });
@@ -332,66 +583,88 @@ gsap.registerPlugin(ScrollTrigger);
           pinSpacing: true,
           anticipatePin: 1,
           invalidateOnRefresh: true,
-          onEnter() {
-            gsap.set(track, { y: yStart });
-            layoutTick();
-          },
-          onEnterBack() {
-            gsap.set(track, { y: yStart });
-            layoutTick();
-          },
+          refreshPriority: -10,
           onRefresh: setMobileProgress,
           onUpdate: setMobileProgress
         });
       }
     });
-
-    let pending = 0;
-
-    imgEls.forEach((img) => {
-      if (!img.complete) {
-        pending++;
-
-        img.addEventListener(
-          "load",
-          () => {
-            pending--;
-
-            if (pending === 0) {
-              window.safeRefreshSplitGallery(300);
-            }
-          },
-          { once: true }
-        );
-      }
-    });
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.safeRefreshSplitGallery(450);
-      });
-    });
   }
 
+  // --------------------------------------------------
+  // Boot
+  // Trip pages initialise normally.
+  // Home waits until Hero is ready.
+  // --------------------------------------------------
   function boot() {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(initSplitGallery);
-    });
+    const hasHeroPin =
+      document.querySelector(".c-hero");
+
+    function run() {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          initSplitGallery();
+
+          ScrollTrigger.sort();
+          ScrollTrigger.refresh(true);
+        });
+      });
+    }
+
+    if (
+      !hasHeroPin ||
+      window.__HERO_READY__
+    ) {
+      run();
+      return;
+    }
+
+    let tries = 0;
+
+    const wait =
+      setInterval(() => {
+        tries++;
+
+        if (
+          window.__HERO_READY__ ||
+          tries > 40
+        ) {
+          clearInterval(wait);
+          run();
+        }
+      }, 100);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
+  // --------------------------------------------------
+  // Initial load
+  // --------------------------------------------------
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      boot,
+      { once: true }
+    );
   } else {
     boot();
   }
 
-  let t;
+  // --------------------------------------------------
+  // Resize
+  // --------------------------------------------------
+  let resizeTimer;
 
-  window.addEventListener("resize", () => {
-    clearTimeout(t);
+  window.addEventListener(
+    "resize",
+    () => {
+      clearTimeout(resizeTimer);
 
-    t = setTimeout(() => {
-      boot();
-    }, 200);
-  });
+      resizeTimer =
+        setTimeout(() => {
+          boot();
+        }, 250);
+    }
+  );
 })();
