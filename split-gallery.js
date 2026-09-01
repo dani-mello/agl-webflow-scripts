@@ -574,9 +574,7 @@ gsap.registerPlugin(ScrollTrigger);
     // Hero priority = 100
     // Gallery priority = -10
     // --------------------------------------------------
-    ScrollTrigger.matchMedia({
-      "(min-width: 901px)": function () {
-        ScrollTrigger.create({
+    ScrollTrigger.create({
   id: "splitGallery-desktop",
   trigger: section,
   start: "top top",
@@ -584,7 +582,6 @@ gsap.registerPlugin(ScrollTrigger);
   scrub: true,
   pin: true,
   pinSpacing: true,
-  pinReparent: true,
   anticipatePin: 1,
   invalidateOnRefresh: true,
   refreshPriority: -10,
@@ -595,33 +592,19 @@ gsap.registerPlugin(ScrollTrigger);
 
       "(max-width: 900px)": function () {
         ScrollTrigger.create({
-          id: "splitGallery-mobile",
-
-          trigger: media,
-
-          start: "top top",
-
-          end:
-            "+=" +
-            pinDistance,
-
-          scrub: true,
-
-          pin: media,
-          pinSpacing: true,
-
-          anticipatePin: 1,
-          pinReparent: true,
-          invalidateOnRefresh: true,
-           
-          refreshPriority: -10,
-
-          onRefresh:
-            setMobileProgress,
-
-          onUpdate:
-            setMobileProgress
-        });
+  id: "splitGallery-mobile",
+  trigger: media,
+  start: "top top",
+  end: "+=" + pinDistance,
+  scrub: true,
+  pin: media,
+  pinSpacing: true,
+  anticipatePin: 1,
+  invalidateOnRefresh: true,
+  refreshPriority: -10,
+  onRefresh: setMobileProgress,
+  onUpdate: setMobileProgress
+});
       }
     });
   }
