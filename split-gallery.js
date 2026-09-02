@@ -4,7 +4,7 @@
 gsap.registerPlugin(ScrollTrigger);
 
 console.log(
-  "%cSPLIT GALLERY VERSION: HOME-SETTLED-RESIZE-01",
+  "%cSPLIT GALLERY VERSION: HOME-EARLY-RESIZE-01",
   "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
 );
 
@@ -19,7 +19,6 @@ console.log(
 
   // Home desktop repair state
   let homeResizeWatcherInstalled = false;
-  let homeResizeArmed = false;
   let homeResizeDone = false;
 
   // --------------------------------------------------
@@ -714,123 +713,57 @@ console.log(
         ScrollTrigger.sort();
         ScrollTrigger.refresh(true);
 
-        // Install once.
-        setupHomeSettledResize();
+        setupHomeEarlyResize();
       });
     });
   }
 
   // ==================================================
-// HOME DESKTOP ONLY — EARLY RESIZE REBUILD
-//
-// Synthetic resize is proven to fix the home gallery.
-//
-// Do it EARLY, while the gallery is still several
-// viewport heights away.
-//
-// Do NOT wait for scrollEnd — continuous scrolling
-// could skip the previous trigger completely.
-// ==================================================
-function setupHomeSettledResize() {
-  if (!isHomeWithHero) {
-    return;
-  }
-
-  if (window.innerWidth <= BREAKPOINT) {
-    return;
-  }
-
-  if (homeResizeWatcherInstalled) {
-    return;
-  }
-
-  homeResizeWatcherInstalled = true;
-
-  const gallery =
-    document.querySelector(".c-split-gallery");
-
-  if (!gallery) {
-    return;
-  }
-
-  function watchGalleryDistance() {
-    if (homeResizeDone) {
+  // HOME DESKTOP ONLY — EARLY RESIZE REBUILD
+  //
+  // Synthetic resize is proven to fix the home gallery.
+  //
+  // Important:
+  // Do NOT wait for scrollEnd.
+  //
+  // Trigger once while the gallery is still several
+  // viewport heights away so the existing resize handler
+  // has time to rebuild before the gallery pins.
+  // ==================================================
+  function setupHomeEarlyResize() {
+    if (!isHomeWithHero) {
       return;
     }
 
-    if (window.innerWidth <= BREAKPOINT) {
-      return;
-    }
-
-    const rect =
-      gallery.getBoundingClientRect();
-
-    // ------------------------------------------------
-    // FIRE EARLY
-    //
-    // As soon as the gallery gets within about
-    // 3.5 viewport heights, rebuild it once.
-    //
-    // At this point we're still well before the pin,
-    // even if the user is scrolling continuously.
-    // ------------------------------------------------
     if (
-      rect.top <=
-        window.innerHeight * 3.5 &&
-      rect.top >
-        window.innerHeight * 1.25
+      window.innerWidth <=
+      BREAKPOINT
     ) {
-      homeResizeDone = true;
-
-      window.removeEventListener(
-        "scroll",
-        watchGalleryDistance
-      );
-
-      console.log(
-        "%cHOME GALLERY: early resize rebuild",
-        "background:#0a0;color:#fff;padding:4px 8px;",
-        {
-          galleryTop:
-            Math.round(rect.top),
-
-          viewport:
-            window.innerHeight
-        }
-      );
-
-      // ------------------------------------------------
-      // EXACT action proven to fix the gallery.
-      //
-      // Existing resize handler waits 250ms and calls
-      // buildGallery().
-      // ------------------------------------------------
-      window.dispatchEvent(
-        new Event("resize")
-      );
+      return;
     }
-  }
 
-  window.addEventListener(
-    "scroll",
-    watchGalleryDistance,
-    {
-      passive: true
+    if (
+      homeResizeWatcherInstalled
+    ) {
+      return;
     }
-  );
 
-  // Covers restored scroll positions etc.
-  watchGalleryDistance();
-}
+    homeResizeWatcherInstalled =
+      true;
 
-    // -----------------------------------------------
-    // ARM THE REBUILD
-    //
-    // Do nothing to layout while actively scrolling.
-    // We simply notice when the gallery is getting near.
-    // -----------------------------------------------
+    const gallery =
+      document.querySelector(
+        ".c-split-gallery"
+      );
+
+    if (!gallery) {
+      return;
+    }
+
     function watchGalleryDistance() {
-      if (homeResizeDone) {
+      if (
+        homeResizeDone
+      ) {
         return;
       }
 
@@ -844,19 +777,50 @@ function setupHomeSettledResize() {
       const rect =
         gallery.getBoundingClientRect();
 
-      // Arm while the gallery is roughly
-      // 1–3 viewport heights below the top.
+      // -----------------------------------------------
+      // FIRE EARLY
       //
-      // This should happen in the section before it,
-      // giving us plenty of room to rebuild safely.
+      // Trigger when the gallery reaches 3.5 viewport
+      // heights away.
+      //
+      // The lower limit prevents a late rebuild if the
+      // page is restored very close to the gallery.
+      // -----------------------------------------------
       if (
         rect.top <=
-          window.innerHeight * 3 &&
+          window.innerHeight * 3.5 &&
         rect.top >
-          window.innerHeight
+          window.innerHeight * 1.25
       ) {
-        homeResizeArmed =
+        homeResizeDone =
           true;
+
+        window.removeEventListener(
+          "scroll",
+          watchGalleryDistance
+        );
+
+        console.log(
+          "%cHOME GALLERY: early resize rebuild",
+          "background:#0a0;color:#fff;padding:4px 8px;",
+          {
+            galleryTop:
+              Math.round(rect.top),
+
+            viewport:
+              window.innerHeight
+          }
+        );
+
+        // ---------------------------------------------
+        // Exact action proven to fix it manually.
+        //
+        // Existing resize listener waits 250ms,
+        // then calls buildGallery().
+        // ---------------------------------------------
+        window.dispatchEvent(
+          new Event("resize")
+        );
       }
     }
 
@@ -868,99 +832,7 @@ function setupHomeSettledResize() {
       }
     );
 
-    // -----------------------------------------------
-    // WAIT UNTIL SCROLLING HAS FINISHED
-    // -----------------------------------------------
-    ScrollTrigger.addEventListener(
-      "scrollEnd",
-      () => {
-        if (
-          !homeResizeArmed ||
-          homeResizeDone
-        ) {
-          return;
-        }
-
-        if (
-          window.innerWidth <=
-          BREAKPOINT
-        ) {
-          return;
-        }
-
-        const st =
-          ScrollTrigger.getById(
-            "splitGallery-desktop"
-          );
-
-        if (!st) {
-          return;
-        }
-
-        // Never rebuild while the gallery is pinned.
-        if (st.isActive) {
-          return;
-        }
-
-        const rect =
-          gallery.getBoundingClientRect();
-
-        // If we've somehow reached the gallery already,
-        // don't interfere.
-        if (
-          rect.top <=
-          window.innerHeight * 0.75
-        ) {
-          return;
-        }
-
-        // ------------------------------------------------
-        // ONE TIME ONLY.
-        //
-        // Mark done BEFORE dispatching resize so the
-        // rebuild caused by resize cannot trigger another
-        // automatic resize.
-        // ------------------------------------------------
-        homeResizeDone =
-          true;
-
-        homeResizeArmed =
-          false;
-
-        window.removeEventListener(
-          "scroll",
-          watchGalleryDistance
-        );
-
-        console.log(
-          "%cHOME GALLERY: settled resize rebuild",
-          "background:#0a0;color:#fff;padding:4px 8px;",
-          {
-            galleryTop:
-              Math.round(rect.top),
-
-            viewport:
-              window.innerHeight
-          }
-        );
-
-        // ------------------------------------------------
-        // This is the exact action that worked manually.
-        //
-        // Existing resize listener below will wait 250ms
-        // and call buildGallery().
-        // ------------------------------------------------
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.dispatchEvent(
-              new Event("resize")
-            );
-          });
-        });
-      }
-    );
-
-    // Covers page restore / anchor / unusual starting point.
+    // Covers restored scroll positions / page history.
     watchGalleryDistance();
   }
 
@@ -1065,8 +937,10 @@ function setupHomeSettledResize() {
   // --------------------------------------------------
   // Resize
   //
-  // This is the existing behaviour we proved fixes the
-  // home gallery after a synthetic resize event.
+  // Existing behaviour.
+  //
+  // Our home-only synthetic resize above lands here,
+  // waits 250ms, then rebuilds the gallery.
   // --------------------------------------------------
   window.addEventListener(
     "resize",
