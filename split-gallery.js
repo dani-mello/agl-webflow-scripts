@@ -6,6 +6,10 @@ gsap.registerPlugin(ScrollTrigger);
 (function () {
   const BREAKPOINT = 900;
 
+  let resizeTimer;
+  let layoutSyncTimer;
+  let layoutSyncBusy = false;
+
   // --------------------------------------------------
   // Kill existing Split Gallery ScrollTriggers
   // --------------------------------------------------
@@ -22,7 +26,6 @@ gsap.registerPlugin(ScrollTrigger);
 
   // --------------------------------------------------
   // Safe refresh
-  // Used by accordion / genuine layout changes
   // --------------------------------------------------
   function safeRefresh() {
     if (!window.ScrollTrigger) return;
@@ -40,6 +43,7 @@ gsap.registerPlugin(ScrollTrigger);
       requestAnimationFrame(() => {
         const y2 = window.scrollY;
 
+        // Don't refresh while actively scrolling
         if (Math.abs(y2 - y1) > 2) {
           window.safeRefreshSplitGallery(180);
           return;
@@ -219,7 +223,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Normalise media
+    // Normalise slide media
     // --------------------------------------------------
     function normalizeSlideMedia(slide) {
       const imageEl =
@@ -227,7 +231,6 @@ gsap.registerPlugin(ScrollTrigger);
           ".c-split-gallery_image"
         ) || slide;
 
-      // IMG itself
       if (
         imageEl &&
         imageEl.tagName === "IMG"
@@ -245,7 +248,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Wrapper containing IMG
       const innerImg =
         imageEl
           ? imageEl.querySelector("img")
@@ -272,7 +274,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Background image fallback
       if (imageEl) {
         imageEl.style.backgroundSize =
           "cover";
@@ -314,53 +315,23 @@ gsap.registerPlugin(ScrollTrigger);
     });
 
     // --------------------------------------------------
-    // IMPORTANT FIX
-    //
-    // All vertical calculations below are RELATIVE
-    // to the mask.
-    //
-    // We no longer use the mask's absolute position in
-    // the viewport as the animation coordinate system.
-    //
-    // That means:
-    //
-    // unpinned
-    // pinned
-    // released
-    //
-    // all produce the same gallery geometry.
+    // Original centre maths
     // --------------------------------------------------
-
-    function getSlideMidInMask(slide) {
-      const maskRect =
+    function centerY() {
+      const r =
         mask.getBoundingClientRect();
 
-      const slideRect =
-        slide.getBoundingClientRect();
-
-      return (
-        slideRect.top -
-        maskRect.top +
-        slideRect.height / 2
-      );
-    }
-
-    function getMaskCenter() {
-      const maskRect =
-        mask.getBoundingClientRect();
-
-      return maskRect.height / 2;
+      return r.height
+        ? r.top + r.height / 2
+        : window.innerHeight / 2;
     }
 
     // --------------------------------------------------
     // Layout engine
     // --------------------------------------------------
     function layoutTick() {
-      const maskRect =
-        mask.getBoundingClientRect();
-
-      const maskCenter =
-        maskRect.height / 2;
+      const cy =
+        centerY();
 
       const galleryH =
         mask.clientHeight ||
@@ -368,21 +339,15 @@ gsap.registerPlugin(ScrollTrigger);
 
       const scales =
         slides.map((slide) => {
-          const slideRect =
+          const rect =
             slide.getBoundingClientRect();
 
-          // Position relative to mask,
-          // NOT relative to viewport.
-          const midInMask =
-            slideRect.top -
-            maskRect.top +
-            slideRect.height / 2;
+          const mid =
+            rect.top +
+            rect.height / 2;
 
           const d =
-            Math.abs(
-              midInMask -
-              maskCenter
-            );
+            Math.abs(mid - cy);
 
           const norm =
             Math.min(
@@ -430,8 +395,6 @@ gsap.registerPlugin(ScrollTrigger);
           cfg.eps;
       }
 
-      // Keep original natural track height.
-      // No height locking.
       track.style.height =
         `${Math.max(
           y + cfg.eps,
@@ -440,9 +403,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Find Y required to centre a slide
-    //
-    // Again: calculate entirely relative to the mask.
+    // Solve Y position
     // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
@@ -455,23 +416,24 @@ gsap.registerPlugin(ScrollTrigger);
 
       for (
         let k = 0;
-        k < 12;
+        k < 10;
         k++
       ) {
-        const maskCenter =
-          getMaskCenter();
+        const cy =
+          centerY();
 
-        const slideMid =
-          getSlideMidInMask(
-            slides[index]
-          );
+        const rect =
+          slides[index]
+            .getBoundingClientRect();
+
+        const mid =
+          rect.top +
+          rect.height / 2;
 
         const delta =
-          maskCenter -
-          slideMid;
+          cy - mid;
 
-        y +=
-          delta;
+        y += delta;
 
         gsap.set(track, {
           y
@@ -522,7 +484,7 @@ gsap.registerPlugin(ScrollTrigger);
         )
       );
 
-    // Restore start position
+    // Restore start
     gsap.set(track, {
       y: yStart
     });
@@ -568,9 +530,6 @@ gsap.registerPlugin(ScrollTrigger);
       );
     }
 
-    // --------------------------------------------------
-    // Desktop progress
-    // --------------------------------------------------
     function setDesktopProgress(self) {
       const y =
         yStart -
@@ -584,9 +543,6 @@ gsap.registerPlugin(ScrollTrigger);
       layoutTick();
     }
 
-    // --------------------------------------------------
-    // Mobile progress
-    // --------------------------------------------------
     function setMobileProgress(self) {
       const p =
         mapProgress(
@@ -611,27 +567,36 @@ gsap.registerPlugin(ScrollTrigger);
     ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
-          id: "splitGallery-desktop",
+          id:
+            "splitGallery-desktop",
 
-          trigger: section,
+          trigger:
+            section,
 
-          start: "top top",
+          start:
+            "top top",
 
           end:
             "+=" +
             pinDistance,
 
-          scrub: true,
+          scrub:
+            true,
 
-          pin: true,
+          pin:
+            true,
 
-          pinSpacing: true,
+          pinSpacing:
+            true,
 
-          anticipatePin: 1,
+          anticipatePin:
+            1,
 
-          invalidateOnRefresh: true,
+          invalidateOnRefresh:
+            true,
 
-          refreshPriority: -10,
+          refreshPriority:
+            -10,
 
           onRefresh:
             setDesktopProgress,
@@ -643,27 +608,36 @@ gsap.registerPlugin(ScrollTrigger);
 
       "(max-width: 900px)": function () {
         ScrollTrigger.create({
-          id: "splitGallery-mobile",
+          id:
+            "splitGallery-mobile",
 
-          trigger: media,
+          trigger:
+            media,
 
-          start: "top top",
+          start:
+            "top top",
 
           end:
             "+=" +
             pinDistance,
 
-          scrub: true,
+          scrub:
+            true,
 
-          pin: media,
+          pin:
+            media,
 
-          pinSpacing: true,
+          pinSpacing:
+            true,
 
-          anticipatePin: 1,
+          anticipatePin:
+            1,
 
-          invalidateOnRefresh: true,
+          invalidateOnRefresh:
+            true,
 
-          refreshPriority: -10,
+          refreshPriority:
+            -10,
 
           onRefresh:
             setMobileProgress,
@@ -676,7 +650,7 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   // --------------------------------------------------
-  // Build
+  // Build gallery
   // --------------------------------------------------
   function buildGallery() {
     requestAnimationFrame(() => {
@@ -684,10 +658,122 @@ gsap.registerPlugin(ScrollTrigger);
         initSplitGallery();
 
         ScrollTrigger.sort();
-
         ScrollTrigger.refresh(true);
+
+        // After building, start watching for
+        // upstream layout shifts on HOME only.
+        startLayoutShiftWatcher();
       });
     });
+  }
+
+  // --------------------------------------------------
+  // HOME PAGE LAYOUT-SHIFT WATCHER
+  //
+  // THIS IS THE IMPORTANT FIX.
+  //
+  // The diagnostic proved that on initial load:
+  //
+  // ScrollTrigger start != real spacer document position.
+  //
+  // If something above the gallery changes height after
+  // the gallery was measured, refresh ScrollTrigger.
+  // --------------------------------------------------
+  function startLayoutShiftWatcher() {
+    const hasHero =
+      !!document.querySelector(".c-hero");
+
+    if (!hasHero) {
+      return;
+    }
+
+    clearInterval(layoutSyncTimer);
+
+    layoutSyncTimer =
+      setInterval(() => {
+        if (layoutSyncBusy) {
+          return;
+        }
+
+        const st =
+          ScrollTrigger.getById(
+            "splitGallery-desktop"
+          ) ||
+          ScrollTrigger.getById(
+            "splitGallery-mobile"
+          );
+
+        if (!st) {
+          return;
+        }
+
+        // Only correct the gallery BEFORE we reach it.
+        // Never refresh while it is pinned.
+        if (
+          st.isActive ||
+          window.scrollY >= st.start - 100
+        ) {
+          return;
+        }
+
+        const section =
+          document.querySelector(
+            ".c-split-gallery"
+          );
+
+        if (!section) {
+          return;
+        }
+
+        const spacer =
+          section.parentElement &&
+          section.parentElement.classList.contains(
+            "pin-spacer"
+          )
+            ? section.parentElement
+            : section.closest(".pin-spacer");
+
+        if (!spacer) {
+          return;
+        }
+
+        const rect =
+          spacer.getBoundingClientRect();
+
+        const realDocumentTop =
+          window.scrollY +
+          rect.top;
+
+        const storedStart =
+          st.start;
+
+        const difference =
+          realDocumentTop -
+          storedStart;
+
+        // Your bad state was off by ~461px.
+        // Anything over 2px is worth correcting.
+        if (
+          Math.abs(difference) > 2
+        ) {
+          layoutSyncBusy = true;
+
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              ScrollTrigger.sort();
+              ScrollTrigger.refresh(true);
+
+              layoutSyncBusy = false;
+            });
+          });
+        }
+      }, 250);
+
+    // We only need this during startup/layout settling.
+    // Stop checking after 15 seconds.
+    setTimeout(() => {
+      clearInterval(layoutSyncTimer);
+    }, 15000);
   }
 
   // --------------------------------------------------
@@ -695,16 +781,17 @@ gsap.registerPlugin(ScrollTrigger);
   // --------------------------------------------------
   function boot() {
     const hasHero =
-      !!document.querySelector(".c-hero");
+      !!document.querySelector(
+        ".c-hero"
+      );
 
-    // Trip pages
+    // Trip pages already work.
     if (!hasHero) {
       buildGallery();
       return;
     }
 
-    // Home:
-    // wait only until hero has created its pin.
+    // Home
     if (window.__HERO_READY__) {
       buildGallery();
       return;
@@ -748,8 +835,6 @@ gsap.registerPlugin(ScrollTrigger);
   // --------------------------------------------------
   // Resize
   // --------------------------------------------------
-  let resizeTimer;
-
   window.addEventListener(
     "resize",
     () => {
