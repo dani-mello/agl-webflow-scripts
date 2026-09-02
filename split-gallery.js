@@ -688,6 +688,14 @@ console.log(
   // Build gallery
   // --------------------------------------------------
   function buildGallery() {
+    console.log(
+  "SPLIT GALLERY: buildGallery()",
+  new Date().toLocaleTimeString(),
+  {
+    width: window.innerWidth,
+    height: window.innerHeight
+  }
+);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         initSplitGallery();
