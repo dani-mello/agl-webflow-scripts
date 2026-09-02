@@ -4,7 +4,7 @@
 gsap.registerPlugin(ScrollTrigger);
 
 console.log(
-  "%cSPLIT GALLERY VERSION: HOME-PREFRESH-01",
+  "%cSPLIT GALLERY VERSION: HOME-SETTLED-RESIZE-01",
   "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
 );
 
@@ -16,7 +16,11 @@ console.log(
 
   let resizeTimer;
   let responsiveTimer;
-  let homePreRefreshDone = false;
+
+  // Home desktop repair state
+  let homeResizeWatcherInstalled = false;
+  let homeResizeArmed = false;
+  let homeResizeDone = false;
 
   // --------------------------------------------------
   // Kill existing Split Gallery ScrollTriggers
@@ -538,10 +542,6 @@ console.log(
 
     // --------------------------------------------------
     // Desktop progress
-    //
-    // Back to simple original behaviour.
-    // No 0.99 caps.
-    // No onLeave locks.
     // --------------------------------------------------
     function setDesktopProgress(self) {
       const p =
@@ -565,7 +565,7 @@ console.log(
 
     // --------------------------------------------------
     // Mobile progress
-    // Keep working mobile behaviour.
+    // Keep currently working mobile behaviour.
     // --------------------------------------------------
     function setMobileProgress(self) {
       if (
@@ -714,74 +714,162 @@ console.log(
         ScrollTrigger.sort();
         ScrollTrigger.refresh(true);
 
-        if (isHomeWithHero) {
-          setupHomePreRefresh();
-        }
+        // Install once.
+        setupHomeSettledResize();
       });
     });
   }
 
   // ==================================================
-  // HOME ONLY — ONE FINAL PRE-GALLERY REFRESH
+  // HOME DESKTOP ONLY — SETTLED RESIZE REBUILD
   //
-  // Manual test proved:
+  // Proven manually:
   //
-  // ScrollTrigger.sort();
-  // ScrollTrigger.refresh(true);
+  // window.dispatchEvent(new Event("resize"));
   //
-  // before reaching the gallery = NO JUMP.
+  // causes the existing resize handler to rebuild the
+  // gallery with correct settled measurements.
   //
-  // So we reproduce exactly that once, when the gallery
-  // is roughly two viewport heights away.
+  // We arm this while the gallery is approaching,
+  // then fire it once after scrolling stops.
   // ==================================================
-  function setupHomePreRefresh() {
+  function setupHomeSettledResize() {
     if (!isHomeWithHero) {
       return;
     }
 
-    homePreRefreshDone =
-      false;
+    if (window.innerWidth <= BREAKPOINT) {
+      return;
+    }
 
-    const section =
+    if (homeResizeWatcherInstalled) {
+      return;
+    }
+
+    homeResizeWatcherInstalled =
+      true;
+
+    const gallery =
       document.querySelector(
         ".c-split-gallery"
       );
 
-    if (!section) {
+    if (!gallery) {
       return;
     }
 
-    function checkGalleryDistance() {
+    // -----------------------------------------------
+    // ARM THE REBUILD
+    //
+    // Do nothing to layout while actively scrolling.
+    // We simply notice when the gallery is getting near.
+    // -----------------------------------------------
+    function watchGalleryDistance() {
+      if (homeResizeDone) {
+        return;
+      }
+
       if (
-        homePreRefreshDone
+        window.innerWidth <=
+        BREAKPOINT
       ) {
         return;
       }
 
       const rect =
-        section.getBoundingClientRect();
+        gallery.getBoundingClientRect();
 
-      // Gallery is approaching but still comfortably
-      // below the viewport.
+      // Arm while the gallery is roughly
+      // 1–3 viewport heights below the top.
       //
-      // At ~2 viewport heights away we perform the same
-      // refresh that fixed it manually.
+      // This should happen in the section before it,
+      // giving us plenty of room to rebuild safely.
       if (
         rect.top <=
-          window.innerHeight * 2 &&
+          window.innerHeight * 3 &&
         rect.top >
-          window.innerHeight * 0.75
+          window.innerHeight
       ) {
-        homePreRefreshDone =
+        homeResizeArmed =
           true;
+      }
+    }
+
+    window.addEventListener(
+      "scroll",
+      watchGalleryDistance,
+      {
+        passive: true
+      }
+    );
+
+    // -----------------------------------------------
+    // WAIT UNTIL SCROLLING HAS FINISHED
+    // -----------------------------------------------
+    ScrollTrigger.addEventListener(
+      "scrollEnd",
+      () => {
+        if (
+          !homeResizeArmed ||
+          homeResizeDone
+        ) {
+          return;
+        }
+
+        if (
+          window.innerWidth <=
+          BREAKPOINT
+        ) {
+          return;
+        }
+
+        const st =
+          ScrollTrigger.getById(
+            "splitGallery-desktop"
+          );
+
+        if (!st) {
+          return;
+        }
+
+        // Never rebuild while the gallery is pinned.
+        if (st.isActive) {
+          return;
+        }
+
+        const rect =
+          gallery.getBoundingClientRect();
+
+        // If we've somehow reached the gallery already,
+        // don't interfere.
+        if (
+          rect.top <=
+          window.innerHeight * 0.75
+        ) {
+          return;
+        }
+
+        // ------------------------------------------------
+        // ONE TIME ONLY.
+        //
+        // Mark done BEFORE dispatching resize so the
+        // rebuild caused by resize cannot trigger another
+        // automatic resize.
+        // ------------------------------------------------
+        homeResizeDone =
+          true;
+
+        homeResizeArmed =
+          false;
 
         window.removeEventListener(
           "scroll",
-          checkGalleryDistance
+          watchGalleryDistance
         );
 
         console.log(
-          "HOME SPLIT GALLERY: final pre-refresh",
+          "%cHOME GALLERY: settled resize rebuild",
+          "background:#0a0;color:#fff;padding:4px 8px;",
           {
             galleryTop:
               Math.round(rect.top),
@@ -791,30 +879,24 @@ console.log(
           }
         );
 
+        // ------------------------------------------------
+        // This is the exact action that worked manually.
+        //
+        // Existing resize listener below will wait 250ms
+        // and call buildGallery().
+        // ------------------------------------------------
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            ScrollTrigger.sort();
-            ScrollTrigger.refresh(true);
+            window.dispatchEvent(
+              new Event("resize")
+            );
           });
         });
       }
-    }
-
-    window.removeEventListener(
-      "scroll",
-      checkGalleryDistance
     );
 
-    window.addEventListener(
-      "scroll",
-      checkGalleryDistance,
-      {
-        passive: true
-      }
-    );
-
-    // In case the page was loaded/restored near gallery
-    checkGalleryDistance();
+    // Covers page restore / anchor / unusual starting point.
+    watchGalleryDistance();
   }
 
   // --------------------------------------------------
@@ -917,6 +999,9 @@ console.log(
 
   // --------------------------------------------------
   // Resize
+  //
+  // This is the existing behaviour we proved fixes the
+  // home gallery after a synthetic resize event.
   // --------------------------------------------------
   window.addEventListener(
     "resize",
