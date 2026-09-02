@@ -533,8 +533,6 @@ gsap.registerPlugin(ScrollTrigger);
     // Desktop progress
     // --------------------------------------------------
     function setDesktopProgress(self) {
-      // Past the end:
-      // keep the final rendered frame.
       if (
         !self.isActive &&
         self.progress >= 1
@@ -542,7 +540,6 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Final 1% snaps to exact end.
       const p =
         self.progress >= 0.99
           ? 1
@@ -699,7 +696,11 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   // --------------------------------------------------
-  // Home layout-shift watcher
+  // HOME PAGE LAYOUT WATCHER
+  //
+  // Stay alive until the gallery is ACTUALLY reached.
+  //
+  // No arbitrary 15-second timeout.
   // --------------------------------------------------
   function startLayoutShiftWatcher() {
     const hasHero =
@@ -735,11 +736,33 @@ gsap.registerPlugin(ScrollTrigger);
           return;
         }
 
-        // Never refresh while pinned.
+        // Gallery has actually started.
+        // Its measurements must now stay untouched.
+        if (st.isActive) {
+          clearInterval(
+            layoutSyncTimer
+          );
+
+          return;
+        }
+
+        // User has already passed the gallery.
         if (
-          st.isActive ||
+          window.scrollY >
+          st.end + 100
+        ) {
+          clearInterval(
+            layoutSyncTimer
+          );
+
+          return;
+        }
+
+        // We're very close to the gallery.
+        // Don't suddenly refresh under the user's feet.
+        if (
           window.scrollY >=
-            st.start - 100
+          st.start - 100
         ) {
           return;
         }
@@ -781,6 +804,7 @@ gsap.registerPlugin(ScrollTrigger);
           realDocumentTop -
           storedStart;
 
+        // Diagnostics previously showed a ~461px error.
         if (
           Math.abs(difference) >
           2
@@ -802,24 +826,10 @@ gsap.registerPlugin(ScrollTrigger);
           });
         }
       }, 250);
-
-    setTimeout(() => {
-      clearInterval(
-        layoutSyncTimer
-      );
-    }, 15000);
   }
 
   // --------------------------------------------------
   // Responsive rebuild
-  //
-  // IMPORTANT FOR MOBILE:
-  //
-  // When Webflow crosses the 900px breakpoint the grid
-  // structure changes. The first rebuild may happen before
-  // the browser has finished laying out the new rows.
-  //
-  // Build once, then again after layout settles.
   // --------------------------------------------------
   function responsiveRebuild() {
     clearTimeout(
@@ -835,7 +845,7 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   // --------------------------------------------------
-  // Watch the actual desktop/mobile breakpoint
+  // Breakpoint watcher
   // --------------------------------------------------
   const breakpointQuery =
     window.matchMedia(
@@ -854,7 +864,6 @@ gsap.registerPlugin(ScrollTrigger);
     typeof breakpointQuery.addListener ===
     "function"
   ) {
-    // Older Safari
     breakpointQuery.addListener(
       responsiveRebuild
     );
@@ -875,7 +884,7 @@ gsap.registerPlugin(ScrollTrigger);
       return;
     }
 
-    // Home page
+    // Home
     if (
       window.__HERO_READY__
     ) {
@@ -921,7 +930,7 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   // --------------------------------------------------
-  // Normal resize
+  // Resize
   // --------------------------------------------------
   window.addEventListener(
     "resize",
@@ -939,7 +948,6 @@ gsap.registerPlugin(ScrollTrigger);
 
   // --------------------------------------------------
   // Orientation change
-  // Particularly useful on phones/tablets.
   // --------------------------------------------------
   window.addEventListener(
     "orientationchange",
