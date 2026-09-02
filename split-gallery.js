@@ -4,12 +4,16 @@
 gsap.registerPlugin(ScrollTrigger);
 
 console.log(
-  "%cSPLIT GALLERY VERSION: 2026-09-02-FINAL-DESKTOP",
+  "%cSPLIT GALLERY VERSION: HOME-ONLY-FIX-01",
   "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
 );
 
 (function () {
   const BREAKPOINT = 900;
+
+  // Home page is the only page with .c-hero
+  const isHomeWithHero =
+    !!document.querySelector(".c-hero");
 
   let resizeTimer;
   let responsiveTimer;
@@ -390,9 +394,7 @@ console.log(
         slides[i].style.zIndex =
           String(
             1000 +
-            Math.round(
-              s * 1000
-            )
+            Math.round(s * 1000)
           );
 
         y +=
@@ -408,7 +410,7 @@ console.log(
     }
 
     // --------------------------------------------------
-    // Solve Y position
+    // Find Y required to centre a slide
     // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
@@ -534,16 +536,31 @@ console.log(
       );
     }
 
-    // --------------------------------------------------
-    // DESKTOP PROGRESS
+    // ==================================================
+    // TRIP PAGE DESKTOP
     //
-    // No 0.99 artificial snap.
-    // No isActive early return.
+    // Leave the known-good behaviour alone.
+    // ==================================================
+    function setTripDesktopProgress(self) {
+      const y =
+        yStart -
+        naturalTravel *
+        self.progress;
+
+      gsap.set(track, {
+        y
+      });
+
+      layoutTick();
+    }
+
+    // ==================================================
+    // HOME PAGE DESKTOP
     //
-    // Just use ScrollTrigger's real progress and clamp
-    // normally between 0 and 1.
-    // --------------------------------------------------
-    function setDesktopProgress(self) {
+    // Special handling ONLY because the earlier Hero
+    // ScrollTrigger exists on this page.
+    // ==================================================
+    function setHomeDesktopProgress(self) {
       const p =
         gsap.utils.clamp(
           0,
@@ -564,26 +581,22 @@ console.log(
     }
 
     // --------------------------------------------------
-    // DESKTOP FINAL LOCK
+    // HOME ONLY:
+    // Lock track exactly at yEnd on release.
     //
-    // Do NOT call layoutTick here.
-    //
-    // The last onUpdate while pinned has already created
-    // the correct final slide layout.
-    //
-    // We only guarantee that the track stays exactly at
-    // yEnd when ScrollTrigger releases the fixed pin.
+    // Crucially, DO NOT run layoutTick here.
+    // The final pinned frame already has the correct
+    // slide scale / positions.
     // --------------------------------------------------
-    function lockDesktopAtEnd() {
+    function lockHomeDesktopAtEnd() {
       gsap.set(track, {
         y: yEnd
       });
     }
 
     // --------------------------------------------------
-    // MOBILE PROGRESS
-    //
-    // Leave the currently working mobile behaviour alone.
+    // Mobile
+    // Keep currently working mobile behaviour.
     // --------------------------------------------------
     function setMobileProgress(self) {
       if (
@@ -621,10 +634,70 @@ console.log(
     // --------------------------------------------------
     ScrollTrigger.matchMedia({
 
-      // ------------------------------------------------
+      // =================================================
       // DESKTOP
-      // ------------------------------------------------
+      // =================================================
       "(min-width: 901px)": function () {
+
+        // -----------------------------------------------
+        // HOME DESKTOP
+        // -----------------------------------------------
+        if (isHomeWithHero) {
+
+          ScrollTrigger.create({
+            id:
+              "splitGallery-desktop",
+
+            trigger:
+              section,
+
+            start:
+              "top top",
+
+            end:
+              "+=" +
+              pinDistance,
+
+            scrub:
+              true,
+
+            pin:
+              true,
+
+            pinSpacing:
+              true,
+
+            anticipatePin:
+              1,
+
+            invalidateOnRefresh:
+              true,
+
+            refreshPriority:
+              -10,
+
+            onRefresh:
+              setHomeDesktopProgress,
+
+            onUpdate:
+              setHomeDesktopProgress,
+
+            // Only home gets this.
+            onLeave:
+              lockHomeDesktopAtEnd,
+
+            onEnterBack:
+              setHomeDesktopProgress
+          });
+
+          return;
+        }
+
+        // -----------------------------------------------
+        // TRIP PAGE DESKTOP
+        //
+        // Original known-good setup.
+        // -----------------------------------------------
         ScrollTrigger.create({
           id:
             "splitGallery-desktop",
@@ -658,28 +731,21 @@ console.log(
             -10,
 
           onRefresh:
-            setDesktopProgress,
+            setTripDesktopProgress,
 
           onUpdate:
-            setDesktopProgress,
-
-          // Exact endpoint without recalculating layout
-          // after the pin has released.
-          onLeave:
-            lockDesktopAtEnd,
-
-          // When scrolling backwards into the gallery,
-          // immediately resume normal progress maths.
-          onEnterBack:
-            setDesktopProgress
+            setTripDesktopProgress
         });
       },
 
-      // ------------------------------------------------
+      // =================================================
       // MOBILE
-      // Keep working mobile trigger unchanged.
-      // ------------------------------------------------
+      //
+      // No home/trip distinction because mobile is now
+      // working.
+      // =================================================
       "(max-width: 900px)": function () {
+
         ScrollTrigger.create({
           id:
             "splitGallery-mobile",
@@ -723,46 +789,56 @@ console.log(
   }
 
   // --------------------------------------------------
-  // Build gallery
+  // Build
   // --------------------------------------------------
   function buildGallery() {
+
     console.log(
       "SPLIT GALLERY: buildGallery()",
-      new Date().toLocaleTimeString(),
       {
-        width: window.innerWidth,
-        height: window.innerHeight
+        page:
+          isHomeWithHero
+            ? "HOME"
+            : "TRIP",
+
+        width:
+          window.innerWidth,
+
+        height:
+          window.innerHeight
       }
     );
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+
         initSplitGallery();
 
         ScrollTrigger.sort();
         ScrollTrigger.refresh(true);
 
-        startLayoutShiftWatcher();
+        // Only home needs the layout-position watcher.
+        if (isHomeWithHero) {
+          startHomeLayoutWatcher();
+        }
       });
     });
   }
 
-  // --------------------------------------------------
-  // HOME PAGE LAYOUT WATCHER
+  // ==================================================
+  // HOME-ONLY LAYOUT WATCHER
   //
-  // We previously proved that on first load the stored
-  // ScrollTrigger start could differ from the gallery's
-  // actual document position by hundreds of pixels.
+  // We already measured a real first-load error where:
   //
-  // Keep checking until the gallery is actually reached.
-  // --------------------------------------------------
-  function startLayoutShiftWatcher() {
-    const hasHero =
-      !!document.querySelector(
-        ".c-hero"
-      );
+  // ScrollTrigger stored start != actual gallery position
+  //
+  // Resize corrected it.
+  //
+  // This watcher exists ONLY on home.
+  // ==================================================
+  function startHomeLayoutWatcher() {
 
-    if (!hasHero) {
+    if (!isHomeWithHero) {
       return;
     }
 
@@ -772,6 +848,7 @@ console.log(
 
     layoutSyncTimer =
       setInterval(() => {
+
         if (
           layoutSyncBusy
         ) {
@@ -790,8 +867,7 @@ console.log(
           return;
         }
 
-        // Gallery has begun.
-        // Do not alter measurements from this point.
+        // Once gallery is active, measurements are frozen.
         if (
           st.isActive
         ) {
@@ -802,7 +878,7 @@ console.log(
           return;
         }
 
-        // Already passed gallery.
+        // User already passed it.
         if (
           window.scrollY >
           st.end + 100
@@ -814,10 +890,10 @@ console.log(
           return;
         }
 
-        // Too close to the gallery to safely refresh.
+        // Too close to safely refresh.
         if (
           window.scrollY >=
-          st.start - 100
+          st.start - 150
         ) {
           return;
         }
@@ -859,15 +935,32 @@ console.log(
           realDocumentTop -
           storedStart;
 
+        // We previously measured an error of ~461px.
         if (
           Math.abs(difference) >
           2
         ) {
+
+          console.log(
+            "HOME SPLIT GALLERY: correcting position",
+            {
+              storedStart:
+                Math.round(storedStart),
+
+              realDocumentTop:
+                Math.round(realDocumentTop),
+
+              difference:
+                Math.round(difference)
+            }
+          );
+
           layoutSyncBusy =
             true;
 
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
+
               ScrollTrigger.sort();
 
               ScrollTrigger.refresh(
@@ -884,12 +977,10 @@ console.log(
 
   // --------------------------------------------------
   // Responsive rebuild
-  //
-  // Used when crossing the 900px Webflow breakpoint.
-  // Mobile was previously laying out before the grid
-  // structure had fully settled.
+  // Mobile only needed extra settling after breakpoint.
   // --------------------------------------------------
   function responsiveRebuild() {
+
     clearTimeout(
       responsiveTimer
     );
@@ -922,7 +1013,6 @@ console.log(
     typeof breakpointQuery.addListener ===
     "function"
   ) {
-    // Older Safari
     breakpointQuery.addListener(
       responsiveRebuild
     );
@@ -932,18 +1022,22 @@ console.log(
   // Boot
   // --------------------------------------------------
   function boot() {
-    const hasHero =
-      !!document.querySelector(
-        ".c-hero"
-      );
 
-    // Trip pages
-    if (!hasHero) {
+    // -----------------------------------------------
+    // TRIP PAGE
+    //
+    // No hero. Just initialise normally.
+    // -----------------------------------------------
+    if (!isHomeWithHero) {
       buildGallery();
       return;
     }
 
-    // Home page
+    // -----------------------------------------------
+    // HOME
+    //
+    // Wait until hero has established its pin.
+    // -----------------------------------------------
     if (
       window.__HERO_READY__
     ) {
@@ -955,6 +1049,7 @@ console.log(
 
     const wait =
       setInterval(() => {
+
         tries++;
 
         if (
@@ -977,6 +1072,7 @@ console.log(
     document.readyState ===
     "loading"
   ) {
+
     document.addEventListener(
       "DOMContentLoaded",
       boot,
@@ -984,7 +1080,9 @@ console.log(
         once: true
       }
     );
+
   } else {
+
     boot();
   }
 
@@ -994,6 +1092,7 @@ console.log(
   window.addEventListener(
     "resize",
     () => {
+
       clearTimeout(
         resizeTimer
       );
@@ -1011,9 +1110,11 @@ console.log(
   window.addEventListener(
     "orientationchange",
     () => {
+
       setTimeout(() => {
         responsiveRebuild();
       }, 250);
     }
   );
+
 })();
