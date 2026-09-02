@@ -4,7 +4,7 @@
 gsap.registerPlugin(ScrollTrigger);
 
 console.log(
-  "%cSPLIT GALLERY VERSION: 2026-09-02-13:19",
+  "%cSPLIT GALLERY VERSION: 2026-09-02-FINAL-DESKTOP",
   "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
 );
 
@@ -535,20 +535,21 @@ console.log(
     }
 
     // --------------------------------------------------
-    // Desktop progress
+    // DESKTOP PROGRESS
+    //
+    // No 0.99 artificial snap.
+    // No isActive early return.
+    //
+    // Just use ScrollTrigger's real progress and clamp
+    // normally between 0 and 1.
     // --------------------------------------------------
     function setDesktopProgress(self) {
-      if (
-        !self.isActive &&
-        self.progress >= 1
-      ) {
-        return;
-      }
-
       const p =
-        self.progress >= 0.99
-          ? 1
-          : self.progress;
+        gsap.utils.clamp(
+          0,
+          1,
+          self.progress
+        );
 
       const y =
         yStart -
@@ -563,7 +564,26 @@ console.log(
     }
 
     // --------------------------------------------------
-    // Mobile progress
+    // DESKTOP FINAL LOCK
+    //
+    // Do NOT call layoutTick here.
+    //
+    // The last onUpdate while pinned has already created
+    // the correct final slide layout.
+    //
+    // We only guarantee that the track stays exactly at
+    // yEnd when ScrollTrigger releases the fixed pin.
+    // --------------------------------------------------
+    function lockDesktopAtEnd() {
+      gsap.set(track, {
+        y: yEnd
+      });
+    }
+
+    // --------------------------------------------------
+    // MOBILE PROGRESS
+    //
+    // Leave the currently working mobile behaviour alone.
     // --------------------------------------------------
     function setMobileProgress(self) {
       if (
@@ -600,23 +620,65 @@ console.log(
     // ScrollTriggers
     // --------------------------------------------------
     ScrollTrigger.matchMedia({
+
+      // ------------------------------------------------
+      // DESKTOP
+      // ------------------------------------------------
       "(min-width: 901px)": function () {
-       ScrollTrigger.create({
-  id: "splitGallery-desktop",
-  trigger: section,
-  start: "top top",
-  end: "+=" + pinDistance,
-  scrub: true,
-  pin: true,
-  pinSpacing: true,
-  anticipatePin: 1,
-  invalidateOnRefresh: true,
-  refreshPriority: -10,
-  onRefresh: setDesktopProgress,
-  onUpdate: setDesktopProgress
-});
+        ScrollTrigger.create({
+          id:
+            "splitGallery-desktop",
+
+          trigger:
+            section,
+
+          start:
+            "top top",
+
+          end:
+            "+=" +
+            pinDistance,
+
+          scrub:
+            true,
+
+          pin:
+            true,
+
+          pinSpacing:
+            true,
+
+          anticipatePin:
+            1,
+
+          invalidateOnRefresh:
+            true,
+
+          refreshPriority:
+            -10,
+
+          onRefresh:
+            setDesktopProgress,
+
+          onUpdate:
+            setDesktopProgress,
+
+          // Exact endpoint without recalculating layout
+          // after the pin has released.
+          onLeave:
+            lockDesktopAtEnd,
+
+          // When scrolling backwards into the gallery,
+          // immediately resume normal progress maths.
+          onEnterBack:
+            setDesktopProgress
+        });
       },
 
+      // ------------------------------------------------
+      // MOBILE
+      // Keep working mobile trigger unchanged.
+      // ------------------------------------------------
       "(max-width: 900px)": function () {
         ScrollTrigger.create({
           id:
@@ -665,13 +727,14 @@ console.log(
   // --------------------------------------------------
   function buildGallery() {
     console.log(
-  "SPLIT GALLERY: buildGallery()",
-  new Date().toLocaleTimeString(),
-  {
-    width: window.innerWidth,
-    height: window.innerHeight
-  }
-);
+      "SPLIT GALLERY: buildGallery()",
+      new Date().toLocaleTimeString(),
+      {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
+    );
+
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         initSplitGallery();
@@ -687,9 +750,11 @@ console.log(
   // --------------------------------------------------
   // HOME PAGE LAYOUT WATCHER
   //
-  // Stay alive until the gallery is ACTUALLY reached.
+  // We previously proved that on first load the stored
+  // ScrollTrigger start could differ from the gallery's
+  // actual document position by hundreds of pixels.
   //
-  // No arbitrary 15-second timeout.
+  // Keep checking until the gallery is actually reached.
   // --------------------------------------------------
   function startLayoutShiftWatcher() {
     const hasHero =
@@ -725,9 +790,11 @@ console.log(
           return;
         }
 
-        // Gallery has actually started.
-        // Its measurements must now stay untouched.
-        if (st.isActive) {
+        // Gallery has begun.
+        // Do not alter measurements from this point.
+        if (
+          st.isActive
+        ) {
           clearInterval(
             layoutSyncTimer
           );
@@ -735,7 +802,7 @@ console.log(
           return;
         }
 
-        // User has already passed the gallery.
+        // Already passed gallery.
         if (
           window.scrollY >
           st.end + 100
@@ -747,8 +814,7 @@ console.log(
           return;
         }
 
-        // We're very close to the gallery.
-        // Don't suddenly refresh under the user's feet.
+        // Too close to the gallery to safely refresh.
         if (
           window.scrollY >=
           st.start - 100
@@ -793,7 +859,6 @@ console.log(
           realDocumentTop -
           storedStart;
 
-        // Diagnostics previously showed a ~461px error.
         if (
           Math.abs(difference) >
           2
@@ -819,6 +884,10 @@ console.log(
 
   // --------------------------------------------------
   // Responsive rebuild
+  //
+  // Used when crossing the 900px Webflow breakpoint.
+  // Mobile was previously laying out before the grid
+  // structure had fully settled.
   // --------------------------------------------------
   function responsiveRebuild() {
     clearTimeout(
@@ -853,6 +922,7 @@ console.log(
     typeof breakpointQuery.addListener ===
     "function"
   ) {
+    // Older Safari
     breakpointQuery.addListener(
       responsiveRebuild
     );
@@ -873,7 +943,7 @@ console.log(
       return;
     }
 
-    // Home
+    // Home page
     if (
       window.__HERO_READY__
     ) {
