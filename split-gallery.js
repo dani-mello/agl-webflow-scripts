@@ -549,7 +549,7 @@ gsap.registerPlugin(ScrollTrigger);
 
       // Snap the very last fraction to the exact end.
       const p =
-        self.progress >= 0.995
+        self.progress >= 0.99
           ? 1
           : self.progress;
 
