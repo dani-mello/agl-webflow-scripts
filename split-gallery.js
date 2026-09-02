@@ -6,8 +6,6 @@ gsap.registerPlugin(ScrollTrigger);
 (function () {
   const BREAKPOINT = 900;
 
-  let resizeTimer;
-
   // --------------------------------------------------
   // Kill existing Split Gallery ScrollTriggers
   // --------------------------------------------------
@@ -24,6 +22,7 @@ gsap.registerPlugin(ScrollTrigger);
 
   // --------------------------------------------------
   // Safe refresh
+  // Used by accordion / genuine layout changes
   // --------------------------------------------------
   function safeRefresh() {
     if (!window.ScrollTrigger) return;
@@ -52,22 +51,34 @@ gsap.registerPlugin(ScrollTrigger);
   };
 
   // --------------------------------------------------
-  // Main gallery init
+  // Main init
   // --------------------------------------------------
   function initSplitGallery() {
-    const section = document.querySelector(".c-split-gallery");
-    if (!section) return false;
+    const section =
+      document.querySelector(".c-split-gallery");
 
-    const media = section.querySelector(".c-split-gallery_media");
-    const mask = section.querySelector(".c-split-gallery_mask");
-    const track = section.querySelector(".c-split-gallery_track");
+    if (!section) return;
+
+    const media =
+      section.querySelector(".c-split-gallery_media");
+
+    const mask =
+      section.querySelector(".c-split-gallery_mask");
+
+    const track =
+      section.querySelector(".c-split-gallery_track");
 
     const slides = Array.from(
       section.querySelectorAll(".c-split-gallery_slide")
     );
 
-    if (!media || !mask || !track || slides.length < 2) {
-      return false;
+    if (
+      !media ||
+      !mask ||
+      !track ||
+      slides.length < 2
+    ) {
+      return;
     }
 
     section.classList.remove("is-ready");
@@ -77,7 +88,8 @@ gsap.registerPlugin(ScrollTrigger);
     // --------------------------------------------------
     // Images
     // --------------------------------------------------
-    const imgEls = Array.from(section.querySelectorAll("img"));
+    const imgEls =
+      Array.from(section.querySelectorAll("img"));
 
     imgEls.slice(0, 2).forEach((img) => {
       img.loading = "eager";
@@ -137,7 +149,7 @@ gsap.registerPlugin(ScrollTrigger);
       ) || 16;
 
     // --------------------------------------------------
-    // Width measurements
+    // Measurements
     // --------------------------------------------------
     function getParentWidthPx() {
       const w1 =
@@ -215,6 +227,7 @@ gsap.registerPlugin(ScrollTrigger);
           ".c-split-gallery_image"
         ) || slide;
 
+      // IMG itself
       if (
         imageEl &&
         imageEl.tagName === "IMG"
@@ -232,6 +245,7 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
+      // Wrapper containing IMG
       const innerImg =
         imageEl
           ? imageEl.querySelector("img")
@@ -258,6 +272,7 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
+      // Background image fallback
       if (imageEl) {
         imageEl.style.backgroundSize =
           "cover";
@@ -299,29 +314,53 @@ gsap.registerPlugin(ScrollTrigger);
     });
 
     // --------------------------------------------------
-    // Original centre calculation
+    // IMPORTANT FIX
+    //
+    // All vertical calculations below are RELATIVE
+    // to the mask.
+    //
+    // We no longer use the mask's absolute position in
+    // the viewport as the animation coordinate system.
+    //
+    // That means:
+    //
+    // unpinned
+    // pinned
+    // released
+    //
+    // all produce the same gallery geometry.
     // --------------------------------------------------
-    function centerY() {
-      const r =
+
+    function getSlideMidInMask(slide) {
+      const maskRect =
         mask.getBoundingClientRect();
 
-      return r.height
-        ? r.top + r.height / 2
-        : window.innerHeight / 2;
+      const slideRect =
+        slide.getBoundingClientRect();
+
+      return (
+        slideRect.top -
+        maskRect.top +
+        slideRect.height / 2
+      );
     }
 
-    // --------------------------------------------------
-    // Track height
-    // --------------------------------------------------
-    let lockedTrackHeight = null;
-    let lastCalculatedHeight = 0;
+    function getMaskCenter() {
+      const maskRect =
+        mask.getBoundingClientRect();
+
+      return maskRect.height / 2;
+    }
 
     // --------------------------------------------------
     // Layout engine
     // --------------------------------------------------
     function layoutTick() {
-      const cy =
-        centerY();
+      const maskRect =
+        mask.getBoundingClientRect();
+
+      const maskCenter =
+        maskRect.height / 2;
 
       const galleryH =
         mask.clientHeight ||
@@ -329,15 +368,21 @@ gsap.registerPlugin(ScrollTrigger);
 
       const scales =
         slides.map((slide) => {
-          const rect =
+          const slideRect =
             slide.getBoundingClientRect();
 
-          const mid =
-            rect.top +
-            rect.height / 2;
+          // Position relative to mask,
+          // NOT relative to viewport.
+          const midInMask =
+            slideRect.top -
+            maskRect.top +
+            slideRect.height / 2;
 
           const d =
-            Math.abs(mid - cy);
+            Math.abs(
+              midInMask -
+              maskCenter
+            );
 
           const norm =
             Math.min(
@@ -385,25 +430,19 @@ gsap.registerPlugin(ScrollTrigger);
           cfg.eps;
       }
 
-      const calculatedHeight =
-        Math.max(
+      // Keep original natural track height.
+      // No height locking.
+      track.style.height =
+        `${Math.max(
           y + cfg.eps,
           galleryH + 1
-        );
-
-      lastCalculatedHeight =
-        calculatedHeight;
-
-      track.style.height =
-        `${
-          lockedTrackHeight !== null
-            ? lockedTrackHeight
-            : calculatedHeight
-        }px`;
+        )}px`;
     }
 
     // --------------------------------------------------
-    // Solve track position
+    // Find Y required to centre a slide
+    //
+    // Again: calculate entirely relative to the mask.
     // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
@@ -416,24 +455,23 @@ gsap.registerPlugin(ScrollTrigger);
 
       for (
         let k = 0;
-        k < 10;
+        k < 12;
         k++
       ) {
-        const cy =
-          centerY();
+        const maskCenter =
+          getMaskCenter();
 
-        const rect =
-          slides[index]
-            .getBoundingClientRect();
-
-        const mid =
-          rect.top +
-          rect.height / 2;
+        const slideMid =
+          getSlideMidInMask(
+            slides[index]
+          );
 
         const delta =
-          cy - mid;
+          maskCenter -
+          slideMid;
 
-        y += delta;
+        y +=
+          delta;
 
         gsap.set(track, {
           y
@@ -484,44 +522,7 @@ gsap.registerPlugin(ScrollTrigger);
         )
       );
 
-    // --------------------------------------------------
-    // Find maximum track height
-    // --------------------------------------------------
-    let maxTrackHeight = 0;
-
-    const SAMPLE_COUNT = 20;
-
-    for (
-      let i = 0;
-      i <= SAMPLE_COUNT;
-      i++
-    ) {
-      const p =
-        i / SAMPLE_COUNT;
-
-      const y =
-        yStart -
-        naturalTravel * p;
-
-      gsap.set(track, {
-        y
-      });
-
-      layoutTick();
-
-      maxTrackHeight =
-        Math.max(
-          maxTrackHeight,
-          lastCalculatedHeight
-        );
-    }
-
-    lockedTrackHeight =
-      Math.ceil(
-        maxTrackHeight + 2
-      );
-
-    // Restore starting state
+    // Restore start position
     gsap.set(track, {
       y: yStart
     });
@@ -539,7 +540,7 @@ gsap.registerPlugin(ScrollTrigger);
       isSmall &&
       mask.clientHeight < 50
     ) {
-      return false;
+      return;
     }
 
     // --------------------------------------------------
@@ -610,36 +611,27 @@ gsap.registerPlugin(ScrollTrigger);
     ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
-          id:
-            "splitGallery-desktop",
+          id: "splitGallery-desktop",
 
-          trigger:
-            section,
+          trigger: section,
 
-          start:
-            "top top",
+          start: "top top",
 
           end:
             "+=" +
             pinDistance,
 
-          scrub:
-            true,
+          scrub: true,
 
-          pin:
-            true,
+          pin: true,
 
-          pinSpacing:
-            true,
+          pinSpacing: true,
 
-          anticipatePin:
-            1,
+          anticipatePin: 1,
 
-          invalidateOnRefresh:
-            true,
+          invalidateOnRefresh: true,
 
-          refreshPriority:
-            -10,
+          refreshPriority: -10,
 
           onRefresh:
             setDesktopProgress,
@@ -651,36 +643,27 @@ gsap.registerPlugin(ScrollTrigger);
 
       "(max-width: 900px)": function () {
         ScrollTrigger.create({
-          id:
-            "splitGallery-mobile",
+          id: "splitGallery-mobile",
 
-          trigger:
-            media,
+          trigger: media,
 
-          start:
-            "top top",
+          start: "top top",
 
           end:
             "+=" +
             pinDistance,
 
-          scrub:
-            true,
+          scrub: true,
 
-          pin:
-            media,
+          pin: media,
 
-          pinSpacing:
-            true,
+          pinSpacing: true,
 
-          anticipatePin:
-            1,
+          anticipatePin: 1,
 
-          invalidateOnRefresh:
-            true,
+          invalidateOnRefresh: true,
 
-          refreshPriority:
-            -10,
+          refreshPriority: -10,
 
           onRefresh:
             setMobileProgress,
@@ -690,192 +673,83 @@ gsap.registerPlugin(ScrollTrigger);
         });
       }
     });
-
-    return true;
   }
 
   // --------------------------------------------------
-  // One normal build
+  // Build
   // --------------------------------------------------
   function buildGallery() {
-    initSplitGallery();
-
-    ScrollTrigger.sort();
-
-    ScrollTrigger.refresh(true);
-  }
-
-  // --------------------------------------------------
-  // HOME:
-  //
-  // Build once so ScrollTrigger creates all geometry.
-  //
-  // THEN rebuild once more using the settled page.
-  //
-  // This mimics what is happening when manually
-  // resizing the browser fixes the gallery.
-  // --------------------------------------------------
-  function buildHomeGallery() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        initSplitGallery();
 
-        // -----------------------------
-        // PASS 1
-        // -----------------------------
-        buildGallery();
+        ScrollTrigger.sort();
 
-        // Let browser commit the pin spacer / page geometry
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-
-            // -----------------------------
-            // PASS 2
-            // Recalculate gallery now that
-            // all pin geometry exists.
-            // -----------------------------
-            buildGallery();
-
-          });
-        });
+        ScrollTrigger.refresh(true);
       });
     });
   }
 
   // --------------------------------------------------
-  // Wait for page load
+  // Boot
   // --------------------------------------------------
-  function waitForWindowLoad() {
-    if (
-      document.readyState ===
-      "complete"
-    ) {
-      return Promise.resolve();
+  function boot() {
+    const hasHero =
+      !!document.querySelector(".c-hero");
+
+    // Trip pages
+    if (!hasHero) {
+      buildGallery();
+      return;
     }
 
-    return new Promise(
-      (resolve) => {
-        window.addEventListener(
-          "load",
-          resolve,
-          {
-            once: true
-          }
-        );
-      }
-    );
-  }
-
-  // --------------------------------------------------
-  // Wait for fonts
-  // --------------------------------------------------
-  function waitForFonts() {
-    if (
-      document.fonts &&
-      document.fonts.ready
-    ) {
-      return document.fonts.ready
-        .catch(() => {});
+    // Home:
+    // wait only until hero has created its pin.
+    if (window.__HERO_READY__) {
+      buildGallery();
+      return;
     }
 
-    return Promise.resolve();
-  }
+    let tries = 0;
 
-  // --------------------------------------------------
-  // Wait for hero
-  // --------------------------------------------------
-  function waitForHero() {
-    if (
-      window.__HERO_READY__
-    ) {
-      return Promise.resolve();
-    }
+    const wait =
+      setInterval(() => {
+        tries++;
 
-    return new Promise(
-      (resolve) => {
-        let tries = 0;
+        if (
+          window.__HERO_READY__ ||
+          tries > 50
+        ) {
+          clearInterval(wait);
 
-        const wait =
-          setInterval(() => {
-            tries++;
-
-            if (
-              window.__HERO_READY__ ||
-              tries > 50
-            ) {
-              clearInterval(
-                wait
-              );
-
-              resolve();
-            }
-          }, 100);
-      }
-    );
-  }
-
-  // --------------------------------------------------
-  // Boot home
-  // --------------------------------------------------
-  async function bootHome() {
-    await waitForWindowLoad();
-
-    await waitForFonts();
-
-    await waitForHero();
-
-    // Small settling period
-    setTimeout(() => {
-      buildHomeGallery();
-    }, 100);
-  }
-
-  // --------------------------------------------------
-  // Boot trip pages
-  // --------------------------------------------------
-  function bootTrip() {
-    if (
-      document.readyState ===
-      "loading"
-    ) {
-      document.addEventListener(
-        "DOMContentLoaded",
-        () => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              buildGallery();
-            });
-          });
-        },
-        {
-          once: true
-        }
-      );
-    } else {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
           buildGallery();
-        });
-      });
-    }
+        }
+      }, 100);
   }
 
   // --------------------------------------------------
-  // Determine page
+  // Initial load
   // --------------------------------------------------
-  const hasHero =
-    !!document.querySelector(
-      ".c-hero"
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      boot,
+      {
+        once: true
+      }
     );
-
-  if (hasHero) {
-    bootHome();
   } else {
-    bootTrip();
+    boot();
   }
 
   // --------------------------------------------------
   // Resize
   // --------------------------------------------------
+  let resizeTimer;
+
   window.addEventListener(
     "resize",
     () => {
