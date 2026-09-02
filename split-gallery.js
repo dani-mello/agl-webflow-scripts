@@ -3,6 +3,11 @@
 
 gsap.registerPlugin(ScrollTrigger);
 
+console.log(
+  "%cSPLIT GALLERY VERSION: 2026-09-02-13:19",
+  "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
+);
+
 (function () {
   const BREAKPOINT = 900;
 
