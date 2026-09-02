@@ -721,20 +721,40 @@ console.log(
   }
 
   // ==================================================
-  // HOME DESKTOP ONLY — SETTLED RESIZE REBUILD
-  //
-  // Proven manually:
-  //
-  // window.dispatchEvent(new Event("resize"));
-  //
-  // causes the existing resize handler to rebuild the
-  // gallery with correct settled measurements.
-  //
-  // We arm this while the gallery is approaching,
-  // then fire it once after scrolling stops.
-  // ==================================================
-  function setupHomeSettledResize() {
-    if (!isHomeWithHero) {
+// HOME DESKTOP ONLY — EARLY RESIZE REBUILD
+//
+// Synthetic resize is proven to fix the home gallery.
+//
+// Do it EARLY, while the gallery is still several
+// viewport heights away.
+//
+// Do NOT wait for scrollEnd — continuous scrolling
+// could skip the previous trigger completely.
+// ==================================================
+function setupHomeSettledResize() {
+  if (!isHomeWithHero) {
+    return;
+  }
+
+  if (window.innerWidth <= BREAKPOINT) {
+    return;
+  }
+
+  if (homeResizeWatcherInstalled) {
+    return;
+  }
+
+  homeResizeWatcherInstalled = true;
+
+  const gallery =
+    document.querySelector(".c-split-gallery");
+
+  if (!gallery) {
+    return;
+  }
+
+  function watchGalleryDistance() {
+    if (homeResizeDone) {
       return;
     }
 
@@ -742,21 +762,66 @@ console.log(
       return;
     }
 
-    if (homeResizeWatcherInstalled) {
-      return;
-    }
+    const rect =
+      gallery.getBoundingClientRect();
 
-    homeResizeWatcherInstalled =
-      true;
+    // ------------------------------------------------
+    // FIRE EARLY
+    //
+    // As soon as the gallery gets within about
+    // 3.5 viewport heights, rebuild it once.
+    //
+    // At this point we're still well before the pin,
+    // even if the user is scrolling continuously.
+    // ------------------------------------------------
+    if (
+      rect.top <=
+        window.innerHeight * 3.5 &&
+      rect.top >
+        window.innerHeight * 1.25
+    ) {
+      homeResizeDone = true;
 
-    const gallery =
-      document.querySelector(
-        ".c-split-gallery"
+      window.removeEventListener(
+        "scroll",
+        watchGalleryDistance
       );
 
-    if (!gallery) {
-      return;
+      console.log(
+        "%cHOME GALLERY: early resize rebuild",
+        "background:#0a0;color:#fff;padding:4px 8px;",
+        {
+          galleryTop:
+            Math.round(rect.top),
+
+          viewport:
+            window.innerHeight
+        }
+      );
+
+      // ------------------------------------------------
+      // EXACT action proven to fix the gallery.
+      //
+      // Existing resize handler waits 250ms and calls
+      // buildGallery().
+      // ------------------------------------------------
+      window.dispatchEvent(
+        new Event("resize")
+      );
     }
+  }
+
+  window.addEventListener(
+    "scroll",
+    watchGalleryDistance,
+    {
+      passive: true
+    }
+  );
+
+  // Covers restored scroll positions etc.
+  watchGalleryDistance();
+}
 
     // -----------------------------------------------
     // ARM THE REBUILD
