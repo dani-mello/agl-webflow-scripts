@@ -1,29 +1,17 @@
 // split-gallery.js
-// Requires GSAP + ScrollTrigger loaded BEFORE this script.
+// Requires GSAP + ScrollTrigger loaded before this script.
 
 gsap.registerPlugin(ScrollTrigger);
 
-console.log(
-  "%cSPLIT GALLERY VERSION: HOME-EARLY-RESIZE-01",
-  "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
-);
-
 (function () {
   const BREAKPOINT = 900;
-
-  const isHomeWithHero =
-    !!document.querySelector(".c-hero");
+  const isHomeWithHero = !!document.querySelector(".c-hero");
 
   let resizeTimer;
   let responsiveTimer;
-
-  // Home desktop repair state
   let homeResizeWatcherInstalled = false;
   let homeResizeDone = false;
 
-  // --------------------------------------------------
-  // Kill existing Split Gallery ScrollTriggers
-  // --------------------------------------------------
   function killSplitGalleryTriggers() {
     ScrollTrigger.getAll().forEach((st) => {
       if (
@@ -35,9 +23,6 @@ console.log(
     });
   }
 
-  // --------------------------------------------------
-  // Safe refresh
-  // --------------------------------------------------
   function safeRefresh() {
     if (!window.ScrollTrigger) return;
 
@@ -64,23 +49,13 @@ console.log(
     }, delay);
   };
 
-  // --------------------------------------------------
-  // Main init
-  // --------------------------------------------------
   function initSplitGallery() {
-    const section =
-      document.querySelector(".c-split-gallery");
-
+    const section = document.querySelector(".c-split-gallery");
     if (!section) return;
 
-    const media =
-      section.querySelector(".c-split-gallery_media");
-
-    const mask =
-      section.querySelector(".c-split-gallery_mask");
-
-    const track =
-      section.querySelector(".c-split-gallery_track");
+    const media = section.querySelector(".c-split-gallery_media");
+    const mask = section.querySelector(".c-split-gallery_mask");
+    const track = section.querySelector(".c-split-gallery_track");
 
     const slides = Array.from(
       section.querySelectorAll(".c-split-gallery_slide")
@@ -96,14 +71,9 @@ console.log(
     }
 
     section.classList.remove("is-ready");
-
     killSplitGalleryTriggers();
 
-    // --------------------------------------------------
-    // Images
-    // --------------------------------------------------
-    const imgEls =
-      Array.from(section.querySelectorAll("img"));
+    const imgEls = Array.from(section.querySelectorAll("img"));
 
     imgEls.slice(0, 2).forEach((img) => {
       img.loading = "eager";
@@ -111,18 +81,14 @@ console.log(
       img.decoding = "async";
     });
 
-    const isSmall =
-      window.innerWidth <= BREAKPOINT;
+    const isSmall = window.innerWidth <= BREAKPOINT;
 
-    // --------------------------------------------------
-    // Config
-    // --------------------------------------------------
     const DESKTOP = {
       cardWRemFallback: 50,
       cardHRem: 50,
       minScale: 0.5,
       falloff: 0.55,
-      slowness: 3.0,
+      slowness: 3,
       eps: 1
     };
 
@@ -135,14 +101,8 @@ console.log(
       startHold: 0.07
     };
 
-    const cfg =
-      isSmall
-        ? MOBILE
-        : DESKTOP;
+    const cfg = isSmall ? MOBILE : DESKTOP;
 
-    // --------------------------------------------------
-    // Track setup
-    // --------------------------------------------------
     gsap.set(track, {
       clearProps: "transform"
     });
@@ -157,23 +117,13 @@ console.log(
 
     const rootFont =
       parseFloat(
-        getComputedStyle(
-          document.documentElement
-        ).fontSize
+        getComputedStyle(document.documentElement).fontSize
       ) || 16;
 
-    // --------------------------------------------------
-    // Measurements
-    // --------------------------------------------------
     function getParentWidthPx() {
-      const w1 =
-        mask.getBoundingClientRect().width;
-
-      const w2 =
-        section.getBoundingClientRect().width;
-
-      const w3 =
-        window.innerWidth;
+      const w1 = mask.getBoundingClientRect().width;
+      const w2 = section.getBoundingClientRect().width;
+      const w3 = window.innerWidth;
 
       const w =
         w1 && w1 > 10
@@ -182,10 +132,7 @@ console.log(
           ? w2
           : w3;
 
-      return Math.max(
-        320,
-        Math.round(w)
-      );
+      return Math.max(320, Math.round(w));
     }
 
     let cardWpx;
@@ -193,20 +140,16 @@ console.log(
     let baseH;
 
     if (!isSmall) {
-      const parentW =
-        getParentWidthPx();
+      const parentW = getParentWidthPx();
 
       cardWpx =
         parentW ||
-        cfg.cardWRemFallback *
-          rootFont;
+        cfg.cardWRemFallback * rootFont;
 
       cardHpx =
-        cfg.cardHRem *
-        rootFont;
+        cfg.cardHRem * rootFont;
 
-      baseH =
-        cardHpx;
+      baseH = cardHpx;
     } else {
       const mW =
         mask.getBoundingClientRect().width ||
@@ -224,22 +167,16 @@ console.log(
 
       cardHpx =
         Math.round(
-          mH *
-          (cfg.cardHvh / 100)
+          mH * (cfg.cardHvh / 100)
         );
 
-      baseH =
-        cardHpx;
+      baseH = cardHpx;
     }
 
-    // --------------------------------------------------
-    // Normalise slide media
-    // --------------------------------------------------
     function normalizeSlideMedia(slide) {
       const imageEl =
-        slide.querySelector(
-          ".c-split-gallery_image"
-        ) || slide;
+        slide.querySelector(".c-split-gallery_image") ||
+        slide;
 
       if (
         imageEl &&
@@ -285,14 +222,9 @@ console.log(
       }
 
       if (imageEl) {
-        imageEl.style.backgroundSize =
-          "cover";
-
-        imageEl.style.backgroundPosition =
-          "center";
-
-        imageEl.style.backgroundRepeat =
-          "no-repeat";
+        imageEl.style.backgroundSize = "cover";
+        imageEl.style.backgroundPosition = "center";
+        imageEl.style.backgroundRepeat = "no-repeat";
 
         gsap.set(imageEl, {
           position: "absolute",
@@ -303,9 +235,6 @@ console.log(
       }
     }
 
-    // --------------------------------------------------
-    // Slide setup
-    // --------------------------------------------------
     slides.forEach((slide) => {
       gsap.set(slide, {
         position: "absolute",
@@ -324,85 +253,50 @@ console.log(
       normalizeSlideMedia(slide);
     });
 
-    // --------------------------------------------------
-    // Centre maths
-    // --------------------------------------------------
     function centerY() {
-      const r =
-        mask.getBoundingClientRect();
+      const r = mask.getBoundingClientRect();
 
       return r.height
         ? r.top + r.height / 2
         : window.innerHeight / 2;
     }
 
-    // --------------------------------------------------
-    // Layout engine
-    // --------------------------------------------------
     function layoutTick() {
-      const cy =
-        centerY();
+      const cy = centerY();
 
       const galleryH =
         mask.clientHeight ||
         window.innerHeight;
 
-      const scales =
-        slides.map((slide) => {
-          const rect =
-            slide.getBoundingClientRect();
+      const scales = slides.map((slide) => {
+        const rect = slide.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        const d = Math.abs(mid - cy);
 
-          const mid =
-            rect.top +
-            rect.height / 2;
+        const norm = Math.min(
+          1,
+          d / (window.innerHeight * cfg.falloff)
+        );
 
-          const d =
-            Math.abs(mid - cy);
-
-          const norm =
-            Math.min(
-              1,
-              d /
-              (
-                window.innerHeight *
-                cfg.falloff
-              )
-            );
-
-          return (
-            cfg.minScale +
-            (1 - cfg.minScale) *
+        return (
+          cfg.minScale +
+          (1 - cfg.minScale) *
             (1 - norm)
-          );
-        });
+        );
+      });
 
       let y = 0;
 
-      for (
-        let i = 0;
-        i < slides.length;
-        i++
-      ) {
-        const s =
-          scales[i];
+      for (let i = 0; i < slides.length; i++) {
+        const s = scales[i];
 
-        slides[i].style.top =
-          `${y}px`;
+        slides[i].style.top = `${y}px`;
+        slides[i].style.transform = `scale(${s})`;
+        slides[i].style.zIndex = String(
+          1000 + Math.round(s * 1000)
+        );
 
-        slides[i].style.transform =
-          `scale(${s})`;
-
-        slides[i].style.zIndex =
-          String(
-            1000 +
-            Math.round(
-              s * 1000
-            )
-          );
-
-        y +=
-          baseH * s -
-          cfg.eps;
+        y += baseH * s - cfg.eps;
       }
 
       track.style.height =
@@ -412,49 +306,30 @@ console.log(
         )}px`;
     }
 
-    // --------------------------------------------------
-    // Solve Y position
-    // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
 
-      gsap.set(track, {
-        y
-      });
-
+      gsap.set(track, { y });
       layoutTick();
 
-      for (
-        let k = 0;
-        k < 10;
-        k++
-      ) {
-        const cy =
-          centerY();
+      for (let k = 0; k < 10; k++) {
+        const cy = centerY();
 
         const rect =
-          slides[index]
-            .getBoundingClientRect();
+          slides[index].getBoundingClientRect();
 
         const mid =
-          rect.top +
-          rect.height / 2;
+          rect.top + rect.height / 2;
 
         const delta =
           cy - mid;
 
         y += delta;
 
-        gsap.set(track, {
-          y
-        });
-
+        gsap.set(track, { y });
         layoutTick();
 
-        if (
-          Math.abs(delta) <
-          0.5
-        ) {
+        if (Math.abs(delta) < 0.5) {
           break;
         }
       }
@@ -462,22 +337,11 @@ console.log(
       return y;
     }
 
-    // --------------------------------------------------
-    // Initial calculations
-    // --------------------------------------------------
-    gsap.set(track, {
-      y: 0
-    });
-
+    gsap.set(track, { y: 0 });
     layoutTick();
 
-    const yStart =
-      solveYForSlide(0);
-
-    const yEnd =
-      solveYForSlide(
-        slides.length - 1
-      );
+    const yStart = solveYForSlide(0);
+    const yEnd = solveYForSlide(slides.length - 1);
 
     const naturalTravel =
       Math.max(
@@ -489,8 +353,7 @@ console.log(
       Math.max(
         1,
         Math.ceil(
-          naturalTravel *
-          cfg.slowness
+          naturalTravel * cfg.slowness
         )
       );
 
@@ -500,13 +363,8 @@ console.log(
 
     layoutTick();
 
-    section.classList.add(
-      "is-ready"
-    );
+    section.classList.add("is-ready");
 
-    // --------------------------------------------------
-    // Mobile safety
-    // --------------------------------------------------
     if (
       isSmall &&
       mask.clientHeight < 50
@@ -514,16 +372,12 @@ console.log(
       return;
     }
 
-    // --------------------------------------------------
-    // Mobile progress mapping
-    // --------------------------------------------------
     function mapProgress(p) {
       if (!isSmall) {
         return p;
       }
 
-      const hold =
-        cfg.startHold || 0;
+      const hold = cfg.startHold || 0;
 
       if (hold <= 0) {
         return p;
@@ -539,9 +393,6 @@ console.log(
       );
     }
 
-    // --------------------------------------------------
-    // Desktop progress
-    // --------------------------------------------------
     function setDesktopProgress(self) {
       const p =
         gsap.utils.clamp(
@@ -552,20 +403,12 @@ console.log(
 
       const y =
         yStart -
-        naturalTravel *
-        p;
+        naturalTravel * p;
 
-      gsap.set(track, {
-        y
-      });
-
+      gsap.set(track, { y });
       layoutTick();
     }
 
-    // --------------------------------------------------
-    // Mobile progress
-    // Keep currently working mobile behaviour.
-    // --------------------------------------------------
     function setMobileProgress(self) {
       if (
         !self.isActive &&
@@ -575,9 +418,7 @@ console.log(
       }
 
       let p =
-        mapProgress(
-          self.progress
-        );
+        mapProgress(self.progress);
 
       if (
         self.progress >= 0.99
@@ -587,125 +428,50 @@ console.log(
 
       const y =
         yStart -
-        naturalTravel *
-        p;
+        naturalTravel * p;
 
-      gsap.set(track, {
-        y
-      });
-
+      gsap.set(track, { y });
       layoutTick();
     }
 
-    // --------------------------------------------------
-    // ScrollTriggers
-    // --------------------------------------------------
     ScrollTrigger.matchMedia({
-
       "(min-width: 901px)": function () {
         ScrollTrigger.create({
-          id:
-            "splitGallery-desktop",
-
-          trigger:
-            section,
-
-          start:
-            "top top",
-
-          end:
-            "+=" +
-            pinDistance,
-
-          scrub:
-            true,
-
-          pin:
-            true,
-
-          pinSpacing:
-            true,
-
-          anticipatePin:
-            1,
-
-          invalidateOnRefresh:
-            true,
-
-          refreshPriority:
-            -10,
-
-          onRefresh:
-            setDesktopProgress,
-
-          onUpdate:
-            setDesktopProgress
+          id: "splitGallery-desktop",
+          trigger: section,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: true,
+          pinSpacing: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          refreshPriority: -10,
+          onRefresh: setDesktopProgress,
+          onUpdate: setDesktopProgress
         });
       },
 
       "(max-width: 900px)": function () {
         ScrollTrigger.create({
-          id:
-            "splitGallery-mobile",
-
-          trigger:
-            media,
-
-          start:
-            "top top",
-
-          end:
-            "+=" +
-            pinDistance,
-
-          scrub:
-            true,
-
-          pin:
-            media,
-
-          pinSpacing:
-            true,
-
-          anticipatePin:
-            1,
-
-          invalidateOnRefresh:
-            true,
-
-          refreshPriority:
-            -10,
-
-          onRefresh:
-            setMobileProgress,
-
-          onUpdate:
-            setMobileProgress
+          id: "splitGallery-mobile",
+          trigger: media,
+          start: "top top",
+          end: "+=" + pinDistance,
+          scrub: true,
+          pin: media,
+          pinSpacing: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          refreshPriority: -10,
+          onRefresh: setMobileProgress,
+          onUpdate: setMobileProgress
         });
       }
     });
   }
 
-  // --------------------------------------------------
-  // Build gallery
-  // --------------------------------------------------
   function buildGallery() {
-    console.log(
-      "SPLIT GALLERY: buildGallery()",
-      {
-        page:
-          isHomeWithHero
-            ? "HOME"
-            : "TRIP",
-
-        width:
-          window.innerWidth,
-
-        height:
-          window.innerHeight
-      }
-    );
-
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         initSplitGallery();
@@ -718,106 +484,40 @@ console.log(
     });
   }
 
-  // ==================================================
-  // HOME DESKTOP ONLY — EARLY RESIZE REBUILD
-  //
-  // Synthetic resize is proven to fix the home gallery.
-  //
-  // Important:
-  // Do NOT wait for scrollEnd.
-  //
-  // Trigger once while the gallery is still several
-  // viewport heights away so the existing resize handler
-  // has time to rebuild before the gallery pins.
-  // ==================================================
+  // Home desktop only:
+  // rebuild once before the gallery pins.
   function setupHomeEarlyResize() {
-    if (!isHomeWithHero) {
-      return;
-    }
+    if (!isHomeWithHero) return;
+    if (window.innerWidth <= BREAKPOINT) return;
+    if (homeResizeWatcherInstalled) return;
 
-    if (
-      window.innerWidth <=
-      BREAKPOINT
-    ) {
-      return;
-    }
-
-    if (
-      homeResizeWatcherInstalled
-    ) {
-      return;
-    }
-
-    homeResizeWatcherInstalled =
-      true;
+    homeResizeWatcherInstalled = true;
 
     const gallery =
-      document.querySelector(
-        ".c-split-gallery"
-      );
+      document.querySelector(".c-split-gallery");
 
-    if (!gallery) {
-      return;
-    }
+    if (!gallery) return;
 
     function watchGalleryDistance() {
-      if (
-        homeResizeDone
-      ) {
-        return;
-      }
-
-      if (
-        window.innerWidth <=
-        BREAKPOINT
-      ) {
-        return;
-      }
+      if (homeResizeDone) return;
+      if (window.innerWidth <= BREAKPOINT) return;
 
       const rect =
         gallery.getBoundingClientRect();
 
-      // -----------------------------------------------
-      // FIRE EARLY
-      //
-      // Trigger when the gallery reaches 3.5 viewport
-      // heights away.
-      //
-      // The lower limit prevents a late rebuild if the
-      // page is restored very close to the gallery.
-      // -----------------------------------------------
       if (
         rect.top <=
           window.innerHeight * 3.5 &&
         rect.top >
           window.innerHeight * 1.25
       ) {
-        homeResizeDone =
-          true;
+        homeResizeDone = true;
 
         window.removeEventListener(
           "scroll",
           watchGalleryDistance
         );
 
-        console.log(
-          "%cHOME GALLERY: early resize rebuild",
-          "background:#0a0;color:#fff;padding:4px 8px;",
-          {
-            galleryTop:
-              Math.round(rect.top),
-
-            viewport:
-              window.innerHeight
-          }
-        );
-
-        // ---------------------------------------------
-        // Exact action proven to fix it manually.
-        //
-        // Existing resize listener waits 250ms,
-        // then calls buildGallery().
-        // ---------------------------------------------
         window.dispatchEvent(
           new Event("resize")
         );
@@ -832,17 +532,11 @@ console.log(
       }
     );
 
-    // Covers restored scroll positions / page history.
     watchGalleryDistance();
   }
 
-  // --------------------------------------------------
-  // Responsive rebuild
-  // --------------------------------------------------
   function responsiveRebuild() {
-    clearTimeout(
-      responsiveTimer
-    );
+    clearTimeout(responsiveTimer);
 
     buildGallery();
 
@@ -852,9 +546,6 @@ console.log(
       }, 400);
   }
 
-  // --------------------------------------------------
-  // Breakpoint watcher
-  // --------------------------------------------------
   const breakpointQuery =
     window.matchMedia(
       `(max-width: ${BREAKPOINT}px)`
@@ -877,21 +568,13 @@ console.log(
     );
   }
 
-  // --------------------------------------------------
-  // Boot
-  // --------------------------------------------------
   function boot() {
-
-    // Trip pages
     if (!isHomeWithHero) {
       buildGallery();
       return;
     }
 
-    // Home page waits for hero setup
-    if (
-      window.__HERO_READY__
-    ) {
+    if (window.__HERO_READY__) {
       buildGallery();
       return;
     }
@@ -900,25 +583,18 @@ console.log(
 
     const wait =
       setInterval(() => {
-
         tries++;
 
         if (
           window.__HERO_READY__ ||
           tries > 50
         ) {
-          clearInterval(
-            wait
-          );
-
+          clearInterval(wait);
           buildGallery();
         }
       }, 100);
   }
 
-  // --------------------------------------------------
-  // Initial load
-  // --------------------------------------------------
   if (
     document.readyState ===
     "loading"
@@ -934,21 +610,10 @@ console.log(
     boot();
   }
 
-  // --------------------------------------------------
-  // Resize
-  //
-  // Existing behaviour.
-  //
-  // Our home-only synthetic resize above lands here,
-  // waits 250ms, then rebuilds the gallery.
-  // --------------------------------------------------
   window.addEventListener(
     "resize",
     () => {
-
-      clearTimeout(
-        resizeTimer
-      );
+      clearTimeout(resizeTimer);
 
       resizeTimer =
         setTimeout(() => {
@@ -957,9 +622,6 @@ console.log(
     }
   );
 
-  // --------------------------------------------------
-  // Orientation
-  // --------------------------------------------------
   window.addEventListener(
     "orientationchange",
     () => {
@@ -968,5 +630,4 @@ console.log(
       }, 250);
     }
   );
-
 })();
