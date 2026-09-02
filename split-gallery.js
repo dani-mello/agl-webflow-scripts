@@ -4,21 +4,19 @@
 gsap.registerPlugin(ScrollTrigger);
 
 console.log(
-  "%cSPLIT GALLERY VERSION: HOME-ONLY-FIX-01",
+  "%cSPLIT GALLERY VERSION: HOME-PREFRESH-01",
   "background:#111;color:#fff;padding:4px 8px;border-radius:4px;"
 );
 
 (function () {
   const BREAKPOINT = 900;
 
-  // Home page is the only page with .c-hero
   const isHomeWithHero =
     !!document.querySelector(".c-hero");
 
   let resizeTimer;
   let responsiveTimer;
-  let layoutSyncTimer;
-  let layoutSyncBusy = false;
+  let homePreRefreshDone = false;
 
   // --------------------------------------------------
   // Kill existing Split Gallery ScrollTriggers
@@ -394,7 +392,9 @@ console.log(
         slides[i].style.zIndex =
           String(
             1000 +
-            Math.round(s * 1000)
+            Math.round(
+              s * 1000
+            )
           );
 
         y +=
@@ -410,7 +410,7 @@ console.log(
     }
 
     // --------------------------------------------------
-    // Find Y required to centre a slide
+    // Solve Y position
     // --------------------------------------------------
     function solveYForSlide(index) {
       let y = 0;
@@ -536,31 +536,14 @@ console.log(
       );
     }
 
-    // ==================================================
-    // TRIP PAGE DESKTOP
+    // --------------------------------------------------
+    // Desktop progress
     //
-    // Leave the known-good behaviour alone.
-    // ==================================================
-    function setTripDesktopProgress(self) {
-      const y =
-        yStart -
-        naturalTravel *
-        self.progress;
-
-      gsap.set(track, {
-        y
-      });
-
-      layoutTick();
-    }
-
-    // ==================================================
-    // HOME PAGE DESKTOP
-    //
-    // Special handling ONLY because the earlier Hero
-    // ScrollTrigger exists on this page.
-    // ==================================================
-    function setHomeDesktopProgress(self) {
+    // Back to simple original behaviour.
+    // No 0.99 caps.
+    // No onLeave locks.
+    // --------------------------------------------------
+    function setDesktopProgress(self) {
       const p =
         gsap.utils.clamp(
           0,
@@ -581,22 +564,8 @@ console.log(
     }
 
     // --------------------------------------------------
-    // HOME ONLY:
-    // Lock track exactly at yEnd on release.
-    //
-    // Crucially, DO NOT run layoutTick here.
-    // The final pinned frame already has the correct
-    // slide scale / positions.
-    // --------------------------------------------------
-    function lockHomeDesktopAtEnd() {
-      gsap.set(track, {
-        y: yEnd
-      });
-    }
-
-    // --------------------------------------------------
-    // Mobile
-    // Keep currently working mobile behaviour.
+    // Mobile progress
+    // Keep working mobile behaviour.
     // --------------------------------------------------
     function setMobileProgress(self) {
       if (
@@ -634,70 +603,7 @@ console.log(
     // --------------------------------------------------
     ScrollTrigger.matchMedia({
 
-      // =================================================
-      // DESKTOP
-      // =================================================
       "(min-width: 901px)": function () {
-
-        // -----------------------------------------------
-        // HOME DESKTOP
-        // -----------------------------------------------
-        if (isHomeWithHero) {
-
-          ScrollTrigger.create({
-            id:
-              "splitGallery-desktop",
-
-            trigger:
-              section,
-
-            start:
-              "top top",
-
-            end:
-              "+=" +
-              pinDistance,
-
-            scrub:
-              true,
-
-            pin:
-              true,
-
-            pinSpacing:
-              true,
-
-            anticipatePin:
-              1,
-
-            invalidateOnRefresh:
-              true,
-
-            refreshPriority:
-              -10,
-
-            onRefresh:
-              setHomeDesktopProgress,
-
-            onUpdate:
-              setHomeDesktopProgress,
-
-            // Only home gets this.
-            onLeave:
-              lockHomeDesktopAtEnd,
-
-            onEnterBack:
-              setHomeDesktopProgress
-          });
-
-          return;
-        }
-
-        // -----------------------------------------------
-        // TRIP PAGE DESKTOP
-        //
-        // Original known-good setup.
-        // -----------------------------------------------
         ScrollTrigger.create({
           id:
             "splitGallery-desktop",
@@ -731,21 +637,14 @@ console.log(
             -10,
 
           onRefresh:
-            setTripDesktopProgress,
+            setDesktopProgress,
 
           onUpdate:
-            setTripDesktopProgress
+            setDesktopProgress
         });
       },
 
-      // =================================================
-      // MOBILE
-      //
-      // No home/trip distinction because mobile is now
-      // working.
-      // =================================================
       "(max-width: 900px)": function () {
-
         ScrollTrigger.create({
           id:
             "splitGallery-mobile",
@@ -789,10 +688,9 @@ console.log(
   }
 
   // --------------------------------------------------
-  // Build
+  // Build gallery
   // --------------------------------------------------
   function buildGallery() {
-
     console.log(
       "SPLIT GALLERY: buildGallery()",
       {
@@ -811,176 +709,118 @@ console.log(
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-
         initSplitGallery();
 
         ScrollTrigger.sort();
         ScrollTrigger.refresh(true);
 
-        // Only home needs the layout-position watcher.
         if (isHomeWithHero) {
-          startHomeLayoutWatcher();
+          setupHomePreRefresh();
         }
       });
     });
   }
 
   // ==================================================
-  // HOME-ONLY LAYOUT WATCHER
+  // HOME ONLY — ONE FINAL PRE-GALLERY REFRESH
   //
-  // We already measured a real first-load error where:
+  // Manual test proved:
   //
-  // ScrollTrigger stored start != actual gallery position
+  // ScrollTrigger.sort();
+  // ScrollTrigger.refresh(true);
   //
-  // Resize corrected it.
+  // before reaching the gallery = NO JUMP.
   //
-  // This watcher exists ONLY on home.
+  // So we reproduce exactly that once, when the gallery
+  // is roughly two viewport heights away.
   // ==================================================
-  function startHomeLayoutWatcher() {
-
+  function setupHomePreRefresh() {
     if (!isHomeWithHero) {
       return;
     }
 
-    clearInterval(
-      layoutSyncTimer
+    homePreRefreshDone =
+      false;
+
+    const section =
+      document.querySelector(
+        ".c-split-gallery"
+      );
+
+    if (!section) {
+      return;
+    }
+
+    function checkGalleryDistance() {
+      if (
+        homePreRefreshDone
+      ) {
+        return;
+      }
+
+      const rect =
+        section.getBoundingClientRect();
+
+      // Gallery is approaching but still comfortably
+      // below the viewport.
+      //
+      // At ~2 viewport heights away we perform the same
+      // refresh that fixed it manually.
+      if (
+        rect.top <=
+          window.innerHeight * 2 &&
+        rect.top >
+          window.innerHeight * 0.75
+      ) {
+        homePreRefreshDone =
+          true;
+
+        window.removeEventListener(
+          "scroll",
+          checkGalleryDistance
+        );
+
+        console.log(
+          "HOME SPLIT GALLERY: final pre-refresh",
+          {
+            galleryTop:
+              Math.round(rect.top),
+
+            viewport:
+              window.innerHeight
+          }
+        );
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            ScrollTrigger.sort();
+            ScrollTrigger.refresh(true);
+          });
+        });
+      }
+    }
+
+    window.removeEventListener(
+      "scroll",
+      checkGalleryDistance
     );
 
-    layoutSyncTimer =
-      setInterval(() => {
+    window.addEventListener(
+      "scroll",
+      checkGalleryDistance,
+      {
+        passive: true
+      }
+    );
 
-        if (
-          layoutSyncBusy
-        ) {
-          return;
-        }
-
-        const st =
-          ScrollTrigger.getById(
-            "splitGallery-desktop"
-          ) ||
-          ScrollTrigger.getById(
-            "splitGallery-mobile"
-          );
-
-        if (!st) {
-          return;
-        }
-
-        // Once gallery is active, measurements are frozen.
-        if (
-          st.isActive
-        ) {
-          clearInterval(
-            layoutSyncTimer
-          );
-
-          return;
-        }
-
-        // User already passed it.
-        if (
-          window.scrollY >
-          st.end + 100
-        ) {
-          clearInterval(
-            layoutSyncTimer
-          );
-
-          return;
-        }
-
-        // Too close to safely refresh.
-        if (
-          window.scrollY >=
-          st.start - 150
-        ) {
-          return;
-        }
-
-        const section =
-          document.querySelector(
-            ".c-split-gallery"
-          );
-
-        if (!section) {
-          return;
-        }
-
-        const spacer =
-          section.parentElement &&
-          section.parentElement.classList.contains(
-            "pin-spacer"
-          )
-            ? section.parentElement
-            : section.closest(
-                ".pin-spacer"
-              );
-
-        if (!spacer) {
-          return;
-        }
-
-        const rect =
-          spacer.getBoundingClientRect();
-
-        const realDocumentTop =
-          window.scrollY +
-          rect.top;
-
-        const storedStart =
-          st.start;
-
-        const difference =
-          realDocumentTop -
-          storedStart;
-
-        // We previously measured an error of ~461px.
-        if (
-          Math.abs(difference) >
-          2
-        ) {
-
-          console.log(
-            "HOME SPLIT GALLERY: correcting position",
-            {
-              storedStart:
-                Math.round(storedStart),
-
-              realDocumentTop:
-                Math.round(realDocumentTop),
-
-              difference:
-                Math.round(difference)
-            }
-          );
-
-          layoutSyncBusy =
-            true;
-
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-
-              ScrollTrigger.sort();
-
-              ScrollTrigger.refresh(
-                true
-              );
-
-              layoutSyncBusy =
-                false;
-            });
-          });
-        }
-      }, 250);
+    // In case the page was loaded/restored near gallery
+    checkGalleryDistance();
   }
 
   // --------------------------------------------------
   // Responsive rebuild
-  // Mobile only needed extra settling after breakpoint.
   // --------------------------------------------------
   function responsiveRebuild() {
-
     clearTimeout(
       responsiveTimer
     );
@@ -1023,21 +863,13 @@ console.log(
   // --------------------------------------------------
   function boot() {
 
-    // -----------------------------------------------
-    // TRIP PAGE
-    //
-    // No hero. Just initialise normally.
-    // -----------------------------------------------
+    // Trip pages
     if (!isHomeWithHero) {
       buildGallery();
       return;
     }
 
-    // -----------------------------------------------
-    // HOME
-    //
-    // Wait until hero has established its pin.
-    // -----------------------------------------------
+    // Home page waits for hero setup
     if (
       window.__HERO_READY__
     ) {
@@ -1072,7 +904,6 @@ console.log(
     document.readyState ===
     "loading"
   ) {
-
     document.addEventListener(
       "DOMContentLoaded",
       boot,
@@ -1080,9 +911,7 @@ console.log(
         once: true
       }
     );
-
   } else {
-
     boot();
   }
 
@@ -1105,12 +934,11 @@ console.log(
   );
 
   // --------------------------------------------------
-  // Orientation change
+  // Orientation
   // --------------------------------------------------
   window.addEventListener(
     "orientationchange",
     () => {
-
       setTimeout(() => {
         responsiveRebuild();
       }, 250);
