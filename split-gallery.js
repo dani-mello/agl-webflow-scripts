@@ -601,7 +601,7 @@ console.log(
     // --------------------------------------------------
     ScrollTrigger.matchMedia({
       "(min-width: 901px)": function () {
-        ScrollTrigger.create({
+       ScrollTrigger.create({
   id: "splitGallery-desktop",
   trigger: section,
   start: "top top",
@@ -609,7 +609,6 @@ console.log(
   scrub: true,
   pin: true,
   pinSpacing: true,
-  pinType: "transform",
   anticipatePin: 1,
   invalidateOnRefresh: true,
   refreshPriority: -10,
