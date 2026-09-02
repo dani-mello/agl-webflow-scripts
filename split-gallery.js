@@ -7,6 +7,7 @@ gsap.registerPlugin(ScrollTrigger);
   const BREAKPOINT = 900;
 
   let resizeTimer;
+  let responsiveTimer;
   let layoutSyncTimer;
   let layoutSyncBusy = false;
 
@@ -529,17 +530,11 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Final-state lock
-    //
-    // The large geometry jump is now fixed.
-    //
-    // This prevents the very last onUpdate after pin
-    // release from briefly replaying the final few %
-    // of the animation.
+    // Desktop progress
     // --------------------------------------------------
     function setDesktopProgress(self) {
-      // Once we're completely past the gallery,
-      // preserve the final rendered frame.
+      // Past the end:
+      // keep the final rendered frame.
       if (
         !self.isActive &&
         self.progress >= 1
@@ -547,7 +542,7 @@ gsap.registerPlugin(ScrollTrigger);
         return;
       }
 
-      // Snap the very last fraction to the exact end.
+      // Final 1% snaps to exact end.
       const p =
         self.progress >= 0.99
           ? 1
@@ -565,6 +560,9 @@ gsap.registerPlugin(ScrollTrigger);
       layoutTick();
     }
 
+    // --------------------------------------------------
+    // Mobile progress
+    // --------------------------------------------------
     function setMobileProgress(self) {
       if (
         !self.isActive &&
@@ -579,7 +577,7 @@ gsap.registerPlugin(ScrollTrigger);
         );
 
       if (
-        self.progress >= 0.995
+        self.progress >= 0.99
       ) {
         p = 1;
       }
@@ -701,19 +699,7 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   // --------------------------------------------------
-  // Home page layout-shift watcher
-  //
-  // We proved from the diagnostics that the gallery's
-  // stored ScrollTrigger start can become stale after
-  // something above it changes height.
-  //
-  // Example bad state:
-  // stored start ≈ 461px away from real document top.
-  //
-  // A browser resize refresh corrected it.
-  //
-  // This automatically performs that correction before
-  // the user reaches the gallery.
+  // Home layout-shift watcher
   // --------------------------------------------------
   function startLayoutShiftWatcher() {
     const hasHero =
@@ -749,8 +735,7 @@ gsap.registerPlugin(ScrollTrigger);
           return;
         }
 
-        // Never refresh while gallery is pinned or
-        // immediately before reaching it.
+        // Never refresh while pinned.
         if (
           st.isActive ||
           window.scrollY >=
@@ -796,7 +781,6 @@ gsap.registerPlugin(ScrollTrigger);
           realDocumentTop -
           storedStart;
 
-        // Correct meaningful upstream layout shift.
         if (
           Math.abs(difference) >
           2
@@ -819,12 +803,61 @@ gsap.registerPlugin(ScrollTrigger);
         }
       }, 250);
 
-    // Startup shifts should have settled by then.
     setTimeout(() => {
       clearInterval(
         layoutSyncTimer
       );
     }, 15000);
+  }
+
+  // --------------------------------------------------
+  // Responsive rebuild
+  //
+  // IMPORTANT FOR MOBILE:
+  //
+  // When Webflow crosses the 900px breakpoint the grid
+  // structure changes. The first rebuild may happen before
+  // the browser has finished laying out the new rows.
+  //
+  // Build once, then again after layout settles.
+  // --------------------------------------------------
+  function responsiveRebuild() {
+    clearTimeout(
+      responsiveTimer
+    );
+
+    buildGallery();
+
+    responsiveTimer =
+      setTimeout(() => {
+        buildGallery();
+      }, 400);
+  }
+
+  // --------------------------------------------------
+  // Watch the actual desktop/mobile breakpoint
+  // --------------------------------------------------
+  const breakpointQuery =
+    window.matchMedia(
+      `(max-width: ${BREAKPOINT}px)`
+    );
+
+  if (
+    typeof breakpointQuery.addEventListener ===
+    "function"
+  ) {
+    breakpointQuery.addEventListener(
+      "change",
+      responsiveRebuild
+    );
+  } else if (
+    typeof breakpointQuery.addListener ===
+    "function"
+  ) {
+    // Older Safari
+    breakpointQuery.addListener(
+      responsiveRebuild
+    );
   }
 
   // --------------------------------------------------
@@ -836,7 +869,7 @@ gsap.registerPlugin(ScrollTrigger);
         ".c-hero"
       );
 
-    // Trip pages already work correctly.
+    // Trip pages
     if (!hasHero) {
       buildGallery();
       return;
@@ -888,7 +921,7 @@ gsap.registerPlugin(ScrollTrigger);
   }
 
   // --------------------------------------------------
-  // Resize
+  // Normal resize
   // --------------------------------------------------
   window.addEventListener(
     "resize",
@@ -901,6 +934,19 @@ gsap.registerPlugin(ScrollTrigger);
         setTimeout(() => {
           buildGallery();
         }, 250);
+    }
+  );
+
+  // --------------------------------------------------
+  // Orientation change
+  // Particularly useful on phones/tablets.
+  // --------------------------------------------------
+  window.addEventListener(
+    "orientationchange",
+    () => {
+      setTimeout(() => {
+        responsiveRebuild();
+      }, 250);
     }
   );
 })();
