@@ -43,7 +43,6 @@ gsap.registerPlugin(ScrollTrigger);
       requestAnimationFrame(() => {
         const y2 = window.scrollY;
 
-        // Don't refresh while actively scrolling
         if (Math.abs(y2 - y1) > 2) {
           window.safeRefreshSplitGallery(180);
           return;
@@ -315,7 +314,7 @@ gsap.registerPlugin(ScrollTrigger);
     });
 
     // --------------------------------------------------
-    // Original centre maths
+    // Centre maths
     // --------------------------------------------------
     function centerY() {
       const r =
@@ -484,7 +483,6 @@ gsap.registerPlugin(ScrollTrigger);
         )
       );
 
-    // Restore start
     gsap.set(track, {
       y: yStart
     });
@@ -506,7 +504,7 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     // --------------------------------------------------
-    // Progress mapping
+    // Mobile progress mapping
     // --------------------------------------------------
     function mapProgress(p) {
       if (!isSmall) {
@@ -530,11 +528,35 @@ gsap.registerPlugin(ScrollTrigger);
       );
     }
 
+    // --------------------------------------------------
+    // Final-state lock
+    //
+    // The large geometry jump is now fixed.
+    //
+    // This prevents the very last onUpdate after pin
+    // release from briefly replaying the final few %
+    // of the animation.
+    // --------------------------------------------------
     function setDesktopProgress(self) {
+      // Once we're completely past the gallery,
+      // preserve the final rendered frame.
+      if (
+        !self.isActive &&
+        self.progress >= 1
+      ) {
+        return;
+      }
+
+      // Snap the very last fraction to the exact end.
+      const p =
+        self.progress >= 0.995
+          ? 1
+          : self.progress;
+
       const y =
         yStart -
         naturalTravel *
-        self.progress;
+        p;
 
       gsap.set(track, {
         y
@@ -544,10 +566,23 @@ gsap.registerPlugin(ScrollTrigger);
     }
 
     function setMobileProgress(self) {
-      const p =
+      if (
+        !self.isActive &&
+        self.progress >= 1
+      ) {
+        return;
+      }
+
+      let p =
         mapProgress(
           self.progress
         );
+
+      if (
+        self.progress >= 0.995
+      ) {
+        p = 1;
+      }
 
       const y =
         yStart -
@@ -660,38 +695,45 @@ gsap.registerPlugin(ScrollTrigger);
         ScrollTrigger.sort();
         ScrollTrigger.refresh(true);
 
-        // After building, start watching for
-        // upstream layout shifts on HOME only.
         startLayoutShiftWatcher();
       });
     });
   }
 
   // --------------------------------------------------
-  // HOME PAGE LAYOUT-SHIFT WATCHER
+  // Home page layout-shift watcher
   //
-  // THIS IS THE IMPORTANT FIX.
+  // We proved from the diagnostics that the gallery's
+  // stored ScrollTrigger start can become stale after
+  // something above it changes height.
   //
-  // The diagnostic proved that on initial load:
+  // Example bad state:
+  // stored start ≈ 461px away from real document top.
   //
-  // ScrollTrigger start != real spacer document position.
+  // A browser resize refresh corrected it.
   //
-  // If something above the gallery changes height after
-  // the gallery was measured, refresh ScrollTrigger.
+  // This automatically performs that correction before
+  // the user reaches the gallery.
   // --------------------------------------------------
   function startLayoutShiftWatcher() {
     const hasHero =
-      !!document.querySelector(".c-hero");
+      !!document.querySelector(
+        ".c-hero"
+      );
 
     if (!hasHero) {
       return;
     }
 
-    clearInterval(layoutSyncTimer);
+    clearInterval(
+      layoutSyncTimer
+    );
 
     layoutSyncTimer =
       setInterval(() => {
-        if (layoutSyncBusy) {
+        if (
+          layoutSyncBusy
+        ) {
           return;
         }
 
@@ -707,11 +749,12 @@ gsap.registerPlugin(ScrollTrigger);
           return;
         }
 
-        // Only correct the gallery BEFORE we reach it.
-        // Never refresh while it is pinned.
+        // Never refresh while gallery is pinned or
+        // immediately before reaching it.
         if (
           st.isActive ||
-          window.scrollY >= st.start - 100
+          window.scrollY >=
+            st.start - 100
         ) {
           return;
         }
@@ -731,7 +774,9 @@ gsap.registerPlugin(ScrollTrigger);
             "pin-spacer"
           )
             ? section.parentElement
-            : section.closest(".pin-spacer");
+            : section.closest(
+                ".pin-spacer"
+              );
 
         if (!spacer) {
           return;
@@ -751,28 +796,34 @@ gsap.registerPlugin(ScrollTrigger);
           realDocumentTop -
           storedStart;
 
-        // Your bad state was off by ~461px.
-        // Anything over 2px is worth correcting.
+        // Correct meaningful upstream layout shift.
         if (
-          Math.abs(difference) > 2
+          Math.abs(difference) >
+          2
         ) {
-          layoutSyncBusy = true;
+          layoutSyncBusy =
+            true;
 
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               ScrollTrigger.sort();
-              ScrollTrigger.refresh(true);
 
-              layoutSyncBusy = false;
+              ScrollTrigger.refresh(
+                true
+              );
+
+              layoutSyncBusy =
+                false;
             });
           });
         }
       }, 250);
 
-    // We only need this during startup/layout settling.
-    // Stop checking after 15 seconds.
+    // Startup shifts should have settled by then.
     setTimeout(() => {
-      clearInterval(layoutSyncTimer);
+      clearInterval(
+        layoutSyncTimer
+      );
     }, 15000);
   }
 
@@ -785,14 +836,16 @@ gsap.registerPlugin(ScrollTrigger);
         ".c-hero"
       );
 
-    // Trip pages already work.
+    // Trip pages already work correctly.
     if (!hasHero) {
       buildGallery();
       return;
     }
 
-    // Home
-    if (window.__HERO_READY__) {
+    // Home page
+    if (
+      window.__HERO_READY__
+    ) {
       buildGallery();
       return;
     }
@@ -807,7 +860,9 @@ gsap.registerPlugin(ScrollTrigger);
           window.__HERO_READY__ ||
           tries > 50
         ) {
-          clearInterval(wait);
+          clearInterval(
+            wait
+          );
 
           buildGallery();
         }
