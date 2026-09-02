@@ -534,193 +534,82 @@ console.log(
       );
     }
 
-    // --------------------------------------------------
-    // DESKTOP PROGRESS
-    //
-    // No 0.99 artificial snap.
-    // No isActive early return.
-    //
-    // Just use ScrollTrigger's real progress and clamp
-    // normally between 0 and 1.
-    // --------------------------------------------------
-    function setDesktopProgress(self) {
-      const p =
-        gsap.utils.clamp(
-          0,
-          1,
-          self.progress
-        );
+   // --------------------------------------------------
+// Progress Handlers
+// --------------------------------------------------
+function updateGalleryProgress(self, isMobile = false) {
+  let rawP = self.progress;
 
-      const y =
-        yStart -
-        naturalTravel *
-        p;
+  // Apply mobile startHold mapping if applicable
+  if (isMobile) {
+    rawP = mapProgress(rawP);
+  }
 
-      gsap.set(track, {
-        y
-      });
+  // Strictly clamp progress between 0 and 1 (removes the jumpy 0.99 threshold)
+  const p = Math.min(Math.max(rawP, 0), 1);
 
-      layoutTick();
-    }
+  const y = yStart - naturalTravel * p;
 
-    // --------------------------------------------------
-    // DESKTOP FINAL LOCK
-    //
-    // Do NOT call layoutTick here.
-    //
-    // The last onUpdate while pinned has already created
-    // the correct final slide layout.
-    //
-    // We only guarantee that the track stays exactly at
-    // yEnd when ScrollTrigger releases the fixed pin.
-    // --------------------------------------------------
-    function lockDesktopAtEnd() {
-      gsap.set(track, {
-        y: yEnd
-      });
-    }
+  gsap.set(track, { y });
+  layoutTick();
+}
 
-    // --------------------------------------------------
-    // MOBILE PROGRESS
-    //
-    // Leave the currently working mobile behaviour alone.
-    // --------------------------------------------------
-    function setMobileProgress(self) {
-      if (
-        !self.isActive &&
-        self.progress >= 1
-      ) {
-        return;
-      }
+function setDesktopProgress(self) {
+  updateGalleryProgress(self, false);
+}
 
-      let p =
-        mapProgress(
-          self.progress
-        );
+function setMobileProgress(self) {
+  updateGalleryProgress(self, true);
+}
 
-      if (
-        self.progress >= 0.99
-      ) {
-        p = 1;
-      }
+// Ensure clean lock when scrolling past the section
+function lockAtEnd() {
+  gsap.set(track, { y: yStart - naturalTravel });
+  layoutTick();
+}
 
-      const y =
-        yStart -
-        naturalTravel *
-        p;
+// --------------------------------------------------
+// ScrollTriggers
+// --------------------------------------------------
+ScrollTrigger.matchMedia({
+  "(min-width: 901px)": function () {
+    ScrollTrigger.create({
+      id: "splitGallery-desktop",
+      trigger: section,
+      start: "top top",
+      end: "+=" + pinDistance,
+      scrub: true,
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      refreshPriority: -10,
+      onRefresh: setDesktopProgress,
+      onUpdate: setDesktopProgress,
+      onLeave: lockAtEnd,
+      onLeaveBack: setDesktopProgress
+    });
+  },
 
-      gsap.set(track, {
-        y
-      });
-
-      layoutTick();
-    }
-
-    // --------------------------------------------------
-    // ScrollTriggers
-    // --------------------------------------------------
-    ScrollTrigger.matchMedia({
-
-      // ------------------------------------------------
-      // DESKTOP
-      // ------------------------------------------------
-      "(min-width: 901px)": function () {
-        ScrollTrigger.create({
-          id:
-            "splitGallery-desktop",
-
-          trigger:
-            section,
-
-          start:
-            "top top",
-
-          end:
-            "+=" +
-            pinDistance,
-
-          scrub:
-            true,
-
-          pin:
-            true,
-
-          pinSpacing:
-            true,
-
-          anticipatePin:
-            1,
-
-          invalidateOnRefresh:
-            true,
-
-          refreshPriority:
-            -10,
-
-          onRefresh:
-            setDesktopProgress,
-
-          onUpdate:
-            setDesktopProgress,
-
-          // Exact endpoint without recalculating layout
-          // after the pin has released.
-          onLeave:
-            lockDesktopAtEnd,
-
-          // When scrolling backwards into the gallery,
-          // immediately resume normal progress maths.
-          onEnterBack:
-            setDesktopProgress
-        });
-      },
-
-      // ------------------------------------------------
-      // MOBILE
-      // Keep working mobile trigger unchanged.
-      // ------------------------------------------------
-      "(max-width: 900px)": function () {
-        ScrollTrigger.create({
-          id:
-            "splitGallery-mobile",
-
-          trigger:
-            media,
-
-          start:
-            "top top",
-
-          end:
-            "+=" +
-            pinDistance,
-
-          scrub:
-            true,
-
-          pin:
-            media,
-
-          pinSpacing:
-            true,
-
-          anticipatePin:
-            1,
-
-          invalidateOnRefresh:
-            true,
-
-          refreshPriority:
-            -10,
-
-          onRefresh:
-            setMobileProgress,
-
-          onUpdate:
-            setMobileProgress
-        });
-      }
+  "(max-width: 900px)": function () {
+    ScrollTrigger.create({
+      id: "splitGallery-mobile",
+      trigger: media,
+      start: "top top",
+      end: "+=" + pinDistance,
+      scrub: true,
+      pin: media,
+      pinSpacing: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      refreshPriority: -10,
+      onRefresh: setMobileProgress,
+      onUpdate: setMobileProgress,
+      onLeave: lockAtEnd,
+      onLeaveBack: setMobileProgress
     });
   }
+});
 
   // --------------------------------------------------
   // Build gallery
